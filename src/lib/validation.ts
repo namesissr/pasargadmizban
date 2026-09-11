@@ -85,7 +85,7 @@ export const topupSchema = z.object({
     .int('مبلغ باید عدد صحیح باشد.')
     .min(1000, 'مبلغ خیلی کم است.')
     .max(1_000_000_000, 'مبلغ خیلی زیاد است.'),
-  gateway: z.enum(['zibal', 'manual'], { errorMap: () => ({ message: 'درگاه پرداخت را انتخاب کنید.' }) }),
+  gateway: z.enum(['zibal', 'bitpay', 'manual'], { errorMap: () => ({ message: 'درگاه پرداخت را انتخاب کنید.' }) }),
   couponCode: z.string().trim().max(32).optional().or(z.literal('')),
 });
 
@@ -95,6 +95,23 @@ export const manualReceiptSchema = z.object({
   cardNumber: z.string().trim().max(30).optional().or(z.literal('')),
   paidAt: z.string().trim().max(40).optional().or(z.literal('')),
   note: z.string().trim().max(500).optional().or(z.literal('')),
+});
+
+export const createTransferSchema = z.object({
+  toEmail: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .min(3, 'ایمیل گیرنده را وارد کنید.')
+    .max(120)
+    .email('ایمیل معتبر نیست.'),
+  note: z.string().trim().max(500).optional().or(z.literal('')),
+});
+
+export const transferActionSchema = z.object({
+  action: z.enum(['accept', 'reject', 'cancel'], {
+    errorMap: () => ({ message: 'عملیات نامعتبر است.' }),
+  }),
 });
 
 // ───────────────  سرور  ───────────────

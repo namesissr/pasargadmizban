@@ -1,4 +1,5 @@
 import { ZibalGateway } from './zibal';
+import { BitpayGateway } from './bitpay';
 import type { PaymentGateway } from './types';
 import { getSettings } from '../settings';
 
@@ -7,6 +8,7 @@ export { zibalStatusFa } from './zibal';
 
 const registry: Record<string, PaymentGateway> = {
   zibal: new ZibalGateway(),
+  bitpay: new BitpayGateway(),
 };
 
 export function getGateway(id: string): PaymentGateway {
@@ -22,8 +24,15 @@ export async function activeGateways(): Promise<{ id: string; title: string; des
   if (settings.gatewayZibal) {
     out.push({
       id: 'zibal',
-      title: 'پرداخت آنلاین',
+      title: 'پرداخت آنلاین (زیبال)',
       description: 'پرداخت با کارت‌های عضو شتاب از طریق درگاه امن زیبال',
+    });
+  }
+  if (settings.gatewayBitpay) {
+    out.push({
+      id: 'bitpay',
+      title: 'پرداخت آنلاین (بیت‌پی)',
+      description: 'پرداخت با کارت‌های عضو شتاب از طریق درگاه بیت‌پی',
     });
   }
   if (settings.gatewayManual) {

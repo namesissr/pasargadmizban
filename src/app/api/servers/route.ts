@@ -17,7 +17,12 @@ export const GET = route(async (req: Request) => {
 
   const where = {
     userId: user.id,
-    status: status && status !== 'ALL' ? (status as never) : { not: 'DELETED' as const },
+    // سرورهای حذف‌شده و ساخت‌های ناموفق (که deletedAt می‌گیرند) به کاربر نشان داده نمی‌شوند
+    deletedAt: null,
+    status:
+      status && status !== 'ALL' && status !== 'DELETED' && status !== 'ERROR'
+        ? (status as never)
+        : { notIn: ['DELETED', 'ERROR'] as ('DELETED' | 'ERROR')[] },
     ...(search
       ? {
           OR: [

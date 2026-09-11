@@ -41,7 +41,6 @@ const STATUS_OPTIONS = [
   { value: 'OFF', label: 'خاموش' },
   { value: 'PROVISIONING', label: 'در حال ساخت' },
   { value: 'SUSPENDED', label: 'تعلیق‌شده' },
-  { value: 'ERROR', label: 'خطا' },
 ];
 
 export function ServerList() {

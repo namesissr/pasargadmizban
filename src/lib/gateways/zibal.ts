@@ -1,4 +1,5 @@
 import { env } from '../env';
+import { getSettings } from '../settings';
 import {
   GatewayError,
   type PaymentGateway,
@@ -92,6 +93,12 @@ async function post<T>(path: string, body: Record<string, unknown>): Promise<T> 
   }
 }
 
+/** کد مرچنت زیبال؛ اولویت با تنظیمات پنل، وگرنه از env */
+async function zibalMerchant(): Promise<string> {
+  const s = await getSettings();
+  return (s.zibalMerchant || '').trim() || env.zibal.merchant;
+}
+
 export class ZibalGateway implements PaymentGateway {
   readonly id = 'zibal';
   readonly title = 'درگاه پرداخت زیبال';
@@ -100,7 +107,7 @@ export class ZibalGateway implements PaymentGateway {
     const rial = input.amount * RIAL_PER_TOMAN;
 
     const res = await post<ZibalRequestResponse>('/v1/request', {
-      merchant: env.zibal.merchant,
+      merchant: await zibalMerchant(),
       amount: Number(rial),
       callbackUrl: input.callbackUrl,
       description: input.description.slice(0, 200),
@@ -120,7 +127,7 @@ export class ZibalGateway implements PaymentGateway {
 
   async verify(input: VerifyInput): Promise<VerifyResult> {
     const res = await post<ZibalVerifyResponse>('/v1/verify', {
-      merchant: env.zibal.merchant,
+      merchant: await zibalMerchant(),
       trackId: Number(input.reference),
     });
 

@@ -12,6 +12,7 @@ import {
   retryUnsuspend,
 } from '../lib/billing';
 import { reconcileServerActions } from '../lib/provisioning';
+import { expireStaleTransfers } from '../lib/transfer';
 import { syncCatalog } from '../lib/catalog';
 import { purgeExpiredRateLimits } from '../lib/rate-limit';
 import { runMonitors, purgeOldMonitorData } from '../lib/monitoring';
@@ -290,6 +291,7 @@ export const jobs = {
       const linkCodes = await prisma.telegramLinkCode.deleteMany({
         where: { expiresAt: { lt: new Date(Date.now() - 86_400_000) } },
       });
+      const expiredTransfers = await expireStaleTransfers();
       const monitorData = await purgeOldMonitorData(90);
       return {
         processed: rateLimits + sessions.count + tokens.count,
@@ -301,6 +303,7 @@ export const jobs = {
           notifications: notifications.count,
           jobRuns: jobRuns.count,
           telegramCodes: linkCodes.count,
+          expiredTransfers,
           monitorData,
         },
       };

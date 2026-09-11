@@ -136,6 +136,7 @@ function TransactionsInner() {
             >
               <option value="ALL">همه درگاه‌ها</option>
               <option value="zibal">زیبال</option>
+              <option value="bitpay">بیت‌پی</option>
               <option value="manual">واریز دستی</option>
             </Select>
           </div>
@@ -193,7 +194,13 @@ function TransactionsInner() {
                           {formatToman(t.amount, { suffix: false })}
                         </td>
                         <td data-label="درگاه" className="whitespace-nowrap text-xs muted">
-                          {t.gateway === 'manual' ? 'واریز دستی' : t.gateway === 'zibal' ? 'زیبال' : t.gateway ?? '—'}
+                          {t.gateway === 'manual'
+                            ? 'واریز دستی'
+                            : t.gateway === 'zibal'
+                              ? 'زیبال'
+                              : t.gateway === 'bitpay'
+                                ? 'بیت‌پی'
+                                : t.gateway ?? '—'}
                         </td>
                         <td data-label="وضعیت">
                           <Badge tone={st.tone}>{st.label}</Badge>

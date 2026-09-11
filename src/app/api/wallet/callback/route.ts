@@ -45,8 +45,14 @@ async function handle(req: Request): Promise<NextResponse> {
   }
 
   const trackId = params.get('trackId') ?? params.get('authority') ?? '';
-  const orderId = params.get('orderId') ?? '';
+  const orderId = params.get('orderId') ?? params.get('factorId') ?? '';
   const successFlag = params.get('success');
+
+  // همه پارامترهای بازگشتی درگاه — برای درگاه‌هایی مثل بیت‌پی که داده اضافه می‌فرستند
+  const allParams: Record<string, string> = {};
+  params.forEach((v, k) => {
+    allParams[k] = v;
+  });
 
   if (!trackId && !orderId) {
     return redirectTo('/dashboard/wallet', { error: 'اطلاعات بازگشت از درگاه ناقص بود.' });
@@ -86,6 +92,7 @@ async function handle(req: Request): Promise<NextResponse> {
     const verification = await gateway.verify({
       reference: trackId || trx.trackId || '',
       amount: trx.amount,
+      params: allParams,
     });
 
     if (!verification.success) {

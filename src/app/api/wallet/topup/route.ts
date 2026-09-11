@@ -72,7 +72,10 @@ export const POST = route(async (req: Request) => {
   }
 
   if (input.gateway === 'zibal' && !settings.gatewayZibal) {
-    throw new ApiError('درگاه پرداخت آنلاین در حال حاضر فعال نیست.', 400);
+    throw new ApiError('درگاه پرداخت زیبال در حال حاضر فعال نیست.', 400);
+  }
+  if (input.gateway === 'bitpay' && !settings.gatewayBitpay) {
+    throw new ApiError('درگاه پرداخت بیت‌پی در حال حاضر فعال نیست.', 400);
   }
 
   const trx = await createPendingDeposit({

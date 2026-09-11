@@ -39,8 +39,13 @@ export type SettingsShape = {
 
   /** درگاه‌ها */
   gatewayZibal: boolean;
+  gatewayBitpay: boolean;
   gatewayManual: boolean;
   manualBankInfo: string;
+  /** کد مرچنت زیبال؛ اگر خالی باشد از ZIBAL_MERCHANT در env استفاده می‌شود */
+  zibalMerchant: string;
+  /** کلید API بیت‌پی (رمزنگاری‌شده) */
+  bitpayApiEnc: string;
 
   brandName: string;
   supportEmail: string;
@@ -189,8 +194,11 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   requirePhoneVerify: false,
 
   gatewayZibal: true,
+  gatewayBitpay: false,
   gatewayManual: false,
   manualBankInfo: '',
+  zibalMerchant: '',
+  bitpayApiEnc: '',
 
   brandName: 'پاسارگاد میزبان',
   supportEmail: 'support@pasargadmizban.ir',
@@ -323,8 +331,12 @@ export function invalidateSettingsCache() {
 function groupOf(key: string): string {
   if (['eurRate', 'markupPercent', 'markupFixed', 'vatPercent', 'roundMonthly', 'roundHourly', 'trafficOveragePerTb'].includes(key))
     return 'pricing';
-  if (['minTopup', 'maxTopup', 'hourlyPrepayHours', 'gatewayZibal', 'gatewayManual', 'manualBankInfo'].includes(key))
-    return 'billing';
+  if (['minTopup', 'maxTopup', 'hourlyPrepayHours'].includes(key)) return 'billing';
+  if (
+    key.startsWith('gateway') ||
+    ['manualBankInfo', 'zibalMerchant', 'bitpayApiEnc'].includes(key)
+  )
+    return 'gateways';
   if (['suspendGraceHours', 'deleteAfterDays', 'invoiceLeadDays'].includes(key)) return 'lifecycle';
   if (['registrationOpen', 'requireEmailVerify', 'requirePhoneVerify'].includes(key)) return 'auth';
   if (key.startsWith('telegram')) return 'telegram';

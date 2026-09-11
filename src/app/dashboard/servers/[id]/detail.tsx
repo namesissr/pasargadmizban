@@ -22,11 +22,13 @@ import {
   Radio,
   CalendarClock,
   Repeat,
+  Trash2,
+  Send,
 } from 'lucide-react';
-import { Alert, Badge, Button, Card, LoadingBlock, Tabs, CopyButton, SecretValue } from '@/components/ui';
+import { Alert, Badge, Button, Card, LoadingBlock, Tabs, CopyButton, SecretValue, ConfirmModal } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { PageHeader } from '@/components/app/shell';
-import { apiPost, errorMessage, fetcher } from '@/lib/client';
+import { apiPost, apiDelete, errorMessage, fetcher } from '@/lib/client';
 import { formatToman, formatNumber, formatTraffic } from '@/lib/money';
 import { faDateTime, faRelative, SERVER_STATUS_FA, SERVER_ACTION_FA, IP_REACH_FA, cn } from '@/lib/utils';
 import { OverviewTab } from './tabs/overview';
@@ -112,6 +114,8 @@ export function ServerDetail({ serverId, initialName }: { serverId: string; init
   const [busy, setBusy] = useState<string | null>(null);
   const [showCredentials, setShowCredentials] = useState(isNew);
   const [credentials, setCredentials] = useState<{ username: string; password: string } | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const { data: server, isLoading, mutate } = useSWR<ServerData>(
     `/api/servers/${serverId}`,
@@ -149,6 +153,19 @@ export function ServerDetail({ serverId, initialName }: { serverId: string; init
       toast.error('عملیات انجام نشد', errorMessage(err));
     } finally {
       setBusy(null);
+    }
+  }
+
+  async function destroy() {
+    if (!server) return;
+    setDeleting(true);
+    try {
+      await apiDelete(`/api/servers/${server.id}`, { confirmName: server.name });
+      toast.success('سرور حذف شد', 'صورتحساب این سرور متوقف شد.');
+      router.push('/dashboard/servers');
+    } catch (err) {
+      toast.error('حذف انجام نشد', errorMessage(err));
+      setDeleting(false);
     }
   }
 
@@ -356,11 +373,30 @@ export function ServerDetail({ serverId, initialName }: { serverId: string; init
 
             <div className="flex-1" />
 
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setTab('settings')}
+              icon={<Send size={14} />}
+            >
+              انتقال سرور
+            </Button>
+
             <Link href={`/dashboard/tickets/new?serverId=${server.id}`}>
               <Button variant="ghost" size="sm" icon={<LifeBuoy size={14} />}>
                 درخواست پشتیبانی
               </Button>
             </Link>
+
+            <Button
+              variant="danger"
+              size="sm"
+              onClick={() => setDeleteOpen(true)}
+              disabled={locked}
+              icon={<Trash2 size={14} />}
+            >
+              حذف سرور
+            </Button>
           </div>
         </Card>
 
@@ -476,6 +512,28 @@ export function ServerDetail({ serverId, initialName }: { serverId: string; init
           </Card>
         ) : null}
       </div>
+
+      <ConfirmModal
+        open={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        onConfirm={destroy}
+        loading={deleting}
+        title="حذف سرور"
+        confirmLabel="حذف قطعی سرور"
+        requireText={server.name}
+        message={
+          <div className="space-y-2 text-xs leading-6">
+            <p>
+              سرور <span className="mono">{server.name}</span> برای همیشه حذف می‌شود و همه داده‌های آن از بین می‌رود.
+              این کار قابل بازگشت نیست.
+            </p>
+            {server.billingCycle === 'MONTHLY' && server.expiresAt ? (
+              <p className="text-emerald-600">بخش استفاده‌نشدهٔ دورهٔ ماهانه به کیف پول شما بازگردانده می‌شود.</p>
+            ) : null}
+            <p className="muted">برای تایید، نام سرور را دقیقاً وارد کنید:</p>
+          </div>
+        }
+      />
     </>
   );
 }

@@ -114,33 +114,20 @@ export function SettingsClient() {
           </div>
         </Card>
 
-        {/* درگاه‌ها */}
-        <Card title="روش‌های پرداخت">
+        {/* مبالغ شارژ */}
+        <Card
+          title="شارژ کیف پول"
+          action={
+            <Link href="/admin/gateways" className="btn btn-secondary btn-sm">
+              مدیریت درگاه‌ها <ArrowLeft size={13} />
+            </Link>
+          }
+        >
           <div className="space-y-4">
-            <Toggle
-              checked={Boolean(s.gatewayZibal)}
-              onChange={(v) => set('gatewayZibal', v)}
-              label="درگاه آنلاین زیبال"
-              description="پرداخت با کارت‌های عضو شتاب."
-            />
-            <Toggle
-              checked={Boolean(s.gatewayManual)}
-              onChange={(v) => set('gatewayManual', v)}
-              label="واریز کارت به کارت"
-              description="کاربر رسید ثبت می‌کند و شما تایید می‌کنید."
-            />
-
-            {s.gatewayManual ? (
-              <Field label="اطلاعات حساب برای واریز" hint="این متن به کاربر نمایش داده می‌شود.">
-                <Textarea
-                  value={String(s.manualBankInfo ?? '')}
-                  onChange={(e) => set('manualBankInfo', e.target.value)}
-                  className="min-h-28 text-xs"
-                  placeholder={'بانک ملت\nشماره کارت: 6104-3378-xxxx-xxxx\nبه نام: ...'}
-                />
-              </Field>
-            ) : null}
-
+            <Alert tone="info">
+              فعال/غیرفعال‌سازی درگاه‌ها (زیبال، بیت‌پی، کارت‌به‌کارت)، کلید اتصال و گزارش پرداخت‌ها اکنون در بخش
+              «درگاه‌ها» مدیریت می‌شود.
+            </Alert>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="حداقل شارژ (تومان)">
                 <MoneyInput value={Number(s.minTopup)} onValueChange={(v) => set('minTopup', v)} />

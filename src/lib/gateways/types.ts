@@ -17,8 +17,11 @@ export type StartPaymentResult = {
 };
 
 export type VerifyInput = {
+  /** شناسه‌ای که هنگام شروع پرداخت ذخیره شد (trackId زیبال / id_get بیت‌پی) */
   reference: string;
   amount: bigint;
+  /** همه پارامترهای بازگشتی درگاه در callback — برای درگاه‌هایی مثل بیت‌پی که داده اضافه می‌فرستند */
+  params?: Record<string, string>;
 };
 
 export type VerifyResult = {

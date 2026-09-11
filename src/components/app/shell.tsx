@@ -33,6 +33,8 @@ import {
   Mail,
   Megaphone,
   MoreHorizontal,
+  Send,
+  Landmark,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatToman } from '@/lib/money';
@@ -54,6 +56,7 @@ type NavItem = { href: string; label: string; icon: React.ComponentType<{ size?:
 const USER_NAV: NavItem[] = [
   { href: '/dashboard', label: 'داشبورد', icon: LayoutDashboard, exact: true },
   { href: '/dashboard/servers', label: 'سرورهای من', icon: Server },
+  { href: '/dashboard/transfers', label: 'انتقال سرور', icon: Send },
   { href: '/dashboard/wallet', label: 'کیف پول', icon: Wallet },
   { href: '/dashboard/transactions', label: 'تراکنش‌ها', icon: ArrowLeftRight },
   { href: '/dashboard/invoices', label: 'فاکتورها', icon: Receipt },
@@ -78,6 +81,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin/promos', label: 'کدهای هدیه', icon: TicketPercent },
   { href: '/admin/announcements', label: 'اعلان‌های سایت', icon: Megaphone },
   { href: '/admin/messaging', label: 'ایمیل و پیامک', icon: Mail },
+  { href: '/admin/gateways', label: 'درگاه‌ها', icon: Landmark },
   { href: '/admin/settings', label: 'تنظیمات', icon: Settings },
   { href: '/admin/logs', label: 'گزارش رویدادها', icon: ScrollText },
 ];

@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Save, Trash2, AlertTriangle } from 'lucide-react';
+import Link from 'next/link';
+import { Save, Trash2, AlertTriangle, Send } from 'lucide-react';
 import { Alert, Button, ConfirmModal, Field, Input } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
-import { api, apiDelete, errorFields, errorMessage } from '@/lib/client';
+import { api, apiPost, apiDelete, errorFields, errorMessage } from '@/lib/client';
 import { formatToman } from '@/lib/money';
 import { faDateTime } from '@/lib/utils';
 import type { ServerData } from '../detail';
@@ -26,6 +27,11 @@ export function SettingsTab({
 
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const [toEmail, setToEmail] = useState('');
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferring, setTransferring] = useState(false);
+  const [transferFields, setTransferFields] = useState<Record<string, string>>({});
 
   const dirty = name !== server.name || label !== (server.label ?? '');
 
@@ -53,6 +59,26 @@ export function SettingsTab({
     } catch (err) {
       toast.error('حذف انجام نشد', errorMessage(err));
       setDeleting(false);
+    }
+  }
+
+  async function submitTransfer() {
+    setTransferring(true);
+    setTransferFields({});
+    try {
+      const res = await apiPost<{ message: string; toName: string }>(`/api/servers/${server.id}/transfer`, {
+        toEmail,
+        note: '',
+      });
+      toast.success('درخواست ارسال شد', res.message);
+      setTransferOpen(false);
+      setToEmail('');
+    } catch (err) {
+      toast.error('ارسال درخواست انجام نشد', errorMessage(err));
+      setTransferFields(errorFields(err));
+      setTransferOpen(false);
+    } finally {
+      setTransferring(false);
     }
   }
 
@@ -110,6 +136,48 @@ export function SettingsTab({
         </dl>
       </section>
 
+      {/* انتقال مالکیت */}
+      <section className="border-t pt-5">
+        <h3 className="mb-3 text-xs font-bold">انتقال مالکیت سرور</h3>
+        <div className="rounded-xl border p-4">
+          <p className="text-[11px] leading-6 muted">
+            می‌توانید این سرور را به کاربر دیگری در پاسارگاد میزبان منتقل کنید. ایمیل گیرنده را وارد کنید؛ سرور تا
+            زمان تأیید گیرنده در حساب شما می‌ماند و کار می‌کند. پس از تأیید، مالکیت کامل سرور به او منتقل می‌شود و
+            هزینه‌های بعدی از کیف پول او کسر می‌گردد. (هیچ پولی جابه‌جا نمی‌شود.)
+          </p>
+          <div className="mt-3 grid max-w-2xl gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
+            <Field label="ایمیل گیرنده" error={transferFields.toEmail}>
+              <Input
+                value={toEmail}
+                onChange={(e) => setToEmail(e.target.value)}
+                placeholder="user@example.com"
+                className="ltr"
+                dir="ltr"
+                type="email"
+              />
+            </Field>
+            <Button
+              className="sm:mt-6"
+              variant="secondary"
+              size="sm"
+              onClick={() => setTransferOpen(true)}
+              disabled={!toEmail.trim() || server.protection}
+              icon={<Send size={14} />}
+            >
+              ارسال درخواست انتقال
+            </Button>
+          </div>
+          {server.protection ? (
+            <p className="mt-2 text-[11px] text-amber-600">
+              محافظت حذف این سرور روشن است؛ برای انتقال ابتدا باید خاموش شود (از طریق تیکت پشتیبانی).
+            </p>
+          ) : null}
+          <Link href="/dashboard/transfers" className="mt-3 inline-block text-[11px] text-[var(--color-brand-600)] hover:underline">
+            مشاهده درخواست‌های انتقال
+          </Link>
+        </div>
+      </section>
+
       {/* منطقه خطر */}
       <section className="border-t pt-5">
         <h3 className="mb-3 text-xs font-bold text-red-600">منطقه خطر</h3>
@@ -141,6 +209,27 @@ export function SettingsTab({
           </Alert>
         ) : null}
       </section>
+
+      <ConfirmModal
+        open={transferOpen}
+        onClose={() => setTransferOpen(false)}
+        onConfirm={submitTransfer}
+        loading={transferring}
+        danger={false}
+        title="انتقال سرور"
+        confirmLabel="ارسال درخواست انتقال"
+        message={
+          <div className="space-y-2 text-xs leading-6">
+            <p>
+              درخواست انتقال سرور <span className="mono">{server.name}</span> به{' '}
+              <span className="ltr mono">{toEmail}</span> ارسال شود؟
+            </p>
+            <p className="muted">
+              سرور تا زمان تأیید گیرنده در حساب شما می‌ماند. پس از تأیید، دیگر به این سرور دسترسی نخواهید داشت.
+            </p>
+          </div>
+        }
+      />
 
       <ConfirmModal
         open={deleteOpen}

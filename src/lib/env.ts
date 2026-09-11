@@ -61,6 +61,12 @@ export const env = {
     sandbox: get('ZIBAL_MERCHANT', 'zibal') === 'zibal',
   },
 
+  bitpay: {
+    /** کلید API در تنظیمات پنل ذخیره می‌شود؛ این فقط برای مهاجرت/تست است */
+    apiOptional: get('BITPAY_API'),
+    baseUrl: get('BITPAY_API_URL', 'https://bitpay.ir'),
+  },
+
   smtp: {
     host: get('SMTP_HOST'),
     port: Number(get('SMTP_PORT', '587')),
