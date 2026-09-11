@@ -11,6 +11,8 @@ export type SmtpConfig = {
   user: string;
   pass: string;
   from: string;
+  /** پذیرش گواهی TLS خودامضا */
+  allowSelfSigned: boolean;
   /** db یعنی از تنظیمات پنل، env یعنی از فایل .env */
   source: 'db' | 'env';
 };
@@ -30,6 +32,7 @@ export async function getSmtpConfig(): Promise<SmtpConfig | null> {
       user: settings.smtpUser.trim(),
       pass: settings.smtpPassEnc ? (decrypt(settings.smtpPassEnc) ?? '') : '',
       from: settings.smtpFrom.trim() || env.smtp.from,
+      allowSelfSigned: settings.smtpAllowSelfSigned,
       source: 'db',
     };
   }
@@ -41,6 +44,7 @@ export async function getSmtpConfig(): Promise<SmtpConfig | null> {
       user: env.smtp.user,
       pass: env.smtp.pass,
       from: env.smtp.from,
+      allowSelfSigned: settings.smtpAllowSelfSigned,
       source: 'env',
     };
   }
@@ -52,7 +56,7 @@ let transporter: Transporter | null = null;
 let transporterKey = '';
 
 function buildTransporter(config: SmtpConfig): Transporter {
-  const key = JSON.stringify([config.host, config.port, config.secure, config.user, config.pass]);
+  const key = JSON.stringify([config.host, config.port, config.secure, config.user, config.pass, config.allowSelfSigned]);
   if (transporter && transporterKey === key) return transporter;
   transporter = nodemailer.createTransport({
     host: config.host,
@@ -60,6 +64,8 @@ function buildTransporter(config: SmtpConfig): Transporter {
     secure: config.secure,
     auth: config.user ? { user: config.user, pass: config.pass } : undefined,
     connectionTimeout: 15_000,
+    // برخی سرورهای ایمیل (به‌ویژه ایرانی) گواهی معتبر ندارند؛ با اجازه مدیر پذیرفته می‌شوند
+    tls: config.allowSelfSigned ? { rejectUnauthorized: false } : undefined,
   });
   transporterKey = key;
   return transporter;
@@ -76,7 +82,12 @@ export async function testSmtpConnection(): Promise<{ ok: boolean; message: stri
     return { ok: true, message: `اتصال به ${config.host}:${config.port} برقرار شد.`, source: config.source };
   } catch (err) {
     const raw = err instanceof Error ? err.message : String(err);
-    return { ok: false, message: `اتصال برقرار نشد: ${raw.slice(0, 300)}`, source: config.source };
+    const certIssue = /self-signed|self signed|unable to verify|certificate/i.test(raw);
+    const hint =
+      certIssue && !config.allowSelfSigned
+        ? ' — سرور شما گواهی TLS معتبر ندارد؛ کلید «پذیرش گواهی خودامضا» را روشن کنید و دوباره آزمایش بگیرید.'
+        : '';
+    return { ok: false, message: `اتصال برقرار نشد: ${raw.slice(0, 300)}${hint}`, source: config.source };
   }
 }
 

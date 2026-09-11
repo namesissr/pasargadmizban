@@ -53,6 +53,7 @@ export const GET = route(async (req: Request) => {
       secure: settings.smtpSecure,
       user: settings.smtpUser,
       from: settings.smtpFrom,
+      allowSelfSigned: settings.smtpAllowSelfSigned,
       hasPass: Boolean(settings.smtpPassEnc),
       envHost: env.smtp.enabled ? env.smtp.host : null,
     },
@@ -74,6 +75,7 @@ const saveSchema = z.object({
   host: z.string().trim().max(200),
   port: z.coerce.number().int().min(1).max(65535).default(587),
   secure: z.boolean().default(false),
+  allowSelfSigned: z.boolean().default(false),
   user: z.string().trim().max(200).optional().or(z.literal('')),
   /** خالی یعنی رمز فعلی نگه داشته شود */
   pass: z.string().max(200).optional().or(z.literal('')),
@@ -107,6 +109,7 @@ export const POST = route(async (req: Request) => {
       smtpHost: input.host,
       smtpPort: input.port,
       smtpSecure: input.secure,
+      smtpAllowSelfSigned: input.allowSelfSigned,
       smtpUser: input.user ?? '',
       smtpFrom: input.from ?? '',
     };

@@ -164,6 +164,8 @@ export type SettingsShape = {
   /** رمز، رمزنگاری‌شده با AES-256-GCM؛ هرگز خام برنمی‌گردد */
   smtpPassEnc: string;
   smtpFrom: string;
+  /** پذیرش گواهی TLS خودامضا — برای سرورهای ایمیلی که گواهی معتبر ندارند */
+  smtpAllowSelfSigned: boolean;
 };
 
 export const DEFAULT_SETTINGS: SettingsShape = {
@@ -266,6 +268,7 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   smtpUser: '',
   smtpPassEnc: '',
   smtpFrom: '',
+  smtpAllowSelfSigned: false,
 };
 
 type CacheEntry = { value: SettingsShape; expires: number };

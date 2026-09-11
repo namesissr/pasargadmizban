@@ -47,6 +47,7 @@ type Data = {
     host: string;
     port: number;
     secure: boolean;
+    allowSelfSigned: boolean;
     user: string;
     from: string;
     hasPass: boolean;
@@ -198,6 +199,7 @@ function SmtpCard({ smtp, onSaved }: { smtp: Data['smtp']; onSaved: () => void }
     host: smtp.host,
     port: smtp.port,
     secure: smtp.secure,
+    allowSelfSigned: smtp.allowSelfSigned,
     user: smtp.user,
     pass: '',
     from: smtp.from,
@@ -287,6 +289,13 @@ function SmtpCard({ smtp, onSaved }: { smtp: Data['smtp']; onSaved: () => void }
           onChange={(v) => setForm((f) => ({ ...f, secure: v }))}
           label="اتصال امن مستقیم (SSL/TLS)"
           description="برای پورت ۴۶۵ روشن باشد؛ پورت ۵۸۷ معمولاً خاموش (STARTTLS خودکار)."
+        />
+
+        <Toggle
+          checked={form.allowSelfSigned}
+          onChange={(v) => setForm((f) => ({ ...f, allowSelfSigned: v }))}
+          label="پذیرش گواهی خودامضا"
+          description="اگر خطای self-signed certificate می‌گیرید روشنش کنید. اتصال همچنان رمزنگاری می‌شود ولی هویت سرور بررسی نمی‌شود؛ برای سرور ایمیل خودتان اشکالی ندارد."
         />
 
         <div className="grid gap-3.5 sm:grid-cols-2">
