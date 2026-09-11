@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, Badge, Card, CopyButton, Field, Input, MoneyInput, Toggle } from '@/components/ui';
+import { Alert, Badge, Card, CopyButton, Field, MoneyInput, NumberInput, Toggle } from '@/components/ui';
 import { formatNumber, formatToman } from '@/lib/money';
 
 export type AdvancedData = {
@@ -26,26 +26,20 @@ export function AdvancedSettingsCards({ data, s, set }: { data: AdvancedData; s:
             label="پیش‌فرض هشدار اتمام اعتبار (ساعت)"
             hint="هر کاربر می‌تواند این مقدار را در پنل خودش تغییر دهد."
           >
-            <Input
-              type="number"
+            <NumberInput
               min={1}
               max={720}
               value={Number(s.defaultLowBalanceHours)}
-              onChange={(e) => set('defaultLowBalanceHours', Number(e.target.value))}
-              className="ltr tabular"
-              dir="ltr"
+              onValueChange={(v) => set('defaultLowBalanceHours', v)}
             />
           </Field>
 
           <Field label="پیش‌فرض هشدار ترافیک (درصد سهمیه)">
-            <Input
-              type="number"
+            <NumberInput
               min={10}
               max={100}
               value={Number(s.defaultTrafficAlertPercent)}
-              onChange={(e) => set('defaultTrafficAlertPercent', Number(e.target.value))}
-              className="ltr tabular"
-              dir="ltr"
+              onValueChange={(v) => set('defaultTrafficAlertPercent', v)}
             />
           </Field>
 
@@ -156,26 +150,20 @@ export function AdvancedSettingsCards({ data, s, set }: { data: AdvancedData; s:
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="فاصله پیش‌فرض بررسی (دقیقه)">
-              <Input
-                type="number"
-                min={1}
-                max={60}
-                value={Number(s.monitorDefaultInterval)}
-                onChange={(e) => set('monitorDefaultInterval', Number(e.target.value))}
-                className="ltr tabular"
-                dir="ltr"
-              />
+              <NumberInput
+              min={1}
+              max={60}
+              value={Number(s.monitorDefaultInterval)}
+              onValueChange={(v) => set('monitorDefaultInterval', v)}
+            />
             </Field>
             <Field label="حداکثر پایش هر کاربر">
-              <Input
-                type="number"
-                min={0}
-                max={1000}
-                value={Number(s.monitorMaxPerUser)}
-                onChange={(e) => set('monitorMaxPerUser', Number(e.target.value))}
-                className="ltr tabular"
-                dir="ltr"
-              />
+              <NumberInput
+              min={0}
+              max={1000}
+              value={Number(s.monitorMaxPerUser)}
+              onValueChange={(v) => set('monitorMaxPerUser', v)}
+            />
             </Field>
           </div>
           <p className="text-[11px] leading-6 muted">
@@ -202,16 +190,12 @@ export function AdvancedSettingsCards({ data, s, set }: { data: AdvancedData; s:
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <Field label="درصد پورسانت" hint="از هر شارژ کاربر معرفی‌شده.">
-              <Input
-                type="number"
-                min={0}
-                max={50}
-                step={0.5}
-                value={Number(s.referralPercent)}
-                onChange={(e) => set('referralPercent', Number(e.target.value))}
-                className="ltr tabular"
-                dir="ltr"
-              />
+              <NumberInput
+              min={0}
+              max={50}
+              value={Number(s.referralPercent)}
+              onValueChange={(v) => set('referralPercent', v)}
+            />
             </Field>
             <Field label="حداقل شارژ برای پورسانت (تومان)">
               <MoneyInput value={Number(s.referralMinDeposit)} onValueChange={(v) => set('referralMinDeposit', v)} />

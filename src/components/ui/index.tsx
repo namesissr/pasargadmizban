@@ -130,6 +130,9 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement> & { inv
  * همان لحظه تایپ، عدد را به شکل «۲۸۳٬۰۰۰» نشان می‌دهد و رقم فارسی و انگلیسی،
  * هر دو را می‌پذیرد. مقدار بیرونی همیشه عدد خالص است.
  */
+const toEnDigits = (s: string) =>
+  s.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[^\d]/g, '');
+
 export function MoneyInput({
   value,
   onValueChange,
@@ -141,6 +144,18 @@ export function MoneyInput({
   onValueChange: (value: number) => void;
   invalid?: boolean;
 }) {
+  // متن نمایشی جداست تا کاربر بتواند فیلد را کامل خالی کند؛ مقدار صفر به‌جای «۰» خالی نشان داده می‌شود
+  const [text, setText] = useState(() => (value ? new Intl.NumberFormat('fa-IR').format(value) : ''));
+  const lastNum = useRef(value);
+
+  useEffect(() => {
+    // فقط وقتی مقدار از بیرون (نه با تایپ خود کاربر) تغییر کند، متن را همگام کن
+    if (value !== lastNum.current) {
+      lastNum.current = value;
+      setText(value ? new Intl.NumberFormat('fa-IR').format(value) : '');
+    }
+  }, [value]);
+
   return (
     <input
       type="text"
@@ -148,13 +163,79 @@ export function MoneyInput({
       dir="ltr"
       autoComplete="off"
       className={cn('input tabular text-left', invalid && 'border-red-400', className)}
-      value={new Intl.NumberFormat('fa-IR').format(value)}
+      value={text}
       onChange={(e) => {
-        const digits = e.target.value
-          .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
-          .replace(/[^\d]/g, '');
         // بیش از ۱۵ رقم دیگر مبلغ نیست؛ جلوی سرریز عدد را می‌گیرد
-        onValueChange(digits ? Number(digits.slice(0, 15)) : 0);
+        const digits = toEnDigits(e.target.value).slice(0, 15);
+        const num = digits ? Number(digits) : 0;
+        lastNum.current = num;
+        setText(digits ? new Intl.NumberFormat('fa-IR').format(num) : '');
+        onValueChange(num);
+      }}
+      {...rest}
+    />
+  );
+}
+
+/**
+ * ورودی عددی ساده (بدون جداکننده) که برخلاف input[type=number] اجازه می‌دهد
+ * فیلد کاملاً خالی شود؛ پس عدد پیش‌فرض ۰ را می‌توان پاک کرد و عدد دلخواه نوشت.
+ * مقدار بیرونی همیشه عدد است (خالی = ۰).
+ */
+export function NumberInput({
+  value,
+  onValueChange,
+  invalid,
+  className,
+  min,
+  max,
+  ...rest
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> & {
+  value: number;
+  onValueChange: (value: number) => void;
+  invalid?: boolean;
+  min?: number;
+  max?: number;
+}) {
+  const [text, setText] = useState(() => (value ? String(value) : ''));
+  const lastNum = useRef(value);
+
+  useEffect(() => {
+    if (value !== lastNum.current) {
+      lastNum.current = value;
+      setText(value ? String(value) : '');
+    }
+  }, [value]);
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      dir="ltr"
+      autoComplete="off"
+      className={cn('input ltr tabular', invalid && 'border-red-400', className)}
+      value={text}
+      onChange={(e) => {
+        // ارقام فارسی و انگلیسی و یک ممیز (برای درصدهای اعشاری) پذیرفته می‌شود
+        let cleaned = e.target.value
+          .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+          .replace(/[٫،]/g, '.')
+          .replace(/[^\d.]/g, '');
+        const firstDot = cleaned.indexOf('.');
+        if (firstDot !== -1) {
+          cleaned = cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+        }
+        cleaned = cleaned.slice(0, 16);
+        let num = cleaned && cleaned !== '.' ? Number(cleaned) : 0;
+        if (!Number.isFinite(num)) num = 0;
+        if (typeof max === 'number' && num > max) {
+          num = max;
+          cleaned = String(max);
+        }
+        if (typeof min === 'number' && cleaned && cleaned !== '.' && num < min) num = min;
+        lastNum.current = num;
+        setText(cleaned); // متنِ خام تا کاربر بتواند «۲.» یا خالی را حین تایپ نگه دارد
+        onValueChange(num);
       }}
       {...rest}
     />
@@ -292,20 +373,27 @@ export function Modal({
   const ref = useRef<HTMLDivElement>(null);
   const titleId = useId();
 
+  // onClose اغلب یک تابع درون‌خطی است که با هر رندر عوض می‌شود؛ اگر آن را در وابستگی
+  // افکت بگذاریم، با هر کلید فشرده‌شده افکت دوباره اجرا و focus روی دیالوگ برده می‌شود
+  // و از کادر ورودی دزدیده می‌شود. با ref، افکت فقط به open وابسته می‌ماند.
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
     document.addEventListener('keydown', onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    ref.current?.focus();
+    // فقط وقتی هیچ عنصری داخل دیالوگ فوکوس ندارد؛ تا autoFocus کادرهای داخلی حفظ شود
+    if (ref.current && !ref.current.contains(document.activeElement)) ref.current.focus();
     return () => {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

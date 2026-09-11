@@ -4,7 +4,7 @@ import { useState } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
 import { Save, CheckCircle2, XCircle, Cloud, ArrowLeft, Radar } from 'lucide-react';
-import { Alert, Badge, Button, Card, CopyButton, Field, Input, LoadingBlock, MoneyInput, Textarea, Toggle } from '@/components/ui';
+import { Alert, Badge, Button, Card, CopyButton, Field, Input, LoadingBlock, MoneyInput, NumberInput, Textarea, Toggle } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { api, errorMessage, fetcher } from '@/lib/client';
 import { AdvancedSettingsCards, type AdvancedData } from './advanced-cards';
@@ -159,43 +159,31 @@ export function SettingsClient() {
               label="حداقل اعتبار برای سرور ساعتی (ساعت)"
               hint={`کاربر باید معادل این تعداد ساعت موجودی داشته باشد تا بتواند سرور ساعتی بسازد.`}
             >
-              <Input
-                type="number"
+              <NumberInput
                 value={Number(s.hourlyPrepayHours)}
-                onChange={(e) => set('hourlyPrepayHours', Number(e.target.value))}
-                className="ltr tabular"
-                dir="ltr"
-              />
+                onValueChange={(v) => set('hourlyPrepayHours', v)}
+                />
             </Field>
 
             <Field label="مهلت پس از اتمام موجودی (ساعت)" hint="پس از این مدت سرور تعلیق می‌شود.">
-              <Input
-                type="number"
+              <NumberInput
                 value={Number(s.suspendGraceHours)}
-                onChange={(e) => set('suspendGraceHours', Number(e.target.value))}
-                className="ltr tabular"
-                dir="ltr"
-              />
+                onValueChange={(v) => set('suspendGraceHours', v)}
+                />
             </Field>
 
             <Field label="نگهداری داده پس از تعلیق (روز)" hint="پس از این مدت سرور برای همیشه حذف می‌شود.">
-              <Input
-                type="number"
+              <NumberInput
                 value={Number(s.deleteAfterDays)}
-                onChange={(e) => set('deleteAfterDays', Number(e.target.value))}
-                className="ltr tabular"
-                dir="ltr"
-              />
+                onValueChange={(v) => set('deleteAfterDays', v)}
+                />
             </Field>
 
             <Field label="یادآوری قبل از سررسید (روز)">
-              <Input
-                type="number"
+              <NumberInput
                 value={Number(s.invoiceLeadDays)}
-                onChange={(e) => set('invoiceLeadDays', Number(e.target.value))}
-                className="ltr tabular"
-                dir="ltr"
-              />
+                onValueChange={(v) => set('invoiceLeadDays', v)}
+                />
             </Field>
 
             <Alert tone="info">
@@ -230,28 +218,20 @@ export function SettingsClient() {
             </Field>
 
             <Field label="سقف تعویض در هر ماه برای هر سرور" hint="برای جلوگیری از سوءاستفاده و مصرف بی‌رویه آی‌پی.">
-              <Input
-                type="number"
+              <NumberInput
                 value={Number(s.ipChangeMaxPerMonth)}
-                onChange={(e) => set('ipChangeMaxPerMonth', Number(e.target.value))}
-                className="ltr tabular"
-                dir="ltr"
-                disabled={!s.ipChangeEnabled}
-              />
+                onValueChange={(v) => set('ipChangeMaxPerMonth', v)}
+                disabled={!s.ipChangeEnabled} />
             </Field>
 
             <Field
               label="پنجره تعویض رایگان پس از ساخت (ساعت)"
               hint="در این مدت تعویض آدرس رایگان است و از سهمیه ماهانه کم نمی‌کند. صفر یعنی بدون پنجره رایگان."
             >
-              <Input
-                type="number"
+              <NumberInput
                 value={Number(s.ipChangeFreeHours)}
-                onChange={(e) => set('ipChangeFreeHours', Number(e.target.value))}
-                className="ltr tabular"
-                dir="ltr"
-                disabled={!s.ipChangeEnabled}
-              />
+                onValueChange={(v) => set('ipChangeFreeHours', v)}
+                disabled={!s.ipChangeEnabled} />
             </Field>
 
             <Alert tone="warning" title="چند نکته درباره این عملیات">
@@ -289,69 +269,45 @@ export function SettingsClient() {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <Field label="پورت آزمایش" hint="معمولاً ۲۲ که روی همه سرورها باز است.">
-                <Input
-                  type="number"
-                  value={Number(s.ipProbePort)}
-                  onChange={(e) => set('ipProbePort', Number(e.target.value))}
-                  className="ltr tabular"
-                  dir="ltr"
-                  disabled={!s.ipProbeEnabled}
-                />
+                <NumberInput
+                value={Number(s.ipProbePort)}
+                onValueChange={(v) => set('ipProbePort', v)}
+                disabled={!s.ipProbeEnabled} />
               </Field>
 
               <Field label="مهلت هر تلاش (میلی‌ثانیه)">
-                <Input
-                  type="number"
-                  value={Number(s.ipProbeTimeoutMs)}
-                  onChange={(e) => set('ipProbeTimeoutMs', Number(e.target.value))}
-                  className="ltr tabular"
-                  dir="ltr"
-                  disabled={!s.ipProbeEnabled}
-                />
+                <NumberInput
+                value={Number(s.ipProbeTimeoutMs)}
+                onValueChange={(v) => set('ipProbeTimeoutMs', v)}
+                disabled={!s.ipProbeEnabled} />
               </Field>
 
               <Field label="تلاش در هر دور" hint="یک پاسخ موفق کافی است.">
-                <Input
-                  type="number"
-                  value={Number(s.ipProbeTries)}
-                  onChange={(e) => set('ipProbeTries', Number(e.target.value))}
-                  className="ltr tabular"
-                  dir="ltr"
-                  disabled={!s.ipProbeEnabled}
-                />
+                <NumberInput
+                value={Number(s.ipProbeTries)}
+                onValueChange={(v) => set('ipProbeTries', v)}
+                disabled={!s.ipProbeEnabled} />
               </Field>
 
               <Field label="دور ناموفق تا تصمیم" hint="هر دور دو دقیقه فاصله دارد.">
-                <Input
-                  type="number"
-                  value={Number(s.ipProbeRoundsToFail)}
-                  onChange={(e) => set('ipProbeRoundsToFail', Number(e.target.value))}
-                  className="ltr tabular"
-                  dir="ltr"
-                  disabled={!s.ipProbeEnabled}
-                />
+                <NumberInput
+                value={Number(s.ipProbeRoundsToFail)}
+                onValueChange={(v) => set('ipProbeRoundsToFail', v)}
+                disabled={!s.ipProbeEnabled} />
               </Field>
 
               <Field label="سقف تعویض خودکار هر سرور">
-                <Input
-                  type="number"
-                  value={Number(s.ipAutoSwapMax)}
-                  onChange={(e) => set('ipAutoSwapMax', Number(e.target.value))}
-                  className="ltr tabular"
-                  dir="ltr"
-                  disabled={!s.ipProbeEnabled || !s.ipAutoSwapEnabled}
-                />
+                <NumberInput
+                value={Number(s.ipAutoSwapMax)}
+                onValueChange={(v) => set('ipAutoSwapMax', v)}
+                disabled={!s.ipProbeEnabled || !s.ipAutoSwapEnabled} />
               </Field>
 
               <Field label="مشاهده منفی تا سوختن یک رنج" hint="پس از این تعداد، کل بلوک /24 کنار گذاشته می‌شود.">
-                <Input
-                  type="number"
-                  value={Number(s.ipPrefixBadThreshold)}
-                  onChange={(e) => set('ipPrefixBadThreshold', Number(e.target.value))}
-                  className="ltr tabular"
-                  dir="ltr"
-                  disabled={!s.ipProbeEnabled}
-                />
+                <NumberInput
+                value={Number(s.ipPrefixBadThreshold)}
+                onValueChange={(v) => set('ipPrefixBadThreshold', v)}
+                disabled={!s.ipProbeEnabled} />
               </Field>
             </div>
 
@@ -380,19 +336,28 @@ export function SettingsClient() {
                 <MoneyInput value={Number(s.loyaltySilverSpend)} onValueChange={(v) => set('loyaltySilverSpend', v)} disabled={!s.loyaltyEnabled} />
               </Field>
               <Field label="تخفیف نقره‌ای (٪)">
-                <Input type="number" value={Number(s.loyaltySilverPct)} onChange={(e) => set('loyaltySilverPct', Number(e.target.value))} className="ltr tabular" dir="ltr" disabled={!s.loyaltyEnabled} />
+                <NumberInput
+                value={Number(s.loyaltySilverPct)}
+                onValueChange={(v) => set('loyaltySilverPct', v)}
+                disabled={!s.loyaltyEnabled} />
               </Field>
               <Field label="آستانه طلایی (تومان)">
                 <MoneyInput value={Number(s.loyaltyGoldSpend)} onValueChange={(v) => set('loyaltyGoldSpend', v)} disabled={!s.loyaltyEnabled} />
               </Field>
               <Field label="تخفیف طلایی (٪)">
-                <Input type="number" value={Number(s.loyaltyGoldPct)} onChange={(e) => set('loyaltyGoldPct', Number(e.target.value))} className="ltr tabular" dir="ltr" disabled={!s.loyaltyEnabled} />
+                <NumberInput
+                value={Number(s.loyaltyGoldPct)}
+                onValueChange={(v) => set('loyaltyGoldPct', v)}
+                disabled={!s.loyaltyEnabled} />
               </Field>
               <Field label="آستانه الماس (تومان)">
                 <MoneyInput value={Number(s.loyaltyDiamondSpend)} onValueChange={(v) => set('loyaltyDiamondSpend', v)} disabled={!s.loyaltyEnabled} />
               </Field>
               <Field label="تخفیف الماس (٪)">
-                <Input type="number" value={Number(s.loyaltyDiamondPct)} onChange={(e) => set('loyaltyDiamondPct', Number(e.target.value))} className="ltr tabular" dir="ltr" disabled={!s.loyaltyEnabled} />
+                <NumberInput
+                value={Number(s.loyaltyDiamondPct)}
+                onValueChange={(v) => set('loyaltyDiamondPct', v)}
+                disabled={!s.loyaltyEnabled} />
               </Field>
             </div>
 
