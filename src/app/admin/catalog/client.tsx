@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import useSWR from 'swr';
 import { RefreshCw, Boxes, Globe, HardDrive } from 'lucide-react';
-import { Alert, Badge, Button, Card, LoadingBlock, Stat, Tabs, Toggle } from '@/components/ui';
+import { Alert, Badge, Button, Card, Input, LoadingBlock, Stat, Tabs, Toggle } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { api, apiPost, errorMessage, fetcher } from '@/lib/client';
 import { formatNumber, formatTraffic } from '@/lib/money';
@@ -11,6 +11,7 @@ import { faRelative, locationFa, osFa } from '@/lib/utils';
 
 type Catalog = {
   syncedAt: string | null;
+  autoSync: { enabled: boolean; intervalHours: number };
   categories: Record<string, string>;
   counts: { serverTypes: number; locations: number; images: number; datacenters: number };
   serverTypes: {
@@ -110,6 +111,8 @@ export function CatalogClient() {
         <Stat label="سیستم‌عامل‌ها" value={formatNumber(data.counts.images)} icon={<HardDrive size={16} />} />
       </div>
 
+      <AutoSyncCard autoSync={data.autoSync} syncedAt={data.syncedAt} onSaved={() => mutate()} />
+
       <Card
         title="مدیریت کاتالوگ"
         description={
@@ -117,7 +120,7 @@ export function CatalogClient() {
         }
         action={
           <Button variant="secondary" size="sm" onClick={sync} loading={syncing} icon={<RefreshCw size={13} />}>
-            همگام‌سازی
+            همگام‌سازی دستی
           </Button>
         }
         bodyClassName="p-0"
@@ -264,5 +267,74 @@ export function CatalogClient() {
         غیرفعال کردن یک پلن یا لوکیشن فقط جلوی فروش جدید را می‌گیرد و روی سرورهای فعال مشتریان تأثیری ندارد.
       </Alert>
     </div>
+  );
+}
+
+/** همگام‌سازی خودکار: موجودی و پلن‌های هتزنر بدون دخالت شما تازه می‌مانند */
+function AutoSyncCard({
+  autoSync,
+  syncedAt,
+  onSaved,
+}: {
+  autoSync: { enabled: boolean; intervalHours: number };
+  syncedAt: string | null;
+  onSaved: () => void;
+}) {
+  const toast = useToast();
+  const [enabled, setEnabled] = useState(autoSync.enabled);
+  const [hours, setHours] = useState(autoSync.intervalHours);
+  const [saving, setSaving] = useState(false);
+
+  const dirty = enabled !== autoSync.enabled || hours !== autoSync.intervalHours;
+
+  async function save() {
+    setSaving(true);
+    try {
+      await api('/api/admin/settings', {
+        method: 'PATCH',
+        body: { catalogAutoSyncEnabled: enabled, catalogSyncIntervalHours: hours },
+      });
+      toast.success('ذخیره شد', enabled ? `کاتالوگ هر ${hours} ساعت خودکار تازه می‌شود.` : 'همگام‌سازی خودکار خاموش شد.');
+      onSaved();
+    } catch (err) {
+      toast.error('ذخیره انجام نشد', errorMessage(err));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Toggle
+          checked={enabled}
+          onChange={setEnabled}
+          label="همگام‌سازی خودکار کاتالوگ"
+          description="موجودی پلن‌ها در هر لوکیشن از هتزنر تازه می‌شود؛ پلن‌هایی که خودتان خاموش کرده‌اید دست نمی‌خورند."
+        />
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-xs muted">هر</span>
+          <Input
+            type="number"
+            min={1}
+            max={168}
+            value={hours}
+            onChange={(e) => setHours(Math.max(1, Number(e.target.value) || 1))}
+            className="ltr tabular w-16 text-center"
+            dir="ltr"
+            disabled={!enabled}
+          />
+          <span className="text-xs muted">ساعت</span>
+          <Button size="sm" onClick={save} loading={saving} disabled={!dirty}>
+            ذخیره
+          </Button>
+        </div>
+      </div>
+      {enabled && syncedAt ? (
+        <p className="mt-2 text-[11px] muted">
+          آخرین همگام‌سازی {faRelative(syncedAt)} بود؛ دور بعدی خودکار انجام می‌شود (ورکر باید روشن باشد).
+        </p>
+      ) : null}
+    </Card>
   );
 }

@@ -1105,6 +1105,33 @@ model EurRateLog {
  * آدرسی باز یا بسته دیده می‌شود، نتیجه روی همان بلوک ثبت می‌شود. با گذشت زمان پنل
  * می‌فهمد کدام رنج‌های هتزنر برای ایران مرده‌اند و دیگر سراغشان نمی‌رود.
  */
+enum EmailStatus {
+  SENT
+  FAILED
+  /** تنظیمات SMTP موجود نبود و ارسال انجام نشد */
+  SKIPPED
+}
+
+/**
+ * لاگ ایمیل‌های ارسالی — تا مدیر ببیند چه چیزی برای چه کسی رفته و کجا شکست خورده.
+ * محتوای ایمیل ذخیره نمی‌شود؛ فقط گیرنده، موضوع و نتیجه.
+ */
+model EmailLog {
+  id      String      @id @default(cuid())
+  to      String
+  subject String
+  status  EmailStatus
+  error   String?
+  /** کدام سرور SMTP استفاده شد (میزبان، بدون رمز) */
+  smtpHost String?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+  @@map("email_logs")
+}
+
 model IpPrefixHealth {
   id     String @id @default(cuid())
   /** سه بخش نخست آدرس، مثل «95.216.181» */

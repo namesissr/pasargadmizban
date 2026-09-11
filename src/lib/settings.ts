@@ -149,6 +149,21 @@ export type SettingsShape = {
 
   // ─── گزارش هفتگی ───
   weeklyReportEnabled: boolean;
+
+  // ─── همگام‌سازی خودکار کاتالوگ ───
+  catalogAutoSyncEnabled: boolean;
+  /** هر چند ساعت یک بار کاتالوگ و موجودی پلن‌ها از هتزنر تازه شود */
+  catalogSyncIntervalHours: number;
+
+  // ─── سرور ایمیل (SMTP) ───
+  // اگر میزبان خالی باشد، مقادیر فایل .env استفاده می‌شوند (سازگاری با نسخه قدیمی)
+  smtpHost: string;
+  smtpPort: number;
+  smtpSecure: boolean;
+  smtpUser: string;
+  /** رمز، رمزنگاری‌شده با AES-256-GCM؛ هرگز خام برنمی‌گردد */
+  smtpPassEnc: string;
+  smtpFrom: string;
 };
 
 export const DEFAULT_SETTINGS: SettingsShape = {
@@ -241,6 +256,16 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   loyaltyDiamondPct: 6,
 
   weeklyReportEnabled: true,
+
+  catalogAutoSyncEnabled: true,
+  catalogSyncIntervalHours: 1,
+
+  smtpHost: '',
+  smtpPort: 587,
+  smtpSecure: false,
+  smtpUser: '',
+  smtpPassEnc: '',
+  smtpFrom: '',
 };
 
 type CacheEntry = { value: SettingsShape; expires: number };
@@ -307,6 +332,8 @@ function groupOf(key: string): string {
   if (key.startsWith('eurAuto')) return 'eur-auto';
   if (key.startsWith('loyalty')) return 'loyalty';
   if (key.startsWith('weeklyReport')) return 'reports';
+  if (key.startsWith('catalog')) return 'catalog';
+  if (key.startsWith('smtp')) return 'smtp';
   if (key.startsWith('channel') || key.startsWith('default')) return 'notifications';
   return 'general';
 }

@@ -1,18 +1,83 @@
 import nodemailer, { type Transporter } from 'nodemailer';
 import { env } from './env';
+import { getSettings } from './settings';
+import { decrypt } from './crypto';
+import prisma from './prisma';
 
+export type SmtpConfig = {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+  from: string;
+  /** db یعنی از تنظیمات پنل، env یعنی از فایل .env */
+  source: 'db' | 'env';
+};
+
+/**
+ * پیکربندی SMTP: اول تنظیمات پنل، وگرنه فایل .env.
+ * این ترتیب به مدیر اجازه می‌دهد بدون دست زدن به سرور، از داخل سایت
+ * سرور ایمیل را عوض کند.
+ */
+export async function getSmtpConfig(): Promise<SmtpConfig | null> {
+  const settings = await getSettings();
+  if (settings.smtpHost.trim()) {
+    return {
+      host: settings.smtpHost.trim(),
+      port: settings.smtpPort || 587,
+      secure: settings.smtpSecure,
+      user: settings.smtpUser.trim(),
+      pass: settings.smtpPassEnc ? (decrypt(settings.smtpPassEnc) ?? '') : '',
+      from: settings.smtpFrom.trim() || env.smtp.from,
+      source: 'db',
+    };
+  }
+  if (env.smtp.enabled) {
+    return {
+      host: env.smtp.host,
+      port: env.smtp.port,
+      secure: env.smtp.secure,
+      user: env.smtp.user,
+      pass: env.smtp.pass,
+      from: env.smtp.from,
+      source: 'env',
+    };
+  }
+  return null;
+}
+
+// ترنسپورتر تا وقتی پیکربندی عوض نشده، دوباره ساخته نمی‌شود
 let transporter: Transporter | null = null;
+let transporterKey = '';
 
-function getTransporter(): Transporter | null {
-  if (!env.smtp.enabled) return null;
-  if (transporter) return transporter;
+function buildTransporter(config: SmtpConfig): Transporter {
+  const key = JSON.stringify([config.host, config.port, config.secure, config.user, config.pass]);
+  if (transporter && transporterKey === key) return transporter;
   transporter = nodemailer.createTransport({
-    host: env.smtp.host,
-    port: env.smtp.port,
-    secure: env.smtp.secure,
-    auth: env.smtp.user ? { user: env.smtp.user, pass: env.smtp.pass } : undefined,
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    auth: config.user ? { user: config.user, pass: config.pass } : undefined,
+    connectionTimeout: 15_000,
   });
+  transporterKey = key;
   return transporter;
+}
+
+/** آزمایش اتصال به سرور ایمیل بدون ارسال چیزی */
+export async function testSmtpConnection(): Promise<{ ok: boolean; message: string; source?: 'db' | 'env' }> {
+  const config = await getSmtpConfig();
+  if (!config) {
+    return { ok: false, message: 'هیچ سرور ایمیلی پیکربندی نشده است. میزبان SMTP را وارد کنید.' };
+  }
+  try {
+    await buildTransporter(config).verify();
+    return { ok: true, message: `اتصال به ${config.host}:${config.port} برقرار شد.`, source: config.source };
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : String(err);
+    return { ok: false, message: `اتصال برقرار نشد: ${raw.slice(0, 300)}`, source: config.source };
+  }
 }
 
 export type MailInput = {
@@ -22,25 +87,43 @@ export type MailInput = {
   html?: string;
 };
 
+async function logEmail(input: MailInput, status: 'SENT' | 'FAILED' | 'SKIPPED', error?: string, host?: string) {
+  await prisma.emailLog
+    .create({
+      data: {
+        to: input.to.slice(0, 200),
+        subject: input.subject.slice(0, 300),
+        status,
+        error: error?.slice(0, 500) ?? null,
+        smtpHost: host ?? null,
+      },
+    })
+    .catch(() => null);
+}
+
 export async function sendMail(input: MailInput): Promise<boolean> {
-  const tx = getTransporter();
-  if (!tx) {
+  const config = await getSmtpConfig();
+  if (!config) {
     if (!env.isProd) {
       console.info('[mail:dev]', input.to, '|', input.subject, '\n', input.text ?? input.html?.slice(0, 200));
     }
+    await logEmail(input, 'SKIPPED', 'سرور ایمیل پیکربندی نشده است');
     return false;
   }
   try {
-    await tx.sendMail({
-      from: `${env.appName} <${env.smtp.from}>`,
+    await buildTransporter(config).sendMail({
+      from: `${env.appName} <${config.from}>`,
       to: input.to,
       subject: input.subject,
       text: input.text,
       html: input.html ?? (input.text ? wrapHtml(input.subject, input.text) : undefined),
     });
+    await logEmail(input, 'SENT', undefined, config.host);
     return true;
   } catch (err) {
-    console.error('[mail] ارسال ایمیل ناموفق بود:', err);
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[mail] ارسال ایمیل ناموفق بود:', message);
+    await logEmail(input, 'FAILED', message, config.host);
     return false;
   }
 }

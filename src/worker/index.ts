@@ -23,6 +23,7 @@ import { cleanupOrphanIps } from '../lib/ip-cleanup';
 import { runEurRateUpdate } from '../lib/eur-rate';
 import { refreshAllLoyalty } from '../lib/loyalty';
 import { runWeeklyReports } from '../lib/weekly-report';
+import { runCatalogAutoSync } from '../lib/catalog';
 
 /**
  * ورکر پس‌زمینه — باید در کنار اپلیکیشن و به صورت دائمی اجرا شود:
@@ -154,6 +155,16 @@ export const jobs = {
       };
     }),
 
+  /** هر ساعت: تازه کردن کاتالوگ و موجودی پلن‌ها (بازه واقعی در تنظیمات) */
+  catalogAutoSync: () =>
+    runJob('catalog-auto-sync', async () => {
+      const res = await runCatalogAutoSync();
+      return {
+        processed: res.status === 'synced' ? 1 : 0,
+        meta: { status: res.status, reason: res.reason, serverTypes: res.result?.serverTypes },
+      };
+    }),
+
   /** روزانه: بازمحاسبه سطح باشگاه مشتریان */
   refreshLoyalty: () =>
     runJob('refresh-loyalty', async () => {
@@ -252,6 +263,10 @@ export const jobs = {
   housekeeping: () =>
     runJob('housekeeping', async () => {
       const rateLimits = await purgeExpiredRateLimits();
+      // لاگ ایمیل‌های قدیمی‌تر از ۹۰ روز پاک می‌شود
+      const emailLogs = await prisma.emailLog.deleteMany({
+        where: { createdAt: { lt: new Date(Date.now() - 90 * 24 * 3600_000) } },
+      });
       const sessions = await prisma.session.deleteMany({
         where: { OR: [{ expiresAt: { lt: new Date() } }, { revokedAt: { lt: new Date(Date.now() - 30 * 86_400_000) } }] },
       });
@@ -272,6 +287,7 @@ export const jobs = {
         processed: rateLimits + sessions.count + tokens.count,
         meta: {
           rateLimits,
+          emailLogs: emailLogs.count,
           sessions: sessions.count,
           tokens: tokens.count,
           notifications: notifications.count,
@@ -300,6 +316,8 @@ function schedule() {
   cron.schedule('25 * * * *', jobs.cleanupOrphanIps, { timezone: tz });
   // نرخ خودکار یورو، هر ۳۰ دقیقه (بازه واقعی در تنظیمات است)
   cron.schedule('*/30 * * * *', jobs.updateEurRate, { timezone: tz });
+  // کاتالوگ و موجودی پلن‌ها، هر ساعت دقیقه ۴۰ (بازه واقعی در تنظیمات)
+  cron.schedule('40 * * * *', jobs.catalogAutoSync, { timezone: tz });
   // باشگاه مشتریان، روزانه ساعت ۴:۳۰ بامداد
   cron.schedule('30 4 * * *', jobs.refreshLoyalty, { timezone: tz });
   // گزارش هفتگی، جمعه‌ها ساعت ۱۰ صبح
@@ -331,6 +349,7 @@ function schedule() {
   log('   • بررسی دسترسی آدرس از ایران: هر ۲ دقیقه');
   log('   • جاروب آدرس‌های بلااستفاده: هر ساعت');
   log('   • نرخ خودکار یورو: طبق بازه تنظیمات');
+  log('   • کاتالوگ و موجودی پلن‌ها: هر ساعت');
   log('   • باشگاه مشتریان: روزانه ۴:۳۰');
   log('   • گزارش هفتگی: جمعه‌ها ۱۰ صبح');
   log('   • همگام‌سازی وضعیت: هر ۱۰ دقیقه');

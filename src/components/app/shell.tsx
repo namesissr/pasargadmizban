@@ -30,6 +30,7 @@ import {
   Cloud,
   Radar,
   TicketPercent,
+  Mail,
   Megaphone,
   MoreHorizontal,
 } from 'lucide-react';
@@ -76,6 +77,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin/pricing', label: 'قیمت‌گذاری', icon: Tags },
   { href: '/admin/promos', label: 'کدهای هدیه', icon: TicketPercent },
   { href: '/admin/announcements', label: 'اعلان‌های سایت', icon: Megaphone },
+  { href: '/admin/messaging', label: 'ایمیل و پیامک', icon: Mail },
   { href: '/admin/settings', label: 'تنظیمات', icon: Settings },
   { href: '/admin/logs', label: 'گزارش رویدادها', icon: ScrollText },
 ];

@@ -41,8 +41,11 @@ export const GET = route(async () => {
     capacityOverview(),
   ]);
 
+  // رمز SMTP حتی رمزنگاری‌شده هم نباید به مرورگر برود
+  const { smtpPassEnc: _smtpPassEnc, ...safeSettings } = settings;
+
   return ok({
-    settings,
+    settings: { ...safeSettings, smtpHasPass: Boolean(settings.smtpPassEnc) },
     defaults: DEFAULT_SETTINGS,
     integrations: {
       hetzner: capacity.totals.enabled > 0,

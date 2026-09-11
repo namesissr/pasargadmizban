@@ -296,6 +296,9 @@ export const adminSettingsSchema = z.object({
   loyaltyDiamondSpend: z.coerce.number().int().min(0).optional(),
   loyaltyDiamondPct: z.coerce.number().int().min(0).max(50).optional(),
   weeklyReportEnabled: z.boolean().optional(),
+
+  catalogAutoSyncEnabled: z.boolean().optional(),
+  catalogSyncIntervalHours: z.coerce.number().int().min(1).max(168).optional(),
 });
 
 export const adminUserUpdateSchema = z.object({

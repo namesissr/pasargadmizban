@@ -2,6 +2,8 @@ import prisma from './prisma';
 import type { HPrice } from './hetzner';
 import { catalogClient } from './hetzner-accounts';
 import { invalidatePricingCache } from './pricing';
+import { getSettings } from './settings';
+import { hasAnyAccount } from './hetzner-accounts';
 import { locationFa } from './utils';
 
 /**
@@ -188,6 +190,43 @@ export async function syncCatalog(opts: { includeImages?: boolean } = {}): Promi
     images: imageCount,
     durationMs: Date.now() - started,
   };
+}
+
+export type AutoSyncResult = {
+  status: 'synced' | 'skipped' | 'error';
+  reason?: string;
+  result?: SyncResult;
+};
+
+/**
+ * همگام‌سازی خودکار دوره‌ای.
+ *
+ * ورکر هر ساعت این را صدا می‌زند؛ خودش تصمیم می‌گیرد وقتش شده یا نه. با هر
+ * همگام‌سازی، موجودی پلن‌ها در هر دیتاسنتر تازه می‌شود، پس اگر پلنی در هتزنر
+ * تمام یا موجود شود، سایت خودکار همان را نشان می‌دهد. انتخاب‌های مدیر (پلن‌ها و
+ * لوکیشن‌های خاموش‌شده) دست نمی‌خورند چون فیلد enabled هنگام به‌روزرسانی
+ * بازنویسی نمی‌شود.
+ */
+export async function runCatalogAutoSync(): Promise<AutoSyncResult> {
+  const settings = await getSettings();
+  if (!settings.catalogAutoSyncEnabled) return { status: 'skipped', reason: 'در تنظیمات خاموش است' };
+  if (!(await hasAnyAccount())) return { status: 'skipped', reason: 'حساب هتزنری ثبت نشده' };
+
+  const last = await lastCatalogSync();
+  const intervalMs = Math.max(1, settings.catalogSyncIntervalHours) * 3600_000;
+  if (last && Date.now() - last.getTime() < intervalMs - 60_000) {
+    return { status: 'skipped', reason: 'هنوز وقتش نشده' };
+  }
+
+  try {
+    // ایمیج‌ها به‌ندرت عوض می‌شوند؛ در دور خودکار رد می‌شوند تا سبک بماند
+    const result = await syncCatalog({ includeImages: false });
+    return { status: 'synced', result };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error('[catalog] همگام‌سازی خودکار ناموفق بود:', message);
+    return { status: 'error', reason: message.slice(0, 300) };
+  }
 }
 
 /** آخرین زمان همگام‌سازی */

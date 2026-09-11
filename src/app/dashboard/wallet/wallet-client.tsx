@@ -24,7 +24,7 @@ type Tx = {
   paidAt: string | null;
 };
 
-const QUICK_AMOUNTS = [200_000, 500_000, 1_000_000, 2_000_000, 5_000_000];
+const QUICK_AMOUNTS = [200_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000];
 
 export function WalletClient({
   balance,
@@ -48,7 +48,9 @@ export function WalletClient({
   useFlashFromQuery();
   const toast = useToast();
 
-  const [amount, setAmount] = useState<number>(500000);
+  // دکمه‌های سریع فقط مبالغی را نشان می‌دهند که در بازه مجاز شارژ باشند
+  const quickAmounts = QUICK_AMOUNTS.filter((a) => a >= limits.min && a <= limits.max).slice(0, 6);
+  const [amount, setAmount] = useState<number>(Math.max(500_000, limits.min));
   const [gateway, setGateway] = useState(gateways[0]?.id ?? 'zibal');
   const [loading, setLoading] = useState(false);
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -225,7 +227,7 @@ export function WalletClient({
             </Field>
 
             <div className="grid grid-cols-3 gap-2">
-              {QUICK_AMOUNTS.map((a) => (
+              {quickAmounts.map((a) => (
                 <button
                   key={a}
                   type="button"

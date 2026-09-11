@@ -21,6 +21,7 @@ import { cleanupOrphanIps } from '@/lib/ip-cleanup';
 import { runEurRateUpdate } from '@/lib/eur-rate';
 import { refreshAllLoyalty } from '@/lib/loyalty';
 import { runWeeklyReports } from '@/lib/weekly-report';
+import { runCatalogAutoSync } from '@/lib/catalog';
 import { runLowBalanceAlerts, runTrafficAlerts, runBudgetAlerts } from '@/lib/alerts';
 
 export const runtime = 'nodejs';
@@ -63,6 +64,7 @@ const JOBS = {
   'update-eur-rate': async () => runEurRateUpdate(),
   'refresh-loyalty': async () => refreshAllLoyalty(),
   'weekly-reports': async () => runWeeklyReports(),
+  'catalog-auto-sync': async () => runCatalogAutoSync(),
   'low-balance-alerts': async () => runLowBalanceAlerts(),
   'traffic-alerts': async () => runTrafficAlerts(),
   'budget-alerts': async () => runBudgetAlerts(),

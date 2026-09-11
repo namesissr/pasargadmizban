@@ -221,6 +221,8 @@ POST /api/servers/{id}/change-ip
 | GET/POST | `/admin/promos` | فهرست / ساخت کد هدیه و تخفیف |
 | PATCH/DELETE | `/admin/promos/{id}` | ویرایش، غیرفعال یا حذف کد (فقط ADMIN) |
 | GET | `/admin/eur-rate` | تاریخچه دریافت‌های نرخ یورو |
+| GET | `/admin/messaging` | وضعیت SMTP و پیامک، آمار و لاگ ایمیل‌های ارسالی |
+| POST | `/admin/messaging` | ذخیره تنظیمات SMTP، آزمایش اتصال، ایمیل و پیامک آزمایشی (فقط ADMIN) |
 | POST | `/admin/eur-rate` | آزمایش دریافت (`action: "test"`) یا اعمال فوری (`action: "apply"`) — فقط ADMIN |
 | GET | `/admin/ip-cleanup` | فهرست آدرس‌های بلااستفاده در همه حساب‌ها |
 | POST | `/admin/ip-cleanup` | حذف فوری همه آدرس‌های بلااستفاده (فقط ADMIN) |

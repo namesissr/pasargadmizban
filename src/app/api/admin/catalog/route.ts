@@ -4,6 +4,7 @@ import { requireAdmin, clientIp, assertSameOrigin } from '@/lib/auth';
 import { catalogToggleSchema } from '@/lib/validation';
 import { invalidatePricingCache } from '@/lib/pricing';
 import { lastCatalogSync, CATEGORY_FA } from '@/lib/catalog';
+import { getSettings } from '@/lib/settings';
 import { audit } from '@/lib/audit';
 
 export const runtime = 'nodejs';
@@ -27,8 +28,14 @@ export const GET = route(async () => {
   });
   const usageMap = Object.fromEntries(usage.map((u) => [u.serverTypeName, u._count]));
 
+  const settings = await getSettings();
+
   return ok({
     syncedAt,
+    autoSync: {
+      enabled: settings.catalogAutoSyncEnabled,
+      intervalHours: settings.catalogSyncIntervalHours,
+    },
     categories: CATEGORY_FA,
     counts: { serverTypes: serverTypes.length, locations: locations.length, images: images.length, datacenters },
     serverTypes: serverTypes.map((st) => ({
