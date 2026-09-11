@@ -1,0 +1,52 @@
+# ─────────────────────────────────────────────────────────────
+#  اجرای کامل پنل با داکر: دیتابیس + وب + ورکر
+#
+#  مقدار POSTGRES_PASSWORD از همان فایل .env خوانده می‌شود.
+#  پورت وب فقط روی 127.0.0.1 باز می‌شود؛ Nginx روی خود سرور آن را
+#  با TLS به اینترنت می‌رساند.
+# ─────────────────────────────────────────────────────────────
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: pasargad
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD را در فایل .env تعیین کنید}
+      POSTGRES_DB: pasargad_cloud
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U pasargad -d pasargad_cloud']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  app:
+    build: .
+    image: pasargad-panel
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # میزبان دیتابیس داخل شبکه داکر «db» است؛ این مقدار روی .env اولویت دارد
+      DATABASE_URL: postgresql://pasargad:${POSTGRES_PASSWORD}@db:5432/pasargad_cloud?schema=public
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+
+  worker:
+    image: pasargad-panel
+    restart: unless-stopped
+    command: ['npm', 'run', 'worker']
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://pasargad:${POSTGRES_PASSWORD}@db:5432/pasargad_cloud?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+
+volumes:
+  db-data:
