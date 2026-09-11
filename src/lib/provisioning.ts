@@ -336,7 +336,9 @@ export async function provisionServer(input: ProvisionInput): Promise<Server> {
         server_type: serverType.name,
         // نام ایمیج پایدار است؛ شناسه عددی با هر به‌روزرسانی ایمیج در هتزنر عوض می‌شود و شناسه کهنه خطا می‌دهد
         image: image.name || String(image.id),
-        ...(datacenter ? { datacenter } : { location: location.name }),
+        // مثل کنسول خود هتزنر فقط لوکیشن می‌فرستیم تا هتزنر دیتاسنترِ دارای ظرفیت را خودش انتخاب کند؛
+        // pin کردن دیتاسنتر با داده کهنه کاتالوگ باعث خطای ظرفیت می‌شد در حالی که کنسول کار می‌کرد
+        location: location.name,
         ssh_keys: hetznerKeyIds,
         start_after_create: true,
         user_data: cloudInit || undefined,
@@ -355,8 +357,11 @@ export async function provisionServer(input: ProvisionInput): Promise<Server> {
       break;
     } catch (err) {
       const code = err instanceof HetznerError ? err.code : 'unknown';
-      const message = err instanceof HetznerError ? err.message : 'خطای نامشخص';
+      const message =
+        err instanceof HetznerError ? err.message : err instanceof Error ? err.message : 'خطای نامشخص';
       attemptErrors.push(`${account.name}: ${message}`);
+      // در لاگ داکر هم دیده شود تا عیب‌یابی روی سرور بدون پنل ممکن باشد
+      console.error(`[provision] ساخت روی حساب «${account.name}» شکست خورد: ${code} — ${message}`);
 
       if (code === 'resource_limit_exceeded') {
         // ظرفیت این پروژه پر است — سقف واقعی را یاد بگیر و سراغ حساب بعدی برو
@@ -437,6 +442,8 @@ export async function provisionServer(input: ProvisionInput): Promise<Server> {
         hetznerId: BigInt(hServer.id),
         hetznerAccountId: usedAccount.id,
         hetznerStatus: hServer.status,
+        // دیتاسنتر واقعی را هتزنر انتخاب کرده؛ حدس اولیه کاتالوگ را با آن جایگزین کن
+        datacenterName: hServer.datacenter?.name ?? datacenter,
         status: mapHetznerStatus(hServer.status),
         ipv4: hServer.public_net?.ipv4?.ip ?? null,
         primaryIpId: primaryIpId ? BigInt(primaryIpId) : null,

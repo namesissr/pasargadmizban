@@ -306,7 +306,14 @@ export class HetznerClient {
         if (!res.ok) {
           const errObj = (json as { error?: { code?: string; message?: string; details?: unknown } }).error;
           const code = errObj?.code ?? `http_${res.status}`;
-          const message = ERROR_FA[code] ?? errObj?.message ?? `خطای HTTP ${res.status} از هتزنر`;
+          // پیام اصلی هتزنر کنار ترجمه می‌ماند؛ بدون آن عیب‌یابی کور می‌شود
+          const fa = ERROR_FA[code];
+          const raw = errObj?.message;
+          const message = fa
+            ? raw && raw !== fa
+              ? `${fa} (${raw})`
+              : fa
+            : raw ?? `خطای HTTP ${res.status} از هتزنر`;
 
           // خطاهای موقتی → تلاش مجدد
           const retriable =
