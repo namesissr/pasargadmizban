@@ -39,7 +39,8 @@ export const GET = route(async () => {
     prisma.server.count({ where: { status: 'PROVISIONING' } }),
     prisma.server.count({ where: { status: 'SUSPENDED' } }),
     prisma.ticket.count({ where: { status: { notIn: ['CLOSED'] } } }),
-    prisma.transaction.count({ where: { status: 'PENDING', type: 'DEPOSIT' } }),
+    // فقط رسیدهای کارت‌به‌کارت؛ پرداخت‌های نیمه‌کارهٔ درگاه نیاز به بررسی ادمین ندارند
+    prisma.transaction.count({ where: { status: 'PENDING', type: 'DEPOSIT', gateway: 'manual' } }),
     prisma.user.aggregate({ _sum: { balance: true } }),
     revenueReport(1),
     revenueReport(30),

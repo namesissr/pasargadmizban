@@ -108,14 +108,14 @@ export function AdminDashboard() {
       {data.finance.pendingDeposits > 0 ? (
         <Alert
           tone="warning"
-          title={`${formatNumber(data.finance.pendingDeposits)} تراکنش در انتظار بررسی`}
+          title={`${formatNumber(data.finance.pendingDeposits)} رسید کارت‌به‌کارت در انتظار بررسی`}
           action={
-            <Link href="/admin/transactions?status=PENDING" className="btn btn-secondary btn-sm">
-              بررسی تراکنش‌ها
+            <Link href="/admin/transactions?status=PENDING&gateway=manual" className="btn btn-secondary btn-sm">
+              بررسی رسیدها
             </Link>
           }
         >
-          رسیدهای واریز دستی یا پرداخت‌های تاییدنشده نیاز به رسیدگی دارند.
+          رسیدهای واریز کارت‌به‌کارت باید تایید یا رد شوند.
         </Alert>
       ) : null}
 

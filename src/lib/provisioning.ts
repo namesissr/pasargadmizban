@@ -127,7 +127,7 @@ export async function quoteServer(input: {
 export async function provisionServer(input: ProvisionInput): Promise<Server> {
   const user = await prisma.user.findUnique({
     where: { id: input.userId },
-    select: { id: true, email: true, firstName: true, lastName: true, discountPct: true, loyaltyPct: true, maxServers: true, status: true },
+    select: { id: true, email: true, firstName: true, lastName: true, discountPct: true, loyaltyPct: true, maxServers: true, status: true, role: true },
   });
   if (!user) throw new ApiError('کاربر یافت نشد.', 404);
   if (user.status !== 'ACTIVE') {
@@ -334,7 +334,8 @@ export async function provisionServer(input: ProvisionInput): Promise<Server> {
       created = await client.createServer({
         name: uniqueHetznerName(server.id, input.name),
         server_type: serverType.name,
-        image: String(image.id),
+        // نام ایمیج پایدار است؛ شناسه عددی با هر به‌روزرسانی ایمیج در هتزنر عوض می‌شود و شناسه کهنه خطا می‌دهد
+        image: image.name || String(image.id),
         ...(datacenter ? { datacenter } : { location: location.name }),
         ssh_keys: hetznerKeyIds,
         start_after_create: true,
@@ -413,8 +414,13 @@ export async function provisionServer(input: ProvisionInput): Promise<Server> {
       dedupeHours: 2,
     });
 
+    // مدیر باید علت واقعی را همان لحظه ببیند؛ کاربر عادی همان پیام عمومی را می‌گیرد
+    const staffDetail =
+      user.role !== 'USER' && attemptErrors.length
+        ? ` — علت (فقط مدیر می‌بیند): ${attemptErrors.join(' | ')}`.slice(0, 400)
+        : '';
     throw new ApiError(
-      'در حال حاضر ظرفیت ساخت سرور با این مشخصات موجود نیست. لوکیشن یا پلن دیگری انتخاب کنید.',
+      `در حال حاضر ظرفیت ساخت سرور با این مشخصات موجود نیست. لوکیشن یا پلن دیگری انتخاب کنید.${staffDetail}`,
       503,
       { code: 'no_capacity' },
     );

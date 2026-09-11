@@ -42,7 +42,7 @@ function TransactionsInner() {
   const [q, setQ] = useState('');
   const [status, setStatus] = useState(params.get('status') ?? 'ALL');
   const [type, setType] = useState('ALL');
-  const [gateway, setGateway] = useState('ALL');
+  const [gateway, setGateway] = useState(params.get('gateway') ?? 'ALL');
 
   const [target, setTarget] = useState<Row | null>(null);
   const [reason, setReason] = useState('');
