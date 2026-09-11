@@ -1,0 +1,1170 @@
+// پاسارگاد میزبان — پنل فروش سرور ابری (Hetzner Cloud reseller)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ═══════════════════  کاربران و احراز هویت  ═══════════════════
+
+enum Role {
+  USER
+  SUPPORT
+  ADMIN
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  BANNED
+}
+
+model User {
+  id              String     @id @default(cuid())
+  email           String     @unique
+  emailVerifiedAt DateTime?
+  phone           String?    @unique
+  phoneVerifiedAt DateTime?
+  passwordHash    String
+  firstName       String?
+  lastName        String?
+  nationalId      String?
+  company         String?
+  address         String?
+  city            String?
+  province        String?
+  postalCode      String?
+  role            Role       @default(USER)
+  status          UserStatus @default(PENDING)
+
+  // موجودی کیف پول به تومان (عدد صحیح)
+  balance     BigInt @default(0)
+  creditLimit BigInt @default(0)
+
+  twoFactorEnabled  Boolean @default(false)
+  twoFactorSecret   String?
+  twoFactorRecovery Json    @default("[]")
+
+  maxServers  Int     @default(20)
+  discountPct Int     @default(0)
+
+  // باشگاه مشتریان: از مجموع مصرف واقعی محاسبه و روزانه تازه می‌شود
+  loyaltySpend BigInt @default(0)
+  loyaltyTier  String @default("BRONZE")
+  loyaltyPct   Int    @default(0)
+  notes       String?
+
+  referralCode String? @unique
+  referredById String?
+  referredBy   User?   @relation("Referrals", fields: [referredById], references: [id], onDelete: SetNull)
+  referrals    User[]  @relation("Referrals")
+
+  lastLoginAt DateTime?
+  lastLoginIp String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  sessions      Session[]
+  tokens        VerificationToken[]
+  servers       Server[]
+  transactions  Transaction[]
+  invoices      Invoice[]
+  tickets       Ticket[]
+  ticketMsgs    TicketMessage[]
+  sshKeys       SshKey[]
+  notifications Notification[]
+  auditLogs     AuditLog[]
+  serverActions ServerAction[]
+  snapshots     Snapshot[]
+  floatingIps   FloatingIp[]
+  firewalls     Firewall[]
+  couponUses    CouponRedemption[]
+
+  notificationPreference NotificationPreference?
+  telegramLink           TelegramLink?
+  telegramCodes          TelegramLinkCode[]
+  monitors               ServerMonitor[]
+  commissionsEarned      ReferralCommission[] @relation("CommissionEarned")
+  commissionsGenerated   ReferralCommission[] @relation("CommissionGenerated")
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("users")
+}
+
+model Session {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  userAgent String?
+  ip        String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+enum TokenType {
+  EMAIL_VERIFY
+  PASSWORD_RESET
+  PHONE_OTP
+  LOGIN_OTP
+}
+
+model VerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      TokenType
+  tokenHash String
+  target    String?
+  attempts  Int       @default(0)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, type])
+  @@index([tokenHash])
+  @@map("verification_tokens")
+}
+
+// ═══════════════════  کاتالوگ هتزنر  ═══════════════════
+
+model HetznerLocation {
+  id          Int     @id
+  name        String  @unique
+  description String
+  country     String
+  city        String
+  networkZone String
+  latitude    Float?
+  longitude   Float?
+  enabled     Boolean @default(true)
+  sortOrder   Int     @default(0)
+  flagEmoji   String?
+  faTitle     String?
+
+  datacenters HetznerDatacenter[]
+  updatedAt   DateTime            @updatedAt
+
+  @@map("hetzner_locations")
+}
+
+model HetznerDatacenter {
+  id          Int             @id
+  name        String          @unique
+  description String
+  locationId  Int
+  location    HetznerLocation @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  available   Json            @default("[]")
+  supported   Json            @default("[]")
+  updatedAt   DateTime        @updatedAt
+
+  @@index([locationId])
+  @@map("hetzner_datacenters")
+}
+
+model HetznerServerType {
+  id              Int     @id
+  name            String  @unique
+  description     String
+  cores           Int
+  cpuType         String
+  architecture    String  @default("x86")
+  memory          Float
+  disk            Int
+  storageType     String  @default("local")
+  includedTraffic BigInt  @default(0)
+  deprecated      Boolean @default(false)
+  enabled         Boolean @default(true)
+  category        String  @default("shared")
+  sortOrder       Int     @default(0)
+  prices          Json    @default("[]")
+
+  updatedAt DateTime @updatedAt
+
+  @@index([enabled, deprecated])
+  @@map("hetzner_server_types")
+}
+
+model HetznerImage {
+  id           Int      @id
+  name         String?
+  description  String
+  osFlavor     String
+  osVersion    String?
+  type         String
+  architecture String   @default("x86")
+  diskSize     Int      @default(0)
+  enabled      Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  updatedAt    DateTime @updatedAt
+
+  @@index([enabled])
+  @@map("hetzner_images")
+}
+
+// ═══════════════════  قیمت‌گذاری  ═══════════════════
+
+enum PricingScope {
+  GLOBAL
+  SERVER_TYPE
+  LOCATION
+  USER
+}
+
+model PricingRule {
+  id            String       @id @default(cuid())
+  scope         PricingScope
+  targetKey     String?
+  markupPercent Float        @default(0)
+  markupFixed   BigInt       @default(0)
+  priority      Int          @default(0)
+  active        Boolean      @default(true)
+  note          String?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([scope, targetKey, active])
+  @@map("pricing_rules")
+}
+
+model Setting {
+  key       String   @id
+  value     Json
+  group     String   @default("general")
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+// ═══════════════════  سرورها  ═══════════════════
+
+enum BillingCycle {
+  HOURLY
+  MONTHLY
+}
+
+enum ServerStatus {
+  PROVISIONING
+  RUNNING
+  OFF
+  REBUILDING
+  MIGRATING
+  SUSPENDED
+  DELETING
+  DELETED
+  ERROR
+}
+
+model Server {
+  id        String  @id @default(cuid())
+  hetznerId BigInt?
+  userId    String
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // حسابی از هتزنر که این سرور روی آن ساخته شده
+  hetznerAccountId String?
+  hetznerAccount   HetznerAccount? @relation(fields: [hetznerAccountId], references: [id], onDelete: SetNull)
+
+  name           String
+  label          String?
+  serverTypeName String
+  locationName   String
+  datacenterName String?
+  imageName      String
+  imageLabel     String?
+
+  billingCycle  BillingCycle @default(HOURLY)
+  status        ServerStatus @default(PROVISIONING)
+  hetznerStatus String?
+
+  ipv4        String?
+  ipv6        String?
+  ipv6Network String?
+  privateNet  Json    @default("[]")
+  /** شناسه Primary IP در هتزنر — برای تعویض آدرس لازم است */
+  primaryIpId BigInt?
+
+  rootPasswordEnc String?
+  sshKeyIds       Json    @default("[]")
+
+  cores           Int    @default(0)
+  memory          Float  @default(0)
+  disk            Int    @default(0)
+  includedTraffic BigInt @default(0)
+
+  // قیمت‌های نهایی به تومان
+  priceHourly  BigInt @default(0)
+  priceMonthly BigInt @default(0)
+
+  backupsEnabled     Boolean @default(false)
+  backupPriceHourly  BigInt  @default(0)
+  backupPriceMonthly BigInt  @default(0)
+
+  protection Boolean @default(false)
+  autoRenew  Boolean @default(true)
+  rescueMode String?
+  isoName    String?
+
+  createdAt     DateTime  @default(now())
+  provisionedAt DateTime?
+  expiresAt     DateTime?
+  lastBilledAt  DateTime?
+  suspendedAt   DateTime?
+  deleteAfter   DateTime?
+  deletedAt     DateTime?
+  updatedAt     DateTime  @updatedAt
+
+  provisionError String?
+  appTemplate    String?
+  meta           Json    @default("{}")
+
+  // نتیجه بررسی در دسترس بودن آدرس از داخل ایران
+  ipReachState    IpReachState @default(UNKNOWN)
+  ipCheckedAt     DateTime?
+  /** چند دور بررسی پیاپی ناموفق بوده — برای تصمیم‌گیری درباره تعویض خودکار */
+  ipCheckRounds   Int          @default(0)
+  /** چند بار پنل خودش آدرس این سرور را رایگان عوض کرده */
+  ipAutoSwaps     Int          @default(0)
+
+  actions      ServerAction[]
+  traffic      TrafficUsage[]
+  transactions Transaction[]
+  invoiceItems InvoiceItem[]
+  snapshots    Snapshot[]
+  tickets      Ticket[]
+  floatingIps  FloatingIp[]
+  monitor      ServerMonitor?
+  ipChanges    ServerIpChange[]
+
+  @@unique([hetznerAccountId, hetznerId])
+  @@index([userId, status])
+  @@index([status, billingCycle])
+  @@index([expiresAt])
+  @@index([hetznerAccountId])
+  @@map("servers")
+}
+
+enum ActionStatus {
+  RUNNING
+  SUCCESS
+  ERROR
+}
+
+model ServerAction {
+  id              String       @id @default(cuid())
+  serverId        String
+  server          Server       @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  userId          String?
+  user            User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action          String
+  hetznerActionId BigInt?
+  status          ActionStatus @default(RUNNING)
+  progress        Int          @default(0)
+  error           String?
+  meta            Json         @default("{}")
+  createdAt       DateTime     @default(now())
+  finishedAt      DateTime?
+
+  @@index([serverId, createdAt])
+  @@index([status])
+  @@map("server_actions")
+}
+
+model TrafficUsage {
+  id            String   @id @default(cuid())
+  serverId      String
+  server        Server   @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  date          DateTime @db.Date
+  outgoingBytes BigInt   @default(0)
+  incomingBytes BigInt   @default(0)
+  createdAt     DateTime @default(now())
+
+  @@unique([serverId, date])
+  @@index([date])
+  @@map("traffic_usage")
+}
+
+model SshKey {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name        String
+  publicKey   String
+  fingerprint String
+  createdAt   DateTime @default(now())
+
+  remotes SshKeyRemote[]
+
+  @@unique([userId, fingerprint])
+  @@index([userId])
+  @@map("ssh_keys")
+}
+
+/**
+ * نگاشت هر کلید SSH به شناسه‌اش در هر حساب هتزنر.
+ * چون کلید باید جداگانه در هر پروژه آپلود شود.
+ */
+model SshKeyRemote {
+  id        String         @id @default(cuid())
+  sshKeyId  String
+  sshKey    SshKey         @relation(fields: [sshKeyId], references: [id], onDelete: Cascade)
+  accountId String
+  account   HetznerAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  hetznerId BigInt
+  createdAt DateTime       @default(now())
+
+  @@unique([sshKeyId, accountId])
+  @@index([accountId])
+  @@map("ssh_key_remotes")
+}
+
+model Snapshot {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  serverId       String?
+  server         Server?   @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  hetznerImageId BigInt
+  accountId      String?
+  account        HetznerAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  description    String
+  sizeGb         Float     @default(0)
+  priceMonthly   BigInt    @default(0)
+  lastBilledAt   DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@unique([accountId, hetznerImageId])
+  @@index([userId])
+  @@map("snapshots")
+}
+
+model FloatingIp {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hetznerId    BigInt
+  accountId    String?
+  account      HetznerAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  type         String    @default("ipv4")
+  ip           String
+  locationName String
+  description  String?
+  serverId     String?
+  server       Server?   @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  priceMonthly BigInt    @default(0)
+  lastBilledAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  @@unique([accountId, hetznerId])
+  @@index([userId])
+  @@map("floating_ips")
+}
+
+model Firewall {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hetznerId BigInt
+  accountId String?
+  account   HetznerAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  name      String
+  rules     Json     @default("[]")
+  appliedTo Json     @default("[]")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([accountId, hetznerId])
+  @@index([userId])
+  @@map("firewalls")
+}
+
+// ═══════════════════  مالی  ═══════════════════
+
+enum TxType {
+  DEPOSIT
+  CHARGE
+  REFUND
+  BONUS
+  ADJUSTMENT
+  WITHDRAW
+}
+
+enum TxDirection {
+  CREDIT
+  DEBIT
+}
+
+enum TxStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELED
+}
+
+model Transaction {
+  id           String      @id @default(cuid())
+  ref          String      @unique
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type         TxType
+  direction    TxDirection
+  amount       BigInt
+  balanceAfter BigInt      @default(0)
+  status       TxStatus    @default(PENDING)
+
+  gateway      String?
+  gatewayRefId String?
+  trackId      String?
+  authority    String?
+  cardNumber   String?
+  receiptPath  String?
+
+  description String?
+  meta        Json    @default("{}")
+
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+  serverId  String?
+  server    Server?  @relation(fields: [serverId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime  @default(now())
+  paidAt    DateTime?
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId, createdAt])
+  @@index([status, type])
+  @@index([trackId])
+  @@map("transactions")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  UNPAID
+  PAID
+  CANCELED
+  REFUNDED
+}
+
+model Invoice {
+  id          String        @id @default(cuid())
+  number      Int           @unique @default(autoincrement())
+  userId      String
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      InvoiceStatus @default(UNPAID)
+  subtotal    BigInt        @default(0)
+  discount    BigInt        @default(0)
+  tax         BigInt        @default(0)
+  total       BigInt        @default(0)
+  note        String?
+  periodStart DateTime?
+  periodEnd   DateTime?
+  dueAt       DateTime?
+  paidAt      DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  items        InvoiceItem[]
+  transactions Transaction[]
+
+  @@index([userId, status])
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Float   @default(1)
+  unitPrice   BigInt  @default(0)
+  total       BigInt  @default(0)
+  serverId    String?
+  server      Server? @relation(fields: [serverId], references: [id], onDelete: SetNull)
+
+  @@index([invoiceId])
+  @@map("invoice_items")
+}
+
+model Coupon {
+  id          String    @id @default(cuid())
+  code        String    @unique
+  type        String    @default("PERCENT")
+  value       BigInt    @default(0)
+  maxUses     Int       @default(0)
+  usedCount   Int       @default(0)
+  perUserMax  Int       @default(1)
+  minAmount   BigInt    @default(0)
+  maxDiscount BigInt    @default(0)
+  active      Boolean   @default(true)
+  expiresAt   DateTime?
+  createdAt   DateTime  @default(now())
+
+  redemptions CouponRedemption[]
+
+  @@map("coupons")
+}
+
+model CouponRedemption {
+  id        String   @id @default(cuid())
+  couponId  String
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  amount    BigInt   @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([couponId, userId])
+  @@map("coupon_redemptions")
+}
+
+// ═══════════════════  پشتیبانی  ═══════════════════
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  ANSWERED
+  CUSTOMER_REPLY
+  ON_HOLD
+  CLOSED
+}
+
+model TicketDepartment {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  active    Boolean  @default(true)
+  sortOrder Int      @default(0)
+  tickets   Ticket[]
+
+  @@map("ticket_departments")
+}
+
+model Ticket {
+  id            String            @id @default(cuid())
+  number        Int               @unique @default(autoincrement())
+  userId        String
+  user          User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  departmentId  String?
+  department    TicketDepartment? @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  subject       String
+  priority      TicketPriority    @default(MEDIUM)
+  status        TicketStatus      @default(OPEN)
+  serverId      String?
+  server        Server?           @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  lastReplyAt   DateTime          @default(now())
+  unreadByUser  Boolean           @default(false)
+  unreadByStaff Boolean           @default(true)
+  createdAt     DateTime          @default(now())
+  closedAt      DateTime?
+
+  messages TicketMessage[]
+
+  @@index([userId, status])
+  @@index([status, lastReplyAt])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id          String   @id @default(cuid())
+  ticketId    String
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  isStaff     Boolean  @default(false)
+  body        String
+  attachments Json     @default("[]")
+  createdAt   DateTime @default(now())
+
+  @@index([ticketId, createdAt])
+  @@map("ticket_messages")
+}
+
+// ═══════════════════  سیستمی  ═══════════════════
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String    @default("info")
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  actorType String   @default("user")
+  action    String
+  entity    String?
+  entityId  String?
+  ip        String?
+  userAgent String?
+  meta      Json     @default("{}")
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+  @@index([action])
+  @@map("audit_logs")
+}
+
+model RateLimit {
+  key       String   @id
+  count     Int      @default(0)
+  expiresAt DateTime
+
+  @@index([expiresAt])
+  @@map("rate_limits")
+}
+
+model JobRun {
+  id         String    @id @default(cuid())
+  job        String
+  status     String    @default("running")
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+  processed  Int       @default(0)
+  error      String?
+  meta       Json      @default("{}")
+
+  @@index([job, startedAt])
+  @@map("job_runs")
+}
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  body      String
+  level     String   @default("info")
+  pinned    Boolean  @default(false)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@map("announcements")
+}
+
+// ═══════════════════  اطلاع‌رسانی و ترجیحات کاربر  ═══════════════════
+
+model NotificationPreference {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // کانال‌های ارسال
+  emailEnabled    Boolean @default(true)
+  smsEnabled      Boolean @default(false)
+  telegramEnabled Boolean @default(true)
+
+  // هشدار اعتبار رو به اتمام
+  lowBalanceEnabled Boolean @default(true)
+  lowBalanceHours   Int     @default(48)
+  lowBalanceAmount  BigInt  @default(0)
+
+  // هشدار مصرف ترافیک
+  trafficAlertEnabled Boolean @default(true)
+  trafficAlertPercent Int     @default(80)
+
+  // سقف هزینه ماهانه
+  monthlyBudget      BigInt @default(0)
+  budgetAlertPercent Int    @default(80)
+
+  // دسته‌بندی رویدادها
+  serverEvents  Boolean @default(true)
+  billingEvents Boolean @default(true)
+  ticketEvents  Boolean @default(true)
+  monitorEvents Boolean @default(true)
+  newsEvents    Boolean @default(true)
+
+  /** گزارش هفتگی مصرف و هزینه با ایمیل */
+  weeklyReport Boolean @default(true)
+
+  // ساعات سکوت (اعلان داخل پنل ثبت می‌شود ولی پیام بیرونی ارسال نمی‌شود)
+  quietHoursEnabled Boolean @default(false)
+  quietHoursStart   Int     @default(23)
+  quietHoursEnd     Int     @default(8)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("notification_preferences")
+}
+
+model TelegramLink {
+  id         String    @id @default(cuid())
+  userId     String    @unique
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  chatId     String    @unique
+  username   String?
+  firstName  String?
+  active     Boolean   @default(true)
+  linkedAt   DateTime  @default(now())
+  lastSeenAt DateTime?
+
+  @@map("telegram_links")
+}
+
+model TelegramLinkCode {
+  code      String    @id
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@map("telegram_link_codes")
+}
+
+// ═══════════════════  پایش در دسترس بودن سرور  ═══════════════════
+
+enum MonitorStatus {
+  UNKNOWN
+  UP
+  DOWN
+  PAUSED
+}
+
+model ServerMonitor {
+  id       String @id @default(cuid())
+  serverId String @unique
+  server   Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  enabled         Boolean @default(true)
+  checkType       String  @default("tcp")
+  port            Int     @default(22)
+  httpPath        String  @default("/")
+  expectStatus    Int     @default(0)
+  intervalMinutes Int     @default(5)
+  failThreshold   Int     @default(2)
+  timeoutSeconds  Int     @default(8)
+
+  status           MonitorStatus @default(UNKNOWN)
+  consecutiveFails Int           @default(0)
+  consecutiveOks   Int           @default(0)
+  lastCheckAt      DateTime?
+  lastLatencyMs    Int?
+  lastError        String?
+  downSince        DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  incidents MonitorIncident[]
+  daily     MonitorDaily[]
+
+  @@index([enabled, lastCheckAt])
+  @@map("server_monitors")
+}
+
+model MonitorIncident {
+  id              String        @id @default(cuid())
+  monitorId       String
+  monitor         ServerMonitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  startedAt       DateTime      @default(now())
+  endedAt         DateTime?
+  durationSeconds Int?
+  reason          String?
+
+  @@index([monitorId, startedAt])
+  @@map("monitor_incidents")
+}
+
+model MonitorDaily {
+  id           String        @id @default(cuid())
+  monitorId    String
+  monitor      ServerMonitor @relation(fields: [monitorId], references: [id], onDelete: Cascade)
+  date         DateTime      @db.Date
+  upChecks     Int           @default(0)
+  downChecks   Int           @default(0)
+  avgLatencyMs Int           @default(0)
+
+  @@unique([monitorId, date])
+  @@index([date])
+  @@map("monitor_daily")
+}
+
+// ═══════════════════  پورسانت معرفی  ═══════════════════
+
+model ReferralCommission {
+  id            String   @id @default(cuid())
+  referrerId    String
+  referrer      User     @relation("CommissionEarned", fields: [referrerId], references: [id], onDelete: Cascade)
+  refereeId     String
+  referee       User     @relation("CommissionGenerated", fields: [refereeId], references: [id], onDelete: Cascade)
+  transactionId String   @unique
+  depositAmount BigInt
+  percent       Float
+  amount        BigInt
+  createdAt     DateTime @default(now())
+
+  @@index([referrerId, createdAt])
+  @@map("referral_commissions")
+}
+
+// ═══════════════════  حساب‌های هتزنر (چند حسابی)  ═══════════════════
+
+enum AccountStatus {
+  UNKNOWN
+  OK
+  LIMIT_REACHED
+  ERROR
+  DISABLED
+}
+
+/**
+ * هر حساب یک پروژه Hetzner Cloud با توکن API خودش است.
+ * چون سقف تعداد سرور در هر پروژه محدود است، پنل می‌تواند چند حساب داشته باشد
+ * و وقتی ظرفیت یکی پر شد، خودکار سراغ حساب بعدی برود.
+ */
+model HetznerAccount {
+  id        String @id @default(cuid())
+  name      String
+  /** توکن API با AES-256-GCM رمزنگاری می‌شود */
+  tokenEnc  String
+  /** چند حرف آخر توکن برای شناسایی در پنل */
+  tokenHint String
+
+  enabled  Boolean @default(true)
+  /** عدد کوچک‌تر یعنی اولویت بالاتر برای ساخت سرور */
+  priority Int     @default(0)
+  /** سقف تعداد سرور این پروژه در هتزنر */
+  maxServers Int   @default(10)
+  note     String?
+
+  status        AccountStatus @default(UNKNOWN)
+  /** تعداد سروری که هتزنر برای این پروژه گزارش می‌کند */
+  serverCount   Int           @default(0)
+  /** تعداد سرورهایی که از طریق همین پنل ساخته شده‌اند */
+  panelCount    Int           @default(0)
+  rateRemaining Int?
+  lastCheckedAt DateTime?
+  lastUsedAt    DateTime?
+  lastError     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  servers     Server[]
+  sshRemotes  SshKeyRemote[]
+  snapshots   Snapshot[]
+  floatingIps FloatingIp[]
+  firewalls   Firewall[]
+  ipChanges   ServerIpChange[]
+
+  @@index([enabled, priority])
+  @@map("hetzner_accounts")
+}
+
+// ═══════════════════  تعویض آدرس IP  ═══════════════════
+
+enum IpChangeStatus {
+  PENDING
+  RUNNING
+  SUCCESS
+  FAILED
+}
+
+/** نتیجه بررسی اینکه آدرس سرور از داخل ایران باز می‌شود یا نه */
+enum IpReachState {
+  /** هنوز بررسی نشده */
+  UNKNOWN
+  /** از ایران در دسترس است */
+  OK
+  /** از ایران در دسترس نیست */
+  BLOCKED
+  /** بررسی به نتیجه قطعی نرسید (سرویس آزمایش در دسترس نبود) */
+  INCONCLUSIVE
+  /** بررسی غیرفعال است */
+  SKIPPED
+}
+
+enum PromoKind {
+  /** اعتبار هدیه: با وارد کردن کد، مبلغ مستقیم به کیف پول می‌رود */
+  GIFT
+  /** درصد شارژ بیشتر: هنگام شارژ موفق، درصدی اضافه هدیه می‌گیرد */
+  TOPUP_BONUS
+}
+
+/**
+ * کد هدیه و تخفیف — ابزار بازاریابی.
+ *
+ * مدیر کد می‌سازد و در کانال تلگرام یا کمپین پخش می‌کند؛ کاربر یا آن را در کیف
+ * پول وارد می‌کند (هدیه مستقیم) یا هنگام شارژ می‌زند (درصد شارژ بیشتر). سقف
+ * استفاده کل و هر کاربر، حداقل مبلغ شارژ و بازه اعتبار قابل تنظیم است.
+ */
+model PromoCode {
+  id   String    @id @default(cuid())
+  code String    @unique
+  kind PromoKind
+
+  /** مبلغ هدیه (تومان) برای GIFT */
+  amount BigInt @default(0)
+  /** درصد شارژ بیشتر برای TOPUP_BONUS */
+  percent Float @default(0)
+  /** سقف مبلغ هدیه در هر استفاده برای TOPUP_BONUS — صفر یعنی بدون سقف */
+  maxBonus BigInt @default(0)
+  /** حداقل مبلغ شارژ برای TOPUP_BONUS */
+  minTopup BigInt @default(0)
+
+  /** سقف کل استفاده — صفر یعنی نامحدود */
+  maxUses   Int @default(0)
+  usedCount Int @default(0)
+  /** هر کاربر چند بار می‌تواند استفاده کند */
+  perUser   Int @default(1)
+  /** فقط برای نخستین شارژ کاربر */
+  firstTopupOnly Boolean @default(false)
+
+  active    Boolean   @default(true)
+  startsAt  DateTime?
+  expiresAt DateTime?
+  note      String?
+
+  createdAt   DateTime          @default(now())
+  redemptions PromoRedemption[]
+
+  @@index([active, expiresAt])
+  @@map("promo_codes")
+}
+
+model PromoRedemption {
+  id     String    @id @default(cuid())
+  codeId String
+  code   PromoCode @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  userId String
+
+  /** مبلغی که به کیف پول کاربر اضافه شد */
+  amount        BigInt
+  /** تراکنش شارژی که این پاداش به آن تعلق گرفت (برای TOPUP_BONUS) */
+  transactionId String?
+
+  createdAt DateTime @default(now())
+
+  @@index([codeId, userId])
+  @@index([userId, createdAt])
+  @@map("promo_redemptions")
+}
+
+/**
+ * تاریخچه دریافت خودکار نرخ یورو.
+ *
+ * هر بار که سیستم نرخ را از منبع بیرونی می‌گیرد، اینجا ثبت می‌شود: چه عددی
+ * خوانده شد، پس از اعمال حاشیه چه عددی اعمال شد، و اگر رد شد چرا. این تاریخچه
+ * هم برای عیب‌یابی است و هم برای اینکه مدیر ببیند قیمت‌ها کی و چطور عوض شده‌اند.
+ */
+model EurRateLog {
+  id String @id @default(cuid())
+
+  /** نرخ خامی که از منبع خوانده شد (تومان) */
+  fetchedRate Int
+  /** نرخی که پس از حاشیه و گرد کردن اعمال شد — تهی یعنی اعمال نشد */
+  appliedRate Int?
+  /** نرخ قبلی پنل در لحظه دریافت */
+  previousRate Int
+
+  source  String
+  applied Boolean @default(false)
+  /** علت رد شدن یا خطا */
+  error   String?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@map("eur_rate_logs")
+}
+
+/**
+ * حافظه سلامت رنج‌های آدرس.
+ *
+ * فیلترینگ ایران معمولاً کل یک بلوک /24 را می‌بندد، نه یک آدرس تنها. پس هر بار که
+ * آدرسی باز یا بسته دیده می‌شود، نتیجه روی همان بلوک ثبت می‌شود. با گذشت زمان پنل
+ * می‌فهمد کدام رنج‌های هتزنر برای ایران مرده‌اند و دیگر سراغشان نمی‌رود.
+ */
+model IpPrefixHealth {
+  id     String @id @default(cuid())
+  /** سه بخش نخست آدرس، مثل «95.216.181» */
+  prefix String @unique
+
+  locationName String?
+  datacenter   String?
+
+  okCount  Int @default(0)
+  badCount Int @default(0)
+
+  lastOkAt  DateTime?
+  lastBadAt DateTime?
+
+  /** نتیجه‌گیری نهایی: این رنج برای ایران سوخته است */
+  blocked Boolean @default(false)
+  /** مدیر دستی تعیین کرده و آمار خودکار نباید تغییرش بدهد */
+  pinned Boolean @default(false)
+  note   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([blocked, lastBadAt])
+  @@index([locationName, blocked])
+  @@map("ip_prefix_health")
+}
+
+/**
+ * تاریخچه تعویض آدرس IPv4 سرور.
+ * برای کاربران ایرانی که آدرس سرورشان مسدود می‌شود کاربرد دارد.
+ */
+model ServerIpChange {
+  id        String @id @default(cuid())
+  serverId  String
+  server    Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  userId    String
+  accountId String?
+  account   HetznerAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  oldIp     String?
+  newIp     String?
+  oldIpId   BigInt?
+  newIpId   BigInt?
+
+  status    IpChangeStatus @default(PENDING)
+  fee       BigInt         @default(0)
+  refunded  Boolean        @default(false)
+  error     String?
+  reason    String?
+
+  /** پنل خودش این تعویض را انجام داده، نه کاربر */
+  automatic Boolean @default(false)
+  /** آیا از سهمیه ماهانه کاربر کم می‌شود (تعویض رایگان و خودکار کم نمی‌کند) */
+  countsToQuota Boolean @default(true)
+
+  startedAt  DateTime  @default(now())
+  finishedAt DateTime?
+
+  @@index([serverId, startedAt])
+  @@index([userId, startedAt])
+  @@map("server_ip_changes")
+}

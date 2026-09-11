@@ -1,0 +1,590 @@
+@import 'tailwindcss';
+
+/* ─────────────  فونت وزیرمتن  ───────────── */
+@font-face {
+  font-family: 'Vazirmatn';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('/fonts/Vazirmatn.woff2') format('woff2');
+}
+
+@theme {
+  --font-sans: 'Vazirmatn', ui-sans-serif, system-ui, 'Segoe UI', Tahoma, sans-serif;
+
+  --color-brand-50: #eefdf9;
+  --color-brand-100: #d5f9ef;
+  --color-brand-200: #aef1e1;
+  --color-brand-300: #78e4ce;
+  --color-brand-400: #3ecdb4;
+  --color-brand-500: #17b19a;
+  --color-brand-600: #0d8f7e;
+  --color-brand-700: #0f7266;
+  --color-brand-800: #115b53;
+  --color-brand-900: #124b46;
+  --color-brand-950: #042d2b;
+}
+
+:root {
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --surface-2: #f9fafb;
+  --border: #e5e7eb;
+  --text: #111827;
+  --text-muted: #6b7280;
+  --ring: #17b19a;
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  --bg: #0b1220;
+  --surface: #111a2b;
+  --surface-2: #16223a;
+  --border: #24324c;
+  --text: #e6edf7;
+  --text-muted: #93a2bd;
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme='light']) {
+    --bg: #0b1220;
+    --surface: #111a2b;
+    --surface-2: #16223a;
+    --border: #24324c;
+    --text: #e6edf7;
+    --text-muted: #93a2bd;
+    color-scheme: dark;
+  }
+}
+
+* {
+  border-color: var(--border);
+}
+
+html,
+body {
+  padding: 0;
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  font-feature-settings: 'ss01';
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* اعداد فارسی در همه جا */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─────────────  اجزای پایه  ───────────── */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+}
+
+.surface-2 {
+  background: var(--surface-2);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.input {
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0.7rem;
+  padding: 0.62rem 0.85rem;
+  font-size: 0.9rem;
+  color: var(--text);
+  transition: border-color 0.15s, box-shadow 0.15s;
+  outline: none;
+}
+
+.input:focus {
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-500) 18%, transparent);
+}
+
+.input:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+.label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.4rem;
+  color: var(--text);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  border-radius: 0.7rem;
+  padding: 0.6rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s, transform 0.06s;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--color-brand-600);
+  color: #fff;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--color-brand-700);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
+}
+.btn-secondary:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+
+.btn-danger {
+  background: #dc2626;
+  color: #fff;
+}
+.btn-danger:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+.btn-ghost:hover:not(:disabled) {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.btn-sm {
+  padding: 0.38rem 0.7rem;
+  font-size: 0.78rem;
+  border-radius: 0.55rem;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.badge-ok {
+  background: color-mix(in srgb, #10b981 14%, transparent);
+  color: #059669;
+  border-color: color-mix(in srgb, #10b981 30%, transparent);
+}
+.badge-warn {
+  background: color-mix(in srgb, #f59e0b 16%, transparent);
+  color: #b45309;
+  border-color: color-mix(in srgb, #f59e0b 32%, transparent);
+}
+.badge-bad {
+  background: color-mix(in srgb, #ef4444 14%, transparent);
+  color: #dc2626;
+  border-color: color-mix(in srgb, #ef4444 30%, transparent);
+}
+.badge-muted {
+  background: var(--surface-2);
+  color: var(--text-muted);
+  border-color: var(--border);
+}
+
+html[data-theme='dark'] .badge-warn {
+  color: #fbbf24;
+}
+html[data-theme='dark'] .badge-ok {
+  color: #34d399;
+}
+html[data-theme='dark'] .badge-bad {
+  color: #f87171;
+}
+
+/* جدول‌ها */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.855rem;
+}
+.table th {
+  text-align: right;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 0.7rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+.table td {
+  padding: 0.75rem 0.85rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+.table tbody tr:hover td {
+  background: var(--surface-2);
+}
+
+/* اسکرول افقی امن */
+.scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--text-muted) 35%, transparent);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-muted) 55%, transparent);
+}
+
+/* انیمیشن‌ها */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.pulse-soft {
+  animation: pulse-soft 1.6s ease-in-out infinite;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.fade-up {
+  animation: fade-up 0.25s ease-out;
+}
+
+/* اسکلتون بارگذاری */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-2) 25%,
+    color-mix(in srgb, var(--border) 60%, var(--surface-2)) 37%,
+    var(--surface-2) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.4s ease infinite;
+  border-radius: 0.5rem;
+}
+@keyframes shimmer {
+  0% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0 50%;
+  }
+}
+
+/* فرم بدون فلش در input[type=number] */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* متن انگلیسی داخل محیط راست‌چین */
+.ltr {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: isolate;
+}
+
+.mono {
+  font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+}
+
+/* چاپ فاکتور */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff;
+  }
+  .card {
+    border-color: #ddd;
+    box-shadow: none;
+  }
+}
+
+/* ─────────────  موبایل و لمسی  ───────────── */
+
+/* حداقل اندازه لمس‌پذیر ۴۴ پیکسل طبق راهنمای دسترسی‌پذیری */
+.tap-target {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* روی موبایل دکمه‌ها بلندتر و انگشتی‌تر می‌شوند */
+@media (max-width: 640px) {
+  .btn {
+    min-height: 44px;
+    padding: 0.7rem 1.1rem;
+  }
+  .btn-sm {
+    min-height: 36px;
+    padding: 0.45rem 0.75rem;
+  }
+  .input {
+    /* کمتر از ۱۶ پیکسل باعث زوم خودکار سافاری روی iOS می‌شود */
+    font-size: 16px;
+    padding: 0.7rem 0.85rem;
+  }
+}
+
+/* جای خالی برای نوار پایین موبایل + ناحیه امن دستگاه */
+.has-bottom-nav {
+  padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+}
+@media (min-width: 1024px) {
+  .has-bottom-nav {
+    padding-bottom: 0;
+  }
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* حذف هایلایت آبی لمس در اندروید/iOS */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* غلتاندن افقی نرم با نقاط توقف — برای تب‌ها و فیلترها */
+.snap-x-scroll {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+.snap-x-scroll::-webkit-scrollbar {
+  display: none;
+}
+.snap-x-scroll > * {
+  scroll-snap-align: start;
+  flex: 0 0 auto;
+}
+
+/* ─── جدول واکنش‌گرا ───
+   روی موبایل هر ردیف به یک کارت تبدیل می‌شود و عنوان هر سلول
+   از data-label خوانده می‌شود. کافی است روی <table> کلاس
+   table-cards بگذارید و به هر <td> صفت data-label بدهید. */
+@media (max-width: 767px) {
+  .table-cards thead {
+    display: none;
+  }
+  .table-cards,
+  .table-cards tbody,
+  .table-cards tr,
+  .table-cards td {
+    display: block;
+    width: 100%;
+  }
+  .table-cards tr {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.85rem;
+    padding: 0.35rem 0.15rem;
+    margin-bottom: 0.65rem;
+  }
+  .table-cards tr:last-child {
+    margin-bottom: 0;
+  }
+  .table-cards tbody tr:hover td {
+    background: transparent;
+  }
+  .table-cards td {
+    border-bottom: 1px dashed var(--border);
+    padding: 0.55rem 0.85rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    text-align: left;
+    min-height: 40px;
+  }
+  .table-cards td:last-child {
+    border-bottom: none;
+  }
+  .table-cards td::before {
+    content: attr(data-label);
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: right;
+    flex-shrink: 0;
+  }
+  /* عرض‌های ثابتِ حالت جدولی نباید در حالت کارتی بمانند */
+  .table-cards td {
+    max-width: none;
+  }
+  .table-cards td > * {
+    min-width: 0;
+  }
+
+  /* سلولی که فقط دکمه دارد، تمام عرض را بگیرد */
+  .table-cards td[data-label=''] {
+    justify-content: stretch;
+  }
+  .table-cards td[data-label='']::before {
+    content: none;
+  }
+}
+
+/* ─── شیت پایین‌کشویی موبایل ───
+   روی موبایل از پایین بالا می‌آید، روی دسکتاپ مودال وسط صفحه است. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+.sheet {
+  animation: sheet-up 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+}
+@media (min-width: 640px) {
+  .sheet {
+    animation: fade-up 0.2s ease-out;
+  }
+}
+
+/* دستگیره کوچک بالای شیت */
+.sheet-handle {
+  width: 2.5rem;
+  height: 0.25rem;
+  border-radius: 999px;
+  background: var(--border);
+  margin: 0.5rem auto 0;
+}
+
+/* روی دستگاه‌های لمسی، حالت hover نباید بچسبد */
+@media (hover: none) {
+  .table tbody tr:hover td {
+    background: transparent;
+  }
+}
+
+/* برای کسانی که انیمیشن کمتر می‌خواهند */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* هنگام چاپ، جدول‌ها همیشه جدول بمانند */
+@media print {
+  .table-cards thead {
+    display: table-header-group;
+  }
+  .table-cards {
+    display: table;
+  }
+  .table-cards tbody {
+    display: table-row-group;
+  }
+  .table-cards tr {
+    display: table-row;
+    border: none;
+    margin: 0;
+    padding: 0;
+  }
+  .table-cards td {
+    display: table-cell;
+    text-align: right;
+  }
+  .table-cards td::before {
+    content: none;
+  }
+}

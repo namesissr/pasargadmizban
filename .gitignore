@@ -1,0 +1,21 @@
+node_modules/
+.next/
+out/
+build/
+.env
+.env.local
+.env*.local
+*.log
+npm-debug.log*
+.DS_Store
+*.pem
+/prisma/*.db
+/prisma/*.db-journal
+/public/uploads/*
+!/public/uploads/.gitkeep
+.vercel
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# ریپوی کلون‌شده در زیرپوشه (اگر وجود داشته باشد)
+/PasargadMizban/
