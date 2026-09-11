@@ -12,6 +12,7 @@ import {
   Card,
   Field,
   Input,
+  MoneyInput,
   LoadingBlock,
   Modal,
   Select,
@@ -96,7 +97,7 @@ export function UserDetail({ userId, isAdmin }: { userId: string; isAdmin: boole
   }>({});
 
   const [balanceOpen, setBalanceOpen] = useState(false);
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(0);
   const [reason, setReason] = useState('');
   const [direction, setDirection] = useState<'add' | 'sub'>('add');
   const [balanceBusy, setBalanceBusy] = useState(false);
@@ -132,7 +133,7 @@ export function UserDetail({ userId, isAdmin }: { userId: string; isAdmin: boole
   }
 
   async function adjustBalance() {
-    const value = Number(amount.replace(/[^\d]/g, ''));
+    const value = amount;
     if (!value) return;
     setBalanceBusy(true);
     try {
@@ -142,7 +143,7 @@ export function UserDetail({ userId, isAdmin }: { userId: string; isAdmin: boole
       });
       toast.success(res.message, `موجودی جدید: ${formatToman(res.balance)}`);
       setBalanceOpen(false);
-      setAmount('');
+      setAmount(0);
       setReason('');
       mutate();
     } catch (err) {
@@ -260,13 +261,9 @@ export function UserDetail({ userId, isAdmin }: { userId: string; isAdmin: boole
               </Field>
 
               <Field label="سقف اعتبار منفی (تومان)" hint="اجازه می‌دهد موجودی کاربر تا این مبلغ منفی شود.">
-                <Input
-                  type="number"
-                  min={0}
+                <MoneyInput
                   value={current.creditLimit}
-                  onChange={(e) => setForm((f) => ({ ...f, creditLimit: Number(e.target.value) }))}
-                  className="ltr tabular"
-                  dir="ltr"
+                  onValueChange={(v) => setForm((f) => ({ ...f, creditLimit: v }))}
                   disabled={!isAdmin}
                 />
               </Field>
@@ -491,12 +488,10 @@ export function UserDetail({ userId, isAdmin }: { userId: string; isAdmin: boole
           </div>
 
           <Field label="مبلغ (تومان)" required>
-            <Input
+            <MoneyInput
               value={amount}
-              onChange={(e) => setAmount(e.target.value.replace(/[^\d]/g, ''))}
-              className="ltr tabular text-center text-base font-bold"
-              dir="ltr"
-              inputMode="numeric"
+              onValueChange={setAmount}
+              className="text-center text-base font-bold"
               autoFocus
             />
           </Field>

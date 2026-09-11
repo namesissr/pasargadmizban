@@ -4,7 +4,7 @@ import { useState } from 'react';
 import useSWR from 'swr';
 import Link from 'next/link';
 import { Save, CheckCircle2, XCircle, Cloud, ArrowLeft, Radar } from 'lucide-react';
-import { Alert, Badge, Button, Card, CopyButton, Field, Input, LoadingBlock, Textarea, Toggle } from '@/components/ui';
+import { Alert, Badge, Button, Card, CopyButton, Field, Input, LoadingBlock, MoneyInput, Textarea, Toggle } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { api, errorMessage, fetcher } from '@/lib/client';
 import { AdvancedSettingsCards, type AdvancedData } from './advanced-cards';
@@ -143,22 +143,10 @@ export function SettingsClient() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="حداقل شارژ (تومان)">
-                <Input
-                  type="number"
-                  value={Number(s.minTopup)}
-                  onChange={(e) => set('minTopup', Number(e.target.value))}
-                  className="ltr tabular"
-                  dir="ltr"
-                />
+                <MoneyInput value={Number(s.minTopup)} onValueChange={(v) => set('minTopup', v)} />
               </Field>
               <Field label="حداکثر شارژ (تومان)">
-                <Input
-                  type="number"
-                  value={Number(s.maxTopup)}
-                  onChange={(e) => set('maxTopup', Number(e.target.value))}
-                  className="ltr tabular"
-                  dir="ltr"
-                />
+                <MoneyInput value={Number(s.maxTopup)} onValueChange={(v) => set('maxTopup', v)} />
               </Field>
             </div>
           </div>
@@ -234,12 +222,9 @@ export function SettingsClient() {
               label="هزینه هر بار تعویض (تومان)"
               hint="این مبلغ پیش از شروع عملیات از کیف پول کاربر کسر می‌شود و در صورت شکست، کامل برمی‌گردد."
             >
-              <Input
-                type="number"
+              <MoneyInput
                 value={Number(s.ipChangeFee)}
-                onChange={(e) => set('ipChangeFee', Number(e.target.value))}
-                className="ltr tabular"
-                dir="ltr"
+                onValueChange={(v) => set('ipChangeFee', v)}
                 disabled={!s.ipChangeEnabled}
               />
             </Field>
@@ -392,19 +377,19 @@ export function SettingsClient() {
 
             <div className="grid grid-cols-2 gap-3">
               <Field label="آستانه نقره‌ای (تومان)">
-                <Input type="number" value={Number(s.loyaltySilverSpend)} onChange={(e) => set('loyaltySilverSpend', Number(e.target.value))} className="ltr tabular" dir="ltr" disabled={!s.loyaltyEnabled} />
+                <MoneyInput value={Number(s.loyaltySilverSpend)} onValueChange={(v) => set('loyaltySilverSpend', v)} disabled={!s.loyaltyEnabled} />
               </Field>
               <Field label="تخفیف نقره‌ای (٪)">
                 <Input type="number" value={Number(s.loyaltySilverPct)} onChange={(e) => set('loyaltySilverPct', Number(e.target.value))} className="ltr tabular" dir="ltr" disabled={!s.loyaltyEnabled} />
               </Field>
               <Field label="آستانه طلایی (تومان)">
-                <Input type="number" value={Number(s.loyaltyGoldSpend)} onChange={(e) => set('loyaltyGoldSpend', Number(e.target.value))} className="ltr tabular" dir="ltr" disabled={!s.loyaltyEnabled} />
+                <MoneyInput value={Number(s.loyaltyGoldSpend)} onValueChange={(v) => set('loyaltyGoldSpend', v)} disabled={!s.loyaltyEnabled} />
               </Field>
               <Field label="تخفیف طلایی (٪)">
                 <Input type="number" value={Number(s.loyaltyGoldPct)} onChange={(e) => set('loyaltyGoldPct', Number(e.target.value))} className="ltr tabular" dir="ltr" disabled={!s.loyaltyEnabled} />
               </Field>
               <Field label="آستانه الماس (تومان)">
-                <Input type="number" value={Number(s.loyaltyDiamondSpend)} onChange={(e) => set('loyaltyDiamondSpend', Number(e.target.value))} className="ltr tabular" dir="ltr" disabled={!s.loyaltyEnabled} />
+                <MoneyInput value={Number(s.loyaltyDiamondSpend)} onValueChange={(v) => set('loyaltyDiamondSpend', v)} disabled={!s.loyaltyEnabled} />
               </Field>
               <Field label="تخفیف الماس (٪)">
                 <Input type="number" value={Number(s.loyaltyDiamondPct)} onChange={(e) => set('loyaltyDiamondPct', Number(e.target.value))} className="ltr tabular" dir="ltr" disabled={!s.loyaltyEnabled} />

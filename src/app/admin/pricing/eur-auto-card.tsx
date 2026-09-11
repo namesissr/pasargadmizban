@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import useSWR from 'swr';
 import { RefreshCw, Zap, Save, History, CircleAlert } from 'lucide-react';
-import { Alert, Badge, Button, Card, Field, Input, Select, Toggle } from '@/components/ui';
+import { Alert, Badge, Button, Card, Field, Input, MoneyInput, Select, Toggle } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { api, apiPost, errorMessage, fetcher } from '@/lib/client';
 import { faRelative } from '@/lib/utils';
@@ -199,12 +199,9 @@ export function EurAutoCard({ config, onSaved }: { config: EurAutoConfig; onSave
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Field label="حاشیه ثابت (تومان)" hint="روی نرخ خوانده‌شده اضافه می‌شود.">
-            <Input
-              type="number"
+            <MoneyInput
               value={form.eurAutoMarkupFixed}
-              onChange={(e) => set('eurAutoMarkupFixed', Number(e.target.value))}
-              className="ltr tabular"
-              dir="ltr"
+              onValueChange={(v) => set('eurAutoMarkupFixed', v)}
             />
           </Field>
           <Field label="حاشیه درصدی" hint="مثلاً ۲ یعنی ۲٪ بالاتر از نرخ بازار.">
@@ -239,13 +236,9 @@ export function EurAutoCard({ config, onSaved }: { config: EurAutoConfig; onSave
         </div>
 
         <Field label="گرد کردن نرخ به مضرب (تومان)">
-          <Input
-            type="number"
-            min={1}
+          <MoneyInput
             value={form.eurAutoRoundTo}
-            onChange={(e) => set('eurAutoRoundTo', Number(e.target.value))}
-            className="ltr tabular"
-            dir="ltr"
+            onValueChange={(v) => set('eurAutoRoundTo', v)}
           />
         </Field>
 

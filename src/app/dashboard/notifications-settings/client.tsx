@@ -20,6 +20,7 @@ import {
   CopyButton,
   Field,
   Input,
+  MoneyInput,
   LoadingBlock,
   Modal,
   Select,
@@ -187,14 +188,9 @@ export function NotificationSettingsClient() {
                   label="هشدار اضافه وقتی موجودی از این مبلغ کمتر شد (تومان)"
                   hint="اختیاری. صفر یعنی فقط بر اساس ساعت هشدار بده."
                 >
-                  <Input
-                    type="number"
-                    min={0}
-                    step={50000}
+                  <MoneyInput
                     value={p.lowBalanceAmount}
-                    onChange={(e) => set('lowBalanceAmount', Math.max(0, Number(e.target.value)))}
-                    className="ltr tabular"
-                    dir="ltr"
+                    onValueChange={(v) => set('lowBalanceAmount', v)}
                   />
                 </Field>
               </>
@@ -296,14 +292,9 @@ export function NotificationSettingsClient() {
                   label="سقف هزینه ماهانه (تومان)"
                   hint="فقط هشدار می‌دهد و سرویسی را قطع نمی‌کند. صفر یعنی بدون سقف."
                 >
-                  <Input
-                    type="number"
-                    min={0}
-                    step={100000}
+                  <MoneyInput
                     value={p.monthlyBudget}
-                    onChange={(e) => set('monthlyBudget', Math.max(0, Number(e.target.value)))}
-                    className="ltr tabular"
-                    dir="ltr"
+                    onValueChange={(v) => set('monthlyBudget', v)}
                   />
                 </Field>
                 {p.monthlyBudget > 0 ? (

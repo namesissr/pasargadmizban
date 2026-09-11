@@ -13,6 +13,7 @@ import {
   EmptyState,
   Field,
   Input,
+  MoneyInput,
   LoadingBlock,
   Modal,
   Select,
@@ -210,10 +211,10 @@ function CreateModal({ open, onClose, onSaved }: { open: boolean; onClose: () =>
   const [form, setForm] = useState({
     code: '',
     kind: 'GIFT' as 'GIFT' | 'TOPUP_BONUS',
-    amount: '50000',
+    amount: 50000,
     percent: '20',
-    maxBonus: '0',
-    minTopup: '0',
+    maxBonus: 0,
+    minTopup: 0,
     maxUses: '0',
     perUser: '1',
     firstTopupOnly: false,
@@ -234,10 +235,10 @@ function CreateModal({ open, onClose, onSaved }: { open: boolean; onClose: () =>
       const res = await apiPost<{ message: string }>('/api/admin/promos', {
         code: form.code.trim(),
         kind: form.kind,
-        amount: Number(form.amount) || 0,
+        amount: form.amount,
         percent: Number(form.percent) || 0,
-        maxBonus: Number(form.maxBonus) || 0,
-        minTopup: Number(form.minTopup) || 0,
+        maxBonus: form.maxBonus,
+        minTopup: form.minTopup,
         maxUses: Number(form.maxUses) || 0,
         perUser: Number(form.perUser) || 1,
         firstTopupOnly: form.firstTopupOnly,
@@ -291,13 +292,7 @@ function CreateModal({ open, onClose, onSaved }: { open: boolean; onClose: () =>
 
         {form.kind === 'GIFT' ? (
           <Field label="مبلغ هدیه (تومان)" required error={fields.amount}>
-            <Input
-              type="number"
-              value={form.amount}
-              onChange={(e) => set('amount', e.target.value)}
-              className="ltr tabular"
-              dir="ltr"
-            />
+            <MoneyInput value={form.amount} onValueChange={(v) => set('amount', v)} />
           </Field>
         ) : (
           <div className="grid gap-3.5 sm:grid-cols-3">
@@ -311,22 +306,10 @@ function CreateModal({ open, onClose, onSaved }: { open: boolean; onClose: () =>
               />
             </Field>
             <Field label="سقف هدیه (تومان)" hint="صفر یعنی بدون سقف">
-              <Input
-                type="number"
-                value={form.maxBonus}
-                onChange={(e) => set('maxBonus', e.target.value)}
-                className="ltr tabular"
-                dir="ltr"
-              />
+              <MoneyInput value={form.maxBonus} onValueChange={(v) => set('maxBonus', v)} />
             </Field>
             <Field label="حداقل شارژ (تومان)">
-              <Input
-                type="number"
-                value={form.minTopup}
-                onChange={(e) => set('minTopup', e.target.value)}
-                className="ltr tabular"
-                dir="ltr"
-              />
+              <MoneyInput value={form.minTopup} onValueChange={(v) => set('minTopup', v)} />
             </Field>
           </div>
         )}

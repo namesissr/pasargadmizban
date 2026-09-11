@@ -3,10 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { CreditCard, Wallet, Receipt, TrendingDown, Landmark, ExternalLink, Gift } from 'lucide-react';
-import { Alert, Badge, Button, Card, Field, Input, Modal, Stat, Textarea } from '@/components/ui';
+import { Alert, Badge, Button, Card, Field, Input, Modal, Stat, Textarea, MoneyInput } from '@/components/ui';
 import { useToast, useFlashFromQuery } from '@/components/ui/toast';
 import { apiPost, apiPut, errorFields, errorMessage } from '@/lib/client';
-import { formatToman, formatNumber, toEnDigits } from '@/lib/money';
+import { formatToman, formatNumber } from '@/lib/money';
 import { faDateTime, faDuration, TX_STATUS_FA, TX_TYPE_FA, cn } from '@/lib/utils';
 
 type Tx = {
@@ -48,7 +48,7 @@ export function WalletClient({
   useFlashFromQuery();
   const toast = useToast();
 
-  const [amount, setAmount] = useState<string>('500000');
+  const [amount, setAmount] = useState<number>(500000);
   const [gateway, setGateway] = useState(gateways[0]?.id ?? 'zibal');
   const [loading, setLoading] = useState(false);
   const [fields, setFields] = useState<Record<string, string>>({});
@@ -58,7 +58,7 @@ export function WalletClient({
   const [couponNote, setCouponNote] = useState<{ ok: boolean; text: string } | null>(null);
   const [couponChecking, setCouponChecking] = useState(false);
 
-  const numericAmount = Number(toEnDigits(amount).replace(/[^\d]/g, '')) || 0;
+  const numericAmount = amount;
   const hoursLeft = burn.hourly > 0 ? Math.floor(balance / burn.hourly) : null;
 
   async function startTopup(e: React.FormEvent) {
@@ -216,12 +216,10 @@ export function WalletClient({
               error={fields.amount}
               hint={`حداقل ${formatToman(limits.min)}`}
             >
-              <Input
+              <MoneyInput
                 value={amount}
-                onChange={(e) => setAmount(e.target.value.replace(/[^\d۰-۹]/g, ''))}
-                className="ltr tabular text-center text-base font-bold"
-                dir="ltr"
-                inputMode="numeric"
+                onValueChange={setAmount}
+                className="text-center text-base font-bold"
                 required
               />
             </Field>
@@ -231,7 +229,7 @@ export function WalletClient({
                 <button
                   key={a}
                   type="button"
-                  onClick={() => setAmount(String(a))}
+                  onClick={() => setAmount(a)}
                   className={cn(
                     'rounded-lg border px-2 py-2 text-[11px] font-semibold transition',
                     numericAmount === a

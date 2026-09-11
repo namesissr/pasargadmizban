@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import useSWR from 'swr';
 import { Save, Plus, Trash2, Calculator } from 'lucide-react';
-import { Alert, Badge, Button, Card, Field, Input, LoadingBlock, Modal, Select } from '@/components/ui';
+import { Alert, Badge, Button, Card, Field, Input, LoadingBlock, Modal, MoneyInput, Select } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { api, apiDelete, apiPost, errorMessage, fetcher } from '@/lib/client';
 import { formatToman, formatNumber } from '@/lib/money';
@@ -122,12 +122,10 @@ export function PricingClient() {
         <Card title="تنظیمات پایه قیمت" description="این مقادیر پایه محاسبه تمام قیمت‌ها هستند.">
           <div className="space-y-4">
             <Field label="نرخ هر یورو (تومان)" required hint="با نوسان بازار این عدد را به‌روز کنید.">
-              <Input
-                type="number"
+              <MoneyInput
                 value={current.eurRate}
-                onChange={(e) => setSettings((s) => ({ ...s, eurRate: Number(e.target.value) }))}
-                className="ltr tabular text-center font-bold"
-                dir="ltr"
+                onValueChange={(v) => setSettings((s) => ({ ...s, eurRate: v }))}
+                className="text-center font-bold"
               />
             </Field>
 
@@ -142,12 +140,9 @@ export function PricingClient() {
             </Field>
 
             <Field label="مبلغ ثابت اضافه (تومان در ماه)" hint="برای پوشش هزینه‌های جانبی مثل کارمزد درگاه.">
-              <Input
-                type="number"
+              <MoneyInput
                 value={current.markupFixed}
-                onChange={(e) => setSettings((s) => ({ ...s, markupFixed: Number(e.target.value) }))}
-                className="ltr tabular"
-                dir="ltr"
+                onValueChange={(v) => setSettings((s) => ({ ...s, markupFixed: v }))}
               />
             </Field>
 
@@ -163,21 +158,15 @@ export function PricingClient() {
 
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label="گرد کردن ماهانه" hint="مضرب تومان">
-                <Input
-                  type="number"
+                <MoneyInput
                   value={current.roundMonthly}
-                  onChange={(e) => setSettings((s) => ({ ...s, roundMonthly: Number(e.target.value) }))}
-                  className="ltr tabular"
-                  dir="ltr"
+                  onValueChange={(v) => setSettings((s) => ({ ...s, roundMonthly: v }))}
                 />
               </Field>
               <Field label="گرد کردن ساعتی" hint="مضرب تومان">
-                <Input
-                  type="number"
+                <MoneyInput
                   value={current.roundHourly}
-                  onChange={(e) => setSettings((s) => ({ ...s, roundHourly: Number(e.target.value) }))}
-                  className="ltr tabular"
-                  dir="ltr"
+                  onValueChange={(v) => setSettings((s) => ({ ...s, roundHourly: v }))}
                 />
               </Field>
             </div>
@@ -412,12 +401,9 @@ export function PricingClient() {
               />
             </Field>
             <Field label="مبلغ ثابت (تومان)">
-              <Input
-                type="number"
+              <MoneyInput
                 value={rule.markupFixed}
-                onChange={(e) => setRule((r) => ({ ...r, markupFixed: Number(e.target.value) }))}
-                className="ltr tabular"
-                dir="ltr"
+                onValueChange={(v) => setRule((r) => ({ ...r, markupFixed: v }))}
               />
             </Field>
           </div>

@@ -122,6 +122,44 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement> & { inv
   return <input className={cn('input', invalid && 'border-red-400', className)} {...rest} />;
 }
 
+/**
+ * ورودی مبلغ تومانی با جداکننده سه‌رقمی.
+ *
+ * کادر type=number جداکننده قبول نمی‌کند و خواندن «283000» سخت است؛ این کامپوننت
+ * همان لحظه تایپ، عدد را به شکل «۲۸۳٬۰۰۰» نشان می‌دهد و رقم فارسی و انگلیسی،
+ * هر دو را می‌پذیرد. مقدار بیرونی همیشه عدد خالص است.
+ */
+export function MoneyInput({
+  value,
+  onValueChange,
+  invalid,
+  className,
+  ...rest
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'value' | 'onChange' | 'type'> & {
+  value: number;
+  onValueChange: (value: number) => void;
+  invalid?: boolean;
+}) {
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      dir="ltr"
+      autoComplete="off"
+      className={cn('input tabular text-left', invalid && 'border-red-400', className)}
+      value={new Intl.NumberFormat('fa-IR').format(value)}
+      onChange={(e) => {
+        const digits = e.target.value
+          .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+          .replace(/[^\d]/g, '');
+        // بیش از ۱۵ رقم دیگر مبلغ نیست؛ جلوی سرریز عدد را می‌گیرد
+        onValueChange(digits ? Number(digits.slice(0, 15)) : 0);
+      }}
+      {...rest}
+    />
+  );
+}
+
 export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }) {
   const { invalid, className, ...rest } = props;
   return <textarea className={cn('input min-h-28 resize-y leading-7', invalid && 'border-red-400', className)} {...rest} />;

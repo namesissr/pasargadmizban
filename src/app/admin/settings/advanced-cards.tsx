@@ -1,6 +1,6 @@
 'use client';
 
-import { Alert, Badge, Card, CopyButton, Field, Input, Toggle } from '@/components/ui';
+import { Alert, Badge, Card, CopyButton, Field, Input, MoneyInput, Toggle } from '@/components/ui';
 import { formatNumber, formatToman } from '@/lib/money';
 
 export type AdvancedData = {
@@ -214,37 +214,13 @@ export function AdvancedSettingsCards({ data, s, set }: { data: AdvancedData; s:
               />
             </Field>
             <Field label="حداقل شارژ برای پورسانت (تومان)">
-              <Input
-                type="number"
-                min={0}
-                step={50000}
-                value={Number(s.referralMinDeposit)}
-                onChange={(e) => set('referralMinDeposit', Number(e.target.value))}
-                className="ltr tabular"
-                dir="ltr"
-              />
+              <MoneyInput value={Number(s.referralMinDeposit)} onValueChange={(v) => set('referralMinDeposit', v)} />
             </Field>
             <Field label="سقف پورسانت هر تراکنش (تومان)" hint="صفر یعنی بدون سقف.">
-              <Input
-                type="number"
-                min={0}
-                step={100000}
-                value={Number(s.referralMaxPerDeposit)}
-                onChange={(e) => set('referralMaxPerDeposit', Number(e.target.value))}
-                className="ltr tabular"
-                dir="ltr"
-              />
+              <MoneyInput value={Number(s.referralMaxPerDeposit)} onValueChange={(v) => set('referralMaxPerDeposit', v)} />
             </Field>
             <Field label="هدیه خوش‌آمد (تومان)" hint="به کاربری که با کد معرف ثبت‌نام می‌کند.">
-              <Input
-                type="number"
-                min={0}
-                step={50000}
-                value={Number(s.referralWelcomeBonus)}
-                onChange={(e) => set('referralWelcomeBonus', Number(e.target.value))}
-                className="ltr tabular"
-                dir="ltr"
-              />
+              <MoneyInput value={Number(s.referralWelcomeBonus)} onValueChange={(v) => set('referralWelcomeBonus', v)} />
             </Field>
           </div>
           <Alert tone="info">
