@@ -130,7 +130,7 @@ export function RegisterForm({ requireEmailVerify }: { requireEmailVerify: boole
 
       {requireEmailVerify ? (
         <p className="text-center text-[11px] leading-6 muted">
-          پس از ثبت‌نام، یک ایمیل تایید برای شما ارسال می‌شود.
+          پس از ثبت‌نام، یک ایمیل تایید برای شما ارسال می‌شود؛ اگر در صندوق ورودی نبود، پوشه اسپم را هم چک کنید.
         </p>
       ) : null}
     </form>

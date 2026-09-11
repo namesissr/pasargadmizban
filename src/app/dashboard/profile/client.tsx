@@ -71,6 +71,7 @@ export function ProfileClient({ profile }: { profile: Profile }) {
   const [passFields, setPassFields] = useState<Record<string, string>>({});
 
   const [resending, setResending] = useState(false);
+  const [verifySent, setVerifySent] = useState(false);
 
   const { data: sessions, mutate: mutateSessions } = useSWR<{
     items: { id: string; ip: string | null; userAgent: string | null; createdAt: string }[];
@@ -125,6 +126,7 @@ export function ProfileClient({ profile }: { profile: Profile }) {
     setResending(true);
     try {
       const res = await apiPost<{ message: string }>('/api/auth/resend-verification');
+      setVerifySent(true);
       toast.success('ارسال شد', res.message);
     } catch (err) {
       toast.error('ارسال ایمیل انجام نشد', errorMessage(err));
@@ -150,17 +152,25 @@ export function ProfileClient({ profile }: { profile: Profile }) {
   return (
     <div className="space-y-5">
       {!profile.emailVerifiedAt ? (
-        <Alert
-          tone="warning"
-          title="ایمیل شما تایید نشده است"
-          action={
-            <Button variant="secondary" size="sm" onClick={resendVerification} loading={resending} icon={<MailCheck size={14} />}>
-              ارسال مجدد ایمیل تایید
-            </Button>
-          }
-        >
-          تا زمانی که ایمیل تایید نشود، امکان ساخت سرور وجود ندارد.
-        </Alert>
+        verifySent ? (
+          <Alert tone="info" title="ایمیل تایید ارسال شد — پوشه اسپم را هم چک کنید">
+            رسیدن ایمیل ممکن است چند دقیقه طول بکشد. اگر آن را در صندوق ورودی (Inbox) نمی‌بینید، حتماً پوشه اسپم یا
+            هرزنامه (Spam/Junk) را هم بررسی کنید و برای دریافت راحت‌تر ایمیل‌های بعدی، روی «اسپم نیست» (Not Spam) بزنید.
+          </Alert>
+        ) : (
+          <Alert
+            tone="warning"
+            title="ایمیل شما تایید نشده است"
+            action={
+              <Button variant="secondary" size="sm" onClick={resendVerification} loading={resending} icon={<MailCheck size={14} />}>
+                ارسال مجدد ایمیل تایید
+              </Button>
+            }
+          >
+            تا زمانی که ایمیل تایید نشود، امکان ساخت سرور وجود ندارد. اگر ایمیل قبلی به دستتان نرسیده، پوشه اسپم
+            (Spam) را هم بررسی کنید.
+          </Alert>
+        )
       ) : null}
 
       <div className="grid gap-4 sm:grid-cols-4">
