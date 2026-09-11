@@ -379,28 +379,25 @@ export function CreateServerWizard({
         <Card
           title="۲. انتخاب پلن"
           description="قیمت‌ها به تومان و شامل تمام هزینه‌هاست."
-          action={
-            <div className="scroll-x max-w-full">
-              <div className="flex gap-1">
-                {categories.map((c) => (
-                  <button
-                    key={c}
-                    type="button"
-                    onClick={() => setCategory(c)}
-                    className={cn(
-                      'whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-semibold transition',
-                      category === c ? 'bg-[var(--color-brand-600)] text-white' : 'muted hover:bg-[var(--surface-2)]',
-                    )}
-                  >
-                    {c === 'all' ? 'همه' : catalog.categories[c] ?? c}
-                  </button>
-                ))}
-              </div>
-            </div>
-          }
           bodyClassName="p-0"
         >
           <div className="space-y-2.5 border-b p-3">
+            <div className="flex flex-wrap gap-1">
+              {categories.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => setCategory(c)}
+                  className={cn(
+                    'whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-semibold transition',
+                    category === c ? 'bg-[var(--color-brand-600)] text-white' : 'muted hover:bg-[var(--surface-2)]',
+                  )}
+                >
+                  {c === 'all' ? 'همه' : catalog.categories[c] ?? c}
+                </button>
+              ))}
+            </div>
+
             <div className="flex flex-wrap items-center gap-1.5">
               <span className="text-[11px] font-semibold muted">انتخاب سریع:</span>
               {quickPicks.map((q) => (
@@ -440,7 +437,7 @@ export function CreateServerWizard({
                   <option value="traffic">بیشترین ترافیک</option>
                 </Select>
               </div>
-              <div className="w-32 max-w-full">
+              <div className="w-36 max-w-full">
                 <Select
                   value={minMemory}
                   onChange={(e) => setMinMemory(Number(e.target.value))}
@@ -453,7 +450,7 @@ export function CreateServerWizard({
                   <option value={32}>رم ۳۲+ گیگ</option>
                 </Select>
               </div>
-              <div className="w-32 max-w-full">
+              <div className="w-36 max-w-full">
                 <Select
                   value={minCores}
                   onChange={(e) => setMinCores(Number(e.target.value))}

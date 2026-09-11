@@ -60,7 +60,8 @@ export function Card({
             {title ? <h2 className="text-sm font-bold">{title}</h2> : null}
             {description ? <p className="mt-1 text-xs leading-6 muted">{description}</p> : null}
           </div>
-          {action ? <div className="flex shrink-0 items-center gap-2">{action}</div> : null}
+          {/* min-w-0 تا محتوای پهن (مثل ردیف فیلترها) در گوشی کل صفحه را سرریز نکند */}
+          {action ? <div className="flex min-w-0 max-w-full flex-wrap items-center gap-2">{action}</div> : null}
         </header>
       )}
       <div className={cn('p-4 sm:p-5', bodyClassName)}>{children}</div>
