@@ -1,16 +1,46 @@
 @import 'tailwindcss';
 
-/* ─────────────  فونت وزیرمتن  ───────────── */
+/* ─────────────  فونت یکان‌باخ  ─────────────
+   پنج وزن ثابت؛ بازه‌های font-weight طوری تعریف شده‌اند که وزن‌های میانی
+   (مثل 500 و 900) هم به نزدیک‌ترین وزن موجود برسند. */
 @font-face {
-  font-family: 'Vazirmatn';
+  font-family: 'YekanBakh';
   font-style: normal;
-  font-weight: 100 900;
+  font-weight: 100 300;
   font-display: swap;
-  src: url('/fonts/Vazirmatn.woff2') format('woff2');
+  src: url('/fonts/yekanbakh-light.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'YekanBakh';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/yekanbakh-regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'YekanBakh';
+  font-style: normal;
+  font-weight: 500 600;
+  font-display: swap;
+  src: url('/fonts/yekanbakh-semibold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'YekanBakh';
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url('/fonts/yekanbakh-bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'YekanBakh';
+  font-style: normal;
+  font-weight: 800 900;
+  font-display: swap;
+  src: url('/fonts/yekanbakh-extrabold.woff2') format('woff2');
 }
 
 @theme {
-  --font-sans: 'Vazirmatn', ui-sans-serif, system-ui, 'Segoe UI', Tahoma, sans-serif;
+  --font-sans: 'YekanBakh', ui-sans-serif, system-ui, 'Segoe UI', Tahoma, sans-serif;
 
   --color-brand-50: #eefdf9;
   --color-brand-100: #d5f9ef;
@@ -72,7 +102,6 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: var(--font-sans);
-  font-feature-settings: 'ss01';
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
 }
