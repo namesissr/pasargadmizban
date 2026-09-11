@@ -573,6 +573,80 @@ function uniqueHetznerName(serverId: string, name: string): string {
   return `${clean || 'srv'}-${suffix}`.slice(0, 63);
 }
 
+/**
+ * وضعیت عملیات‌های «در حال اجرا» را از هتزنر به‌روز می‌کند.
+ *
+ * عملیات‌هایی مثل ساخت سرور، ری‌استارت و اسنپ‌شات در هتزنر ناهم‌زمان‌اند؛ ما ردیف را با
+ * وضعیت RUNNING ذخیره می‌کنیم و باید بعداً از هتزنر بپرسیم تمام شده یا نه. بدون این کار
+ * تاریخچه عملیات برای همیشه روی «در حال اجرا» می‌ماند و کاربر را گمراه می‌کند.
+ */
+export async function reconcileServerActions(): Promise<{ checked: number; finished: number; failed: number }> {
+  // بازه‌ای بلند تا ردیف‌های معلقِ قدیمی (از قبل از این قابلیت) هم به‌مرور بسته شوند
+  const cutoff = new Date(Date.now() - 14 * 24 * 3600_000);
+  const pending = await prisma.serverAction.findMany({
+    where: { status: 'RUNNING', createdAt: { gte: cutoff } },
+    include: { server: { select: { id: true, hetznerId: true, hetznerAccountId: true, name: true, status: true } } },
+    orderBy: { createdAt: 'asc' },
+    take: 200,
+  });
+
+  let checked = 0;
+  let finished = 0;
+  let failed = 0;
+
+  // کلاینت هر حساب فقط یک بار ساخته شود
+  const clientCache = new Map<string, HetznerClient>();
+
+  for (const row of pending) {
+    // ردیف بدون شناسه اکشن هتزنر راهی برای پیگیری ندارد؛ اگر خیلی کهنه شد، ببند تا معلق نماند
+    if (!row.hetznerActionId) {
+      if (Date.now() - row.createdAt.getTime() > 20 * 60_000) {
+        await prisma.serverAction
+          .update({ where: { id: row.id }, data: { status: 'SUCCESS', progress: 100, finishedAt: new Date() } })
+          .catch(() => null);
+        finished++;
+      }
+      continue;
+    }
+    if (!row.server || !row.server.hetznerId || row.server.status === 'DELETED') continue;
+
+    const accountKey = row.server.hetznerAccountId ?? 'default';
+    try {
+      let client = clientCache.get(accountKey);
+      if (!client) {
+        client = await clientForServer(row.server);
+        clientCache.set(accountKey, client);
+      }
+      checked++;
+      const action = await client.getAction(row.hetznerActionId);
+      if (action.status === 'running') continue;
+
+      await prisma.serverAction.update({
+        where: { id: row.id },
+        data: {
+          status: action.status === 'error' ? 'ERROR' : 'SUCCESS',
+          progress: action.status === 'error' ? row.progress : 100,
+          error: action.error?.message ?? null,
+          finishedAt: action.finished ? new Date(action.finished) : new Date(),
+        },
+      });
+      if (action.status === 'error') failed++;
+      else finished++;
+    } catch (err) {
+      // اکشن قدیمی ممکن است دیگر در هتزنر نباشد؛ آن را بسته فرض کن تا برای همیشه معلق نماند
+      if (err instanceof HetznerError && err.code === 'not_found') {
+        await prisma.serverAction
+          .update({ where: { id: row.id }, data: { status: 'SUCCESS', progress: 100, finishedAt: new Date() } })
+          .catch(() => null);
+        finished++;
+      }
+      // خطاهای دیگر (توکن، شبکه): این دور رد شود و دفعه بعد دوباره تلاش می‌شود
+    }
+  }
+
+  return { checked, finished, failed };
+}
+
 /** بروزرسانی اطلاعات سرور از روی هتزنر */
 export async function syncServer(serverId: string): Promise<Server | null> {
   const server = await prisma.server.findUnique({ where: { id: serverId } });

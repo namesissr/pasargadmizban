@@ -12,6 +12,7 @@ import {
   chargeSnapshots,
   retryUnsuspend,
 } from '@/lib/billing';
+import { reconcileServerActions } from '@/lib/provisioning';
 import { syncCatalog } from '@/lib/catalog';
 import { purgeExpiredRateLimits } from '@/lib/rate-limit';
 import { runMonitors } from '@/lib/monitoring';
@@ -48,6 +49,7 @@ const JOBS = {
     return { processed: r.processed, charged: r.charged.toString(), suspended: r.suspended, errors: r.errors };
   },
   'finalize-provisioning': async () => ({ done: await finalizeProvisioning() }),
+  'reconcile-actions': async () => reconcileServerActions(),
   'sync-servers': async () => syncAllServers(),
   'retry-unsuspend': async () => ({ unsuspended: await retryUnsuspend() }),
   'cleanup-suspended': async () => deleteExpiredSuspended(),

@@ -11,6 +11,7 @@ import {
   chargeSnapshots,
   retryUnsuspend,
 } from '../lib/billing';
+import { reconcileServerActions } from '../lib/provisioning';
 import { syncCatalog } from '../lib/catalog';
 import { purgeExpiredRateLimits } from '../lib/rate-limit';
 import { runMonitors, purgeOldMonitorData } from '../lib/monitoring';
@@ -123,6 +124,13 @@ export const jobs = {
     runJob('finalize-provisioning', async () => {
       const done = await finalizeProvisioning();
       return { processed: done, meta: { done } };
+    }),
+
+  /** هر ۲ دقیقه: به‌روزرسانی وضعیت عملیات‌های در حال اجرا از هتزنر */
+  reconcileActions: () =>
+    runJob('reconcile-actions', async () => {
+      const res = await reconcileServerActions();
+      return { processed: res.finished + res.failed, meta: res };
     }),
 
   /** هر ۲ دقیقه: بررسی اینکه آدرس سرورهای تازه از ایران باز می‌شود */
@@ -310,6 +318,8 @@ function schedule() {
   cron.schedule('10 * * * *', jobs.monthlyBilling, { timezone: tz });
   // هر ۲ دقیقه
   cron.schedule('*/2 * * * *', jobs.finalizeProvisioning, { timezone: tz });
+  // به‌روزرسانی وضعیت عملیات‌ها، هر ۲ دقیقه
+  cron.schedule('*/2 * * * *', jobs.reconcileActions, { timezone: tz });
   // بررسی دسترسی آدرس سرورهای تازه، هر ۲ دقیقه
   cron.schedule('*/2 * * * *', jobs.verifyIpReachability, { timezone: tz });
   // جاروب آدرس‌های بلااستفاده، هر ساعت دقیقه ۲۵
@@ -346,6 +356,7 @@ function schedule() {
   log('   • صورتحساب ساعتی: هر ساعت، دقیقه ۵');
   log('   • صورتحساب ماهانه: هر ساعت، دقیقه ۱۰');
   log('   • تکمیل ساخت سرور: هر ۲ دقیقه');
+  log('   • به‌روزرسانی وضعیت عملیات‌ها: هر ۲ دقیقه');
   log('   • بررسی دسترسی آدرس از ایران: هر ۲ دقیقه');
   log('   • جاروب آدرس‌های بلااستفاده: هر ساعت');
   log('   • نرخ خودکار یورو: طبق بازه تنظیمات');
