@@ -19,6 +19,9 @@ import {
   Network,
   Signal,
   Sparkles,
+  PiggyBank,
+  Gem,
+  Zap,
 } from 'lucide-react';
 import { Alert, Button, Card, Field, Input, LoadingBlock, Select, Toggle, Textarea } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
@@ -121,6 +124,10 @@ export function CreateServerWizard({
   const [userData, setUserData] = useState('');
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [category, setCategory] = useState('all');
+  const [sortBy, setSortBy] = useState<'price' | 'priceDesc' | 'memory' | 'cores' | 'disk' | 'traffic'>('price');
+  const [minMemory, setMinMemory] = useState(0);
+  const [minCores, setMinCores] = useState(0);
+  const [onlyAvailable, setOnlyAvailable] = useState(false);
   const [appTemplate, setAppTemplate] = useState('none');
   const [monitoring, setMonitoring] = useState(true);
 
@@ -150,19 +157,74 @@ export function CreateServerWizard({
     [catalog, image],
   );
 
-  // پلن‌های قابل نمایش برای لوکیشن انتخابی
+  // پلن‌های قابل نمایش برای لوکیشن انتخابی، با فیلتر و مرتب‌سازی کاربر
   const visiblePlans = useMemo(() => {
     if (!catalog || !location) return [];
+    const priceOf = (p: Catalog['plans'][number]) => p.prices[location]?.monthly ?? 0;
     return catalog.plans
       .filter((p) => p.prices[location])
       .filter((p) => category === 'all' || p.category === category)
-      .sort((a, b) => (a.prices[location]?.monthly ?? 0) - (b.prices[location]?.monthly ?? 0));
-  }, [catalog, location, category]);
+      .filter((p) => p.memory >= minMemory && p.cores >= minCores)
+      .filter((p) => !onlyAvailable || p.prices[location]?.available)
+      .sort((a, b) => {
+        switch (sortBy) {
+          case 'priceDesc':
+            return priceOf(b) - priceOf(a);
+          case 'memory':
+            return b.memory - a.memory || priceOf(a) - priceOf(b);
+          case 'cores':
+            return b.cores - a.cores || priceOf(a) - priceOf(b);
+          case 'disk':
+            return b.disk - a.disk || priceOf(a) - priceOf(b);
+          case 'traffic':
+            return b.includedTraffic - a.includedTraffic || priceOf(a) - priceOf(b);
+          default:
+            return priceOf(a) - priceOf(b);
+        }
+      });
+  }, [catalog, location, category, sortBy, minMemory, minCores, onlyAvailable]);
 
   // اگر پلن انتخابی در لوکیشن جدید نبود، پاکش کن
   useEffect(() => {
     if (plan && !visiblePlans.some((p) => p.name === plan)) setPlan('');
   }, [visiblePlans, plan]);
+
+  // پیشنهادهای سریع از میان پلن‌های موجودِ همین فیلترها
+  const quickPicks = useMemo(() => {
+    const avail = visiblePlans.filter((p) => p.prices[location]?.available);
+    const priceOf = (p: Catalog['plans'][number]) => p.prices[location]?.monthly ?? Infinity;
+    const cheapest = avail.length ? avail.reduce((m, p) => (priceOf(p) < priceOf(m) ? p : m)) : null;
+    const bestValue = avail.length
+      ? avail.reduce((m, p) =>
+          priceOf(p) / Math.max(1, p.memory) < priceOf(m) / Math.max(1, m.memory) ? p : m,
+        )
+      : null;
+    const strongest = avail.length
+      ? avail.reduce((m, p) => (p.cores !== m.cores ? (p.cores > m.cores ? p : m) : p.memory > m.memory ? p : m))
+      : null;
+    return [
+      { key: 'cheapest', label: 'ارزان‌ترین', hint: 'کم‌هزینه‌ترین پلن موجود', icon: <PiggyBank size={12} />, plan: cheapest },
+      { key: 'value', label: 'بهترین ارزش', hint: 'کمترین هزینه به ازای هر گیگ رم', icon: <Gem size={12} />, plan: bestValue },
+      { key: 'strongest', label: 'قوی‌ترین', hint: 'بیشترین هسته و رم', icon: <Zap size={12} />, plan: strongest },
+    ];
+  }, [visiblePlans, location]);
+
+  function choosePlan(name: string) {
+    setPlan(name);
+    requestAnimationFrame(() => {
+      document.querySelectorAll(`[data-plan-row="${name}"]`).forEach((el) => {
+        el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    });
+  }
+
+  function resetPlanFilters() {
+    setCategory('all');
+    setSortBy('price');
+    setMinMemory(0);
+    setMinCores(0);
+    setOnlyAvailable(false);
+  }
 
   // سیستم‌عامل سازگار با معماری پلن
   const compatibleImages = useMemo(() => {
@@ -338,10 +400,99 @@ export function CreateServerWizard({
           }
           bodyClassName="p-0"
         >
+          <div className="space-y-2.5 border-b p-3">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[11px] font-semibold muted">انتخاب سریع:</span>
+              {quickPicks.map((q) => (
+                <button
+                  key={q.key}
+                  type="button"
+                  disabled={!q.plan}
+                  title={q.hint}
+                  onClick={() => q.plan && choosePlan(q.plan.name)}
+                  className={cn(
+                    'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition',
+                    q.plan && plan === q.plan.name
+                      ? 'border-[var(--color-brand-500)] bg-[color-mix(in_srgb,var(--color-brand-500)_10%,transparent)] text-[var(--color-brand-600)]'
+                      : 'hover:bg-[var(--surface-2)]',
+                    !q.plan && 'cursor-not-allowed opacity-40',
+                  )}
+                >
+                  {q.icon}
+                  {q.label}
+                  {q.plan ? <span className="mono uppercase opacity-70">· {q.plan.name}</span> : null}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="w-36 max-w-full">
+                <Select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+                  className="py-1.5 text-xs"
+                >
+                  <option value="price">ارزان‌ترین اول</option>
+                  <option value="priceDesc">گران‌ترین اول</option>
+                  <option value="memory">بیشترین رم</option>
+                  <option value="cores">بیشترین هسته</option>
+                  <option value="disk">بیشترین دیسک</option>
+                  <option value="traffic">بیشترین ترافیک</option>
+                </Select>
+              </div>
+              <div className="w-32 max-w-full">
+                <Select
+                  value={minMemory}
+                  onChange={(e) => setMinMemory(Number(e.target.value))}
+                  className="py-1.5 text-xs"
+                >
+                  <option value={0}>هر مقدار رم</option>
+                  <option value={4}>رم ۴+ گیگ</option>
+                  <option value={8}>رم ۸+ گیگ</option>
+                  <option value={16}>رم ۱۶+ گیگ</option>
+                  <option value={32}>رم ۳۲+ گیگ</option>
+                </Select>
+              </div>
+              <div className="w-32 max-w-full">
+                <Select
+                  value={minCores}
+                  onChange={(e) => setMinCores(Number(e.target.value))}
+                  className="py-1.5 text-xs"
+                >
+                  <option value={0}>هر تعداد هسته</option>
+                  <option value={2}>۲+ هسته</option>
+                  <option value={4}>۴+ هسته</option>
+                  <option value={8}>۸+ هسته</option>
+                  <option value={16}>۱۶+ هسته</option>
+                </Select>
+              </div>
+              <button
+                type="button"
+                onClick={() => setOnlyAvailable((v) => !v)}
+                className={cn(
+                  'inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition',
+                  onlyAvailable
+                    ? 'border-[var(--color-brand-500)] bg-[color-mix(in_srgb,var(--color-brand-500)_10%,transparent)] text-[var(--color-brand-600)]'
+                    : 'hover:bg-[var(--surface-2)]',
+                )}
+              >
+                {onlyAvailable ? <Check size={12} /> : null}
+                فقط موجودها
+              </button>
+            </div>
+          </div>
+
           {visiblePlans.length === 0 ? (
-            <p className="px-5 py-10 text-center text-xs muted">
-              پلنی برای این لوکیشن و دسته‌بندی موجود نیست.
-            </p>
+            <div className="px-5 py-10 text-center text-xs muted">
+              پلنی با این فیلترها پیدا نشد.
+              <button
+                type="button"
+                onClick={resetPlanFilters}
+                className="mx-auto mt-2 block font-semibold text-[var(--color-brand-600)] hover:underline"
+              >
+                پاک کردن فیلترها
+              </button>
+            </div>
           ) : (
             <>
             {/* نسخه گوشی: هر پلن یک کارت قابل لمس */}
@@ -354,6 +505,7 @@ export function CreateServerWizard({
                   <button
                     key={p.name}
                     type="button"
+                    data-plan-row={p.name}
                     disabled={disabled}
                     onClick={() => setPlan(p.name)}
                     className={cn(
@@ -432,6 +584,7 @@ export function CreateServerWizard({
                     return (
                       <tr
                         key={p.name}
+                        data-plan-row={p.name}
                         onClick={() => !disabled && setPlan(p.name)}
                         className={cn(
                           'cursor-pointer transition',
