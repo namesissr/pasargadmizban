@@ -26,6 +26,12 @@ type Tx = {
 
 const QUICK_AMOUNTS = [200_000, 500_000, 1_000_000, 2_000_000, 5_000_000, 10_000_000];
 
+/** برچسب کوتاه مبلغ: زیر یک میلیون «هزار»، از یک میلیون به بالا «میلیون» */
+function quickLabel(amount: number): string {
+  if (amount >= 1_000_000) return `${formatNumber(amount / 1_000_000, 1)} میلیون`;
+  return `${formatNumber(amount / 1000)} هزار`;
+}
+
 export function WalletClient({
   balance,
   creditLimit,
@@ -239,7 +245,7 @@ export function WalletClient({
                       : 'muted hover:bg-[var(--surface-2)]',
                   )}
                 >
-                  {formatNumber(a / 1000)} هزار
+                  {quickLabel(a)} تومان
                 </button>
               ))}
             </div>
