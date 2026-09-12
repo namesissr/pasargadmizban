@@ -13,7 +13,9 @@ import {
 /**
  * درگاه پرداخت بیت‌پی — https://bitpay.ir
  *
- * بیت‌پی مبالغ را به «تومان» می‌گیرد (برخلاف زیبال که ریالی است)، پس تبدیلی لازم نیست.
+ * نکته مهم: بیت‌پی مبلغ را به «ریال» می‌گیرد، در حالی که کل سیستم ما تومانی است.
+ * پس هنگام ارسال، تومان در ۱۰ ضرب می‌شود تا کاربر دقیقاً همان مبلغ سفارش را بپردازد.
+ * (پیش از این تبدیل انجام نمی‌شد و کاربر یک‌دهم مبلغ را می‌پرداخت.)
  * جریان کار:
  *   ۱) gateway-send  → یک id_get (عدد مثبت) می‌دهد
  *   ۲) کاربر به gateway-{id_get}-get هدایت می‌شود
@@ -22,6 +24,8 @@ import {
  *
  * کلید API در تنظیمات پنل (رمزنگاری‌شده) نگهداری می‌شود.
  */
+
+const RIAL_PER_TOMAN = 10n;
 
 const SEND_FA: Record<number, string> = {
   [-1]: 'کلید API یا مبلغ ارسال نشده است.',
@@ -89,7 +93,7 @@ export class BitpayGateway implements PaymentGateway {
 
     const idGet = await postForm('/payment/gateway-send', {
       api,
-      amount: String(input.amount), // بیت‌پی تومانی است
+      amount: String(input.amount * RIAL_PER_TOMAN), // تبدیل تومان به ریال برای بیت‌پی
       redirect: redirect.toString(),
       factorId: input.orderId,
       description: input.description.slice(0, 200),
