@@ -19,7 +19,17 @@ import {
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { latestPosts } from '@/lib/blog';
-import { siteInfo, buildMetadata } from '@/lib/seo';
+import {
+  siteInfo,
+  buildMetadata,
+  organizationSchema,
+  websiteSchema,
+  webPageSchema,
+  faqSchema,
+  plansSchema,
+  jsonLdGraph,
+} from '@/lib/seo';
+import { JsonLd } from '@/components/blog/json-ld';
 import { getSettings } from '@/lib/settings';
 import { buildCatalogPrices } from '@/lib/pricing';
 import { locationReachability } from '@/lib/ip-prefix';
@@ -52,6 +62,26 @@ export async function generateMetadata(): Promise<Metadata> {
   });
 }
 
+/** پرسش‌های پرتکرار صفحه اصلی — هم نمایش داده می‌شوند و هم داده ساخت‌یافته می‌سازند */
+const HOME_FAQS = [
+  {
+    q: 'اگر آی‌پی سرورم فیلتر شود چه می‌شود؟',
+    a: 'آی‌پی هر سرور تازه پیش از تحویل از داخل ایران تست می‌شود و اگر باز نشود، پنل خودش رایگان عوضش می‌کند. بعداً هم هر وقت فیلتر شد، از پنل با یک کلیک آی‌پی تازه می‌گیرید؛ تا ۴۸ ساعت اول رایگان است.',
+  },
+  {
+    q: 'پرداخت ساعتی یعنی چه؟',
+    a: 'سرور را هر وقت خواستید بسازید و هر وقت خواستید حذف کنید؛ فقط برای ساعت‌هایی که سرور داشتید از کیف پولتان کسر می‌شود. سقف پرداخت هر ماه هم از قیمت ماهانه پلن بیشتر نمی‌شود.',
+  },
+  {
+    q: 'سرور چقدر طول می‌کشد آماده شود؟',
+    a: 'ساخت کاملاً خودکار است و معمولاً کمتر از یک دقیقه طول می‌کشد. مشخصات اتصال همان لحظه در پنل و ایمیل شما قرار می‌گیرد.',
+  },
+  {
+    q: 'اگر وسط ماه سرور را حذف کنم پولم چه می‌شود؟',
+    a: 'در پلن ماهانه، هزینه روزهای استفاده‌نشده به کیف پولتان برمی‌گردد. در پلن ساعتی هم فقط تا همان ساعت حساب می‌شود.',
+  },
+];
+
 const MIN_REACH_SAMPLES = 10;
 
 export default async function HomePage() {
@@ -59,6 +89,7 @@ export default async function HomePage() {
   if (user) redirect(user.role === 'USER' ? '/dashboard' : '/admin');
 
   const settings = await getSettings();
+  const site = await siteInfo();
   const [catalog, reachability, posts] = await Promise.all([
     buildCatalogPrices().catch(() => null),
     locationReachability().catch(() => []),
@@ -102,8 +133,35 @@ export default async function HomePage() {
 
   const brand = settings.brandName;
 
+  /**
+   * داده ساخت‌یافته صفحه اصلی: سازمان و سایت (برای شناخته شدن برند)،
+   * پرسش‌های پرتکرار (شانس کارت بازشو) و پلن‌ها با قیمت (شانس نمایش قیمت).
+   */
+  const homeJsonLd = site.homeSchema
+    ? jsonLdGraph([
+        organizationSchema(site),
+        websiteSchema(site),
+        webPageSchema(site, {
+          path: '/',
+          name: `${brand} — سرور ابری با پرداخت ریالی`,
+          description:
+            'سرور ابری آلمان و فنلاند با پرداخت ساعتی و ماهانه به تومان، تحویل خودکار زیر یک دقیقه و آی‌پی تست‌شده از ایران.',
+        }),
+        faqSchema(HOME_FAQS),
+        plansSchema(
+          site,
+          plans.map((plan) => ({
+            name: plan.name,
+            monthly: plan.monthly,
+            description: `${plan.cores} هسته پردازنده، ${plan.memory} گیگابایت رم، ${plan.disk} گیگابایت فضای NVMe و ${formatTraffic(plan.traffic)} ترافیک ماهانه`,
+          })),
+        ),
+      ])
+    : null;
+
   return (
     <div className="min-h-screen">
+      {homeJsonLd ? <JsonLd json={homeJsonLd} /> : null}
       <SiteHeader brand={brand} blogEnabled={settings.blogEnabled} />
 
       <main className="mx-auto max-w-6xl px-4">
@@ -277,24 +335,7 @@ export default async function HomePage() {
         <section className="mx-auto max-w-2xl py-10">
           <h2 className="text-center text-xl font-extrabold">پرسش‌های پرتکرار</h2>
           <div className="mt-6 space-y-2.5">
-            {[
-              {
-                q: 'اگر آی‌پی سرورم فیلتر شود چه می‌شود؟',
-                a: 'آی‌پی هر سرور تازه پیش از تحویل از داخل ایران تست می‌شود و اگر باز نشود، پنل خودش رایگان عوضش می‌کند. بعداً هم هر وقت فیلتر شد، از پنل با یک کلیک آی‌پی تازه می‌گیرید؛ تا ۴۸ ساعت اول رایگان است.',
-              },
-              {
-                q: 'پرداخت ساعتی یعنی چه؟',
-                a: 'سرور را هر وقت خواستید بسازید و هر وقت خواستید حذف کنید؛ فقط برای ساعت‌هایی که سرور داشتید از کیف پولتان کسر می‌شود. سقف پرداخت هر ماه هم از قیمت ماهانه پلن بیشتر نمی‌شود.',
-              },
-              {
-                q: 'سرور چقدر طول می‌کشد آماده شود؟',
-                a: 'ساخت کاملاً خودکار است و معمولاً کمتر از یک دقیقه طول می‌کشد. مشخصات اتصال همان لحظه در پنل و ایمیل شما قرار می‌گیرد.',
-              },
-              {
-                q: 'اگر وسط ماه سرور را حذف کنم پولم چه می‌شود؟',
-                a: 'در پلن ماهانه، هزینه روزهای استفاده‌نشده به کیف پولتان برمی‌گردد. در پلن ساعتی هم فقط تا همان ساعت حساب می‌شود.',
-              },
-            ].map((item) => (
+            {HOME_FAQS.map((item) => (
               <details key={item.q} className="card group p-4">
                 <summary className="cursor-pointer list-none text-sm font-bold">{item.q}</summary>
                 <p className="mt-2.5 text-xs leading-7 muted">{item.a}</p>

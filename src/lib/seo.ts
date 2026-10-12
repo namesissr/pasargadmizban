@@ -22,6 +22,14 @@ export type SiteInfo = {
   perPage: number;
   enabled: boolean;
   twitter: string;
+  /** لوگوی سازمان برای داده ساخت‌یافته */
+  logo: string;
+  /** نشانی شبکه‌های اجتماعی برند (sameAs) */
+  sameAs: string[];
+  /** نویسنده پیش‌فرض مقاله‌ها */
+  author: { name: string; title: string; bio: string };
+  /** داده ساخت‌یافته صفحه اصلی فعال است */
+  homeSchema: boolean;
   verification: { google: string; bing: string };
 };
 
@@ -42,6 +50,18 @@ export async function siteInfo(): Promise<SiteInfo> {
     perPage: Math.min(24, Math.max(4, s.blogPerPage || 9)),
     enabled: s.blogEnabled !== false,
     twitter: s.blogTwitter || '',
+    logo: s.orgLogoUrl || '',
+    sameAs: (s.orgSameAs || '')
+      .split(/[\n,]+/)
+      .map((v) => v.trim())
+      .filter((v) => /^https?:\/\//i.test(v))
+      .slice(0, 12),
+    author: {
+      name: s.defaultAuthorName || s.brandName,
+      title: s.defaultAuthorTitle || '',
+      bio: s.defaultAuthorBio || '',
+    },
+    homeSchema: s.homeSchemaEnabled !== false,
     verification: { google: s.googleSiteVerification || '', bing: s.bingSiteVerification || '' },
   };
 }
@@ -153,7 +173,10 @@ export function organizationSchema(site: SiteInfo): Json {
     '@id': `${site.siteUrl}/#organization`,
     name: site.brandName,
     url: site.siteUrl,
-    ...(site.defaultOgImage ? { logo: absoluteUrl(site.siteUrl, site.defaultOgImage) } : {}),
+    ...(site.logo || site.defaultOgImage
+      ? { logo: absoluteUrl(site.siteUrl, site.logo || site.defaultOgImage) }
+      : {}),
+    ...(site.sameAs.length ? { sameAs: site.sameAs } : {}),
     ...(site.supportEmail || site.supportPhone
       ? {
           contactPoint: [
@@ -272,4 +295,53 @@ export function itemListSchema(site: SiteInfo, items: { title: string; path: str
 export function jsonLdGraph(nodes: (Json | null | undefined)[]): string {
   const graph = nodes.filter(Boolean);
   return JSON.stringify({ '@context': 'https://schema.org', '@graph': graph });
+}
+
+/** صفحه معمولی سایت (برای صفحه اصلی) */
+export function webPageSchema(site: SiteInfo, input: { path: string; name: string; description: string }): Json {
+  const url = absoluteUrl(site.siteUrl, input.path);
+  return {
+    '@type': 'WebPage',
+    '@id': `${url}#webpage`,
+    url,
+    name: input.name,
+    description: clampDescription(input.description),
+    inLanguage: 'fa-IR',
+    isPartOf: { '@id': `${site.siteUrl}/#website` },
+    about: { '@id': `${site.siteUrl}/#organization` },
+  };
+}
+
+/**
+ * پلن‌های سرور به شکل ساخت‌یافته.
+ * قیمت واقعی و در دسترس بودن را می‌دهیم تا در نتایج گوگل شانس نمایش قیمت
+ * داشته باشیم. قیمت‌ها به ریال ایران اعلام می‌شوند (تومان ضرب در ده).
+ */
+export function plansSchema(
+  site: SiteInfo,
+  plans: { name: string; monthly: number; description: string }[],
+): Json | null {
+  if (!plans.length) return null;
+  return {
+    '@type': 'ItemList',
+    name: `پلن‌های سرور ابری ${site.brandName}`,
+    itemListElement: plans.map((plan, index) => ({
+      '@type': 'ListItem',
+      position: index + 1,
+      item: {
+        '@type': 'Product',
+        name: `سرور ابری ${plan.name}`,
+        description: plan.description,
+        brand: { '@type': 'Brand', name: site.brandName },
+        offers: {
+          '@type': 'Offer',
+          price: Math.round(plan.monthly * 10),
+          priceCurrency: 'IRR',
+          availability: 'https://schema.org/InStock',
+          url: absoluteUrl(site.siteUrl, '/register'),
+          priceValidUntil: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().slice(0, 10),
+        },
+      },
+    })),
+  };
 }

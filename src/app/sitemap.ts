@@ -46,6 +46,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       lastModified: p.updatedAt,
       changeFrequency: 'monthly' as const,
       priority: 0.8,
+      // تصویر شاخص در نقشه سایت، شانس دیده شدن در جستجوی تصویر گوگل را بالا می‌برد
+      ...(p.coverImage ? { images: [url(p.coverImage)] } : {}),
     })),
     ...tags.map((t) => ({
       url: url(`/blog/tag/${t.slug}`),

@@ -56,6 +56,25 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fa" dir="rtl" suppressHydrationWarning>
       <head>
+        {/*
+          فونت اصلی را پیش از رندر می‌گیریم تا متن یک بار با فونت سیستم و بار
+          دوم با فونت سایت رسم نشود؛ این جهش، یکی از عامل‌های افت امتیاز
+          Core Web Vitals است و گوگل سرعت را در رتبه حساب می‌کند.
+        */}
+        <link
+          rel="preload"
+          href="/fonts/yekanbakh-regular.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/yekanbakh-bold.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body>

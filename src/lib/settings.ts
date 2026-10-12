@@ -178,6 +178,20 @@ export type SettingsShape = {
   /** کد تأیید مالکیت بینگ وبمستر */
   bingSiteVerification: string;
 
+  /** نشانی لوگوی سازمان برای داده ساخت‌یافته (۱۱۲×۱۱۲ یا بزرگ‌تر) */
+  orgLogoUrl: string;
+  /** نشانی شبکه‌های اجتماعی، هر خط یکی — به گوگل کمک می‌کند برند را یک موجودیت بشناسد */
+  orgSameAs: string;
+  /** نویسنده پیش‌فرض مقاله‌ها (اعتبار نویسنده در ارزیابی کیفیت گوگل) */
+  defaultAuthorName: string;
+  defaultAuthorTitle: string;
+  defaultAuthorBio: string;
+  /** داده ساخت‌یافته پرسش‌های پرتکرار و پلن‌ها روی صفحه اصلی */
+  homeSchemaEnabled: boolean;
+  /** کلید IndexNow — اعلام فوری آدرس تازه به بینگ و یاندکس */
+  indexNowKey: string;
+  indexNowEnabled: boolean;
+
   // ─── تولید خودکار محتوا ───
   /** خط تولید روزانه مقاله فعال باشد */
   contentAutoEnabled: boolean;
@@ -316,10 +330,20 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   googleSiteVerification: '',
   bingSiteVerification: '',
 
-  contentAutoEnabled: false,
+  orgLogoUrl: '',
+  orgSameAs: '',
+  defaultAuthorName: '',
+  defaultAuthorTitle: 'مهندسی زیرساخت',
+  defaultAuthorBio: '',
+  homeSchemaEnabled: true,
+  indexNowKey: '',
+  indexNowEnabled: true,
+
+  // تولید خودکار روزانه روشن است؛ مدیر سایت صریحاً خواسته است
+  contentAutoEnabled: true,
   contentPerDay: 3,
-  contentAutoPublish: false,
-  contentMinSeoScore: 75,
+  contentAutoPublish: true,
+  contentMinSeoScore: 80,
   contentMinWords: 700,
   contentFallbackCategory: '',
   contentRunHour: 4,
@@ -405,6 +429,8 @@ function groupOf(key: string): string {
   if (key.startsWith('smtp')) return 'smtp';
   if (key.startsWith('blog') || key.endsWith('SiteVerification')) return 'blog';
   if (key.startsWith('content')) return 'content';
+  if (key.startsWith('org') || key.startsWith('defaultAuthor') || key.startsWith('indexNow') || key === 'homeSchemaEnabled')
+    return 'seo';
   if (key.startsWith('channel') || key.startsWith('default')) return 'notifications';
   return 'general';
 }

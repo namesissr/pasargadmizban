@@ -8,6 +8,7 @@ import { discoverKeywords, type KeywordCandidate } from './keywords';
 import { researchKeyword } from './research';
 import { writeArticle, type InternalLink } from './writer';
 import { checkArticle } from './quality';
+import { submitToIndexNow } from '../indexnow';
 
 /**
  * خط تولید محتوا: از کشف موضوع تا مقاله آماده.
@@ -70,6 +71,7 @@ async function processCandidate(
     categories: { id: string; slug: string; name: string }[];
     internalLinks: InternalLink[];
     brandName: string;
+    author: { name: string; title: string; bio: string };
     autoPublish: boolean;
     minSeoScore: number;
     minWords: number;
@@ -166,12 +168,16 @@ async function processCandidate(
       status: context.autoPublish ? 'PUBLISHED' : 'DRAFT',
       categoryId: category?.id ?? null,
       tags: written.article.tags,
-      authorName: `تیم فنی ${context.brandName}`,
-      authorTitle: 'مهندسی زیرساخت',
+      authorName: context.author.name,
+      authorTitle: context.author.title,
+      authorBio: context.author.bio,
     });
 
     const post = await prisma.blogPost.create({ data, select: { id: true, slug: true, status: true } });
     await syncTags(post.id, written.article.tags);
+
+    // مقاله منتشرشده را فوری به موتورهای جستجو اعلام می‌کنیم
+    if (context.autoPublish) await submitToIndexNow([`/blog/${post.slug}`, '/blog']);
 
     const status = context.autoPublish ? 'PUBLISHED' : 'DRAFTED';
     await prisma.contentJob.update({
@@ -268,6 +274,13 @@ export async function runContentPipeline(options: { count?: number; force?: bool
     categories: ordered,
     internalLinks,
     brandName: settings.brandName,
+    author: {
+      name: settings.defaultAuthorName || `تیم فنی ${settings.brandName}`,
+      title: settings.defaultAuthorTitle || 'مهندسی زیرساخت',
+      bio:
+        settings.defaultAuthorBio ||
+        `تیم فنی ${settings.brandName} — تجربه‌های راه‌اندازی و نگهداری سرور ابری را به زبان ساده می‌نویسیم.`,
+    },
     autoPublish: settings.contentAutoPublish,
     minSeoScore: settings.contentMinSeoScore,
     minWords: settings.contentMinWords,

@@ -4,6 +4,7 @@ import { ok, parseBody, parseQuery, pagination, paged, route } from '@/lib/api';
 import { requireAdmin, requireStaff, clientIp, assertSameOrigin } from '@/lib/auth';
 import { audit } from '@/lib/audit';
 import { postInputSchema, buildPostData, syncTags } from '@/lib/blog-admin';
+import { submitToIndexNow } from '@/lib/indexnow';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -85,6 +86,7 @@ export const POST = route(async (req: Request) => {
   });
 
   await syncTags(post.id, input.tags);
+  if (post.status === 'PUBLISHED') await submitToIndexNow([`/blog/${post.slug}`, '/blog']);
 
   await audit({
     userId: admin.id,

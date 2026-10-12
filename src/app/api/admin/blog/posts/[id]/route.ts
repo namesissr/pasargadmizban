@@ -4,6 +4,7 @@ import { ok, parseBody, route, ApiError } from '@/lib/api';
 import { requireAdmin, requireStaff, clientIp, assertSameOrigin } from '@/lib/auth';
 import { audit } from '@/lib/audit';
 import { postInputSchema, buildPostData, syncTags, recordSlugChange } from '@/lib/blog-admin';
+import { submitToIndexNow } from '@/lib/indexnow';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -61,6 +62,7 @@ export const PATCH = route(async (req: Request, ctx: Ctx) => {
 
   await syncTags(id, input.tags);
   refreshBlogCache(post.slug, existing.slug);
+  if (post.status === 'PUBLISHED') await submitToIndexNow([`/blog/${post.slug}`]);
 
   await audit({
     userId: admin.id,

@@ -16,6 +16,34 @@ import type { GeneratedArticle } from './writer';
 /** عدد فارسی برای پیام‌هایی که در پنل دیده می‌شوند */
 const fa = (n: number) => new Intl.NumberFormat('fa-IR').format(n);
 
+/**
+ * عبارت‌های کلیشه‌ای که متن را «ماشینی» می‌کنند.
+ *
+ * این‌ها نه برای فریب ابزار تشخیص هوش مصنوعی اینجاست، نه چنین کاری ممکن
+ * است؛ برای کیفیت است. متنی که با «در دنیای امروز» شروع می‌شود و با
+ * «امیدواریم مفید بوده باشد» تمام می‌شود، چیزی به خواننده اضافه نمی‌کند و
+ * گوگل هم همین بی‌ارزشی را می‌سنجد.
+ */
+const CLICHES = [
+  'در دنیای امروز',
+  'در عصر حاضر',
+  'در دنیای امروزی',
+  'با پیشرفت روزافزون',
+  'با پیشرفت تکنولوژی',
+  'در این مقاله قصد داریم',
+  'در این مقاله می‌خواهیم',
+  'در ادامه خواهیم دید',
+  'لازم به ذکر است',
+  'شایان ذکر است',
+  'قابل ذکر است',
+  'همان‌طور که می‌دانید',
+  'بدون شک',
+  'در نهایت می‌توان گفت',
+  'امیدواریم این مقاله',
+  'با ما همراه باشید',
+  'مفید بوده باشد',
+];
+
 export type QualityVerdict = {
   ok: boolean;
   reasons: string[];
@@ -24,6 +52,8 @@ export type QualityVerdict = {
   internalLinks: number;
   /** بیشترین شباهت با مقاله‌های موجود، بین ۰ تا ۱ */
   maxSimilarity: number;
+  /** عبارت‌های کلیشه‌ای پیدا‌شده در متن */
+  cliches: string[];
 };
 
 /** مجموعه «شینگل»های متن: دنباله‌های n کلمه‌ای، برای سنجش شباهت */
@@ -97,6 +127,19 @@ export async function checkArticle(input: {
     reasons.push(`امتیاز سئو ${fa(report.score)} است و از حد تعیین‌شده (${fa(minSeoScore)}) کمتر است.`);
   }
 
+  // ── لحن و کلیشه ──
+  const normalizedBody = normalizeFa(rendered.text);
+  const cliches = CLICHES.filter((phrase) => normalizedBody.includes(normalizeFa(phrase)));
+  if (cliches.length) {
+    reasons.push(`متن عبارت کلیشه‌ای دارد: «${cliches.slice(0, 3).join('»، «')}». این‌ها را حذف یا بازنویسی کنید.`);
+  }
+
+  // سرفصل‌های بی‌محتوا نشانه متن قالبی است
+  const genericHeadings = rendered.toc.filter((t) => /^(مقدمه|نتیجه‌گیری|نتیجه گیری|جمع‌بندی نهایی|پیشگفتار)$/.test(t.text.trim()));
+  if (genericHeadings.length) {
+    reasons.push(`سرفصل‌های کلی («${genericHeadings[0].text}») به کار خواننده نمی‌آیند؛ عنوان گویا بگذارید.`);
+  }
+
   // ── اصالت ──
   const copied = copiesSource(rendered.text, sources);
   if (copied) reasons.push(`جمله‌ای عیناً شبیه خلاصه نتیجه گوگل است (${copied}).`);
@@ -130,5 +173,6 @@ export async function checkArticle(input: {
     wordCount: rendered.wordCount,
     internalLinks,
     maxSimilarity: Number(maxSimilarity.toFixed(3)),
+    cliches,
   };
 }

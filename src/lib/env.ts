@@ -111,6 +111,22 @@ export const env = {
     },
   },
 
+  /**
+   * گوگل سرچ کنسول — خواندن آمار جستجو و وضعیت ایندکس.
+   * یک «سرویس‌اکانت» در Google Cloud بسازید، کلید JSON بگیرید و ایمیل همان
+   * سرویس‌اکانت را در سرچ کنسول به عنوان کاربر کامل اضافه کنید.
+   */
+  gsc: {
+    clientEmail: get('GSC_CLIENT_EMAIL').trim(),
+    /** کلید خصوصی PEM؛ خط‌های جدید می‌توانند \n نوشته شده باشند */
+    privateKey: get('GSC_PRIVATE_KEY').replace(/\\n/g, '\n').trim(),
+    /** آدرس پراپرتی در سرچ کنسول: https://example.com/ یا sc-domain:example.com */
+    siteUrl: get('GSC_SITE_URL').trim(),
+    get enabled() {
+      return Boolean(get('GSC_CLIENT_EMAIL').trim() && get('GSC_PRIVATE_KEY').trim() && get('GSC_SITE_URL').trim());
+    },
+  },
+
   /** توکن محافظ برای صدا زدن endpoint های کرون از بیرون */
   cronSecret: get('CRON_SECRET', ''),
 

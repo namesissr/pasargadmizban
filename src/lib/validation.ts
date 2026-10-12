@@ -278,6 +278,15 @@ export const adminSettingsSchema = z.object({
   googleSiteVerification: z.string().trim().max(200).optional(),
   bingSiteVerification: z.string().trim().max(200).optional(),
 
+  orgLogoUrl: z.string().trim().max(300).optional(),
+  orgSameAs: z.string().trim().max(1000).optional(),
+  defaultAuthorName: z.string().trim().max(120).optional(),
+  defaultAuthorTitle: z.string().trim().max(120).optional(),
+  defaultAuthorBio: z.string().trim().max(600).optional(),
+  homeSchemaEnabled: z.boolean().optional(),
+  indexNowKey: z.string().trim().max(64).optional(),
+  indexNowEnabled: z.boolean().optional(),
+
   contentAutoEnabled: z.boolean().optional(),
   contentPerDay: z.coerce.number().int().min(1).max(10).optional(),
   contentAutoPublish: z.boolean().optional(),

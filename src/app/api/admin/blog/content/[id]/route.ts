@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { ok, parseBody, route, ApiError } from '@/lib/api';
 import { requireAdmin, clientIp, assertSameOrigin } from '@/lib/auth';
 import { audit } from '@/lib/audit';
+import { submitToIndexNow } from '@/lib/indexnow';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,6 +39,7 @@ export const PATCH = route(async (req: Request, ctx: Ctx) => {
     revalidatePath('/blog');
     revalidatePath('/');
     revalidatePath(`/blog/${post.slug}`);
+    await submitToIndexNow([`/blog/${post.slug}`, '/blog']);
 
     await audit({
       userId: admin.id,
