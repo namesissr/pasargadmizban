@@ -96,6 +96,21 @@ export const env = {
     apiUrl: get('TELEGRAM_API_URL', 'https://api.telegram.org').replace(/\/$/, ''),
   },
 
+  /**
+   * تولید خودکار محتوای وبلاگ.
+   * کلید API مدل زبانی و (اختیاری) کلید سرویس نتایج گوگل.
+   */
+  content: {
+    apiKey: get('ANTHROPIC_API_KEY').trim(),
+    model: get('CONTENT_MODEL', 'claude-opus-5-5').trim(),
+    /** none | serper | serpapi — بدون کلید، تحقیق فقط با پیشنهادهای گوگل انجام می‌شود */
+    serpProvider: get('CONTENT_SERP_PROVIDER', 'none').trim().toLowerCase(),
+    serpKey: get('CONTENT_SERP_KEY').trim(),
+    get enabled() {
+      return Boolean(get('ANTHROPIC_API_KEY').trim());
+    },
+  },
+
   /** توکن محافظ برای صدا زدن endpoint های کرون از بیرون */
   cronSecret: get('CRON_SECRET', ''),
 

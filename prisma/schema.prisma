@@ -1374,6 +1374,7 @@ model BlogPost {
 
   // ─── سئو ───
   /**
+   * /**
    * /** عنوان سئو؛ اگر خالی باشد از title استفاده می‌شود
    */
   metaTitle       String?
@@ -1418,6 +1419,7 @@ model BlogPost {
 
   tags        BlogPostTag[]
   slugHistory BlogSlugHistory[]
+  contentJob  ContentJob?
 
   @@index([status, publishedAt])
   @@index([categoryId, status, publishedAt])
@@ -1450,4 +1452,74 @@ model BlogSlugHistory {
 
   @@index([postId])
   @@map("blog_slug_history")
+}
+
+// ═══════════════════  تولید خودکار محتوا  ═══════════════════
+
+enum ContentJobStatus {
+  PENDING
+  RESEARCHING
+  DRAFTED
+  PUBLISHED
+  REJECTED
+  FAILED
+}
+
+/**
+ * هر ردیف، یک مقاله در خط تولید است: از کلیدواژه کشف‌شده تا مقاله منتشرشده.
+ * کلیدواژه نرمال‌شده یکتاست تا دو روز پشت سر هم روی یک موضوع مقاله نسازیم.
+ */
+model ContentJob {
+  id          String @id @default(cuid())
+  keyword     String
+  /**
+   * شکل یکدست‌شده کلیدواژه — کلید جلوگیری از تکرار موضوع
+   */
+  keywordNorm String @unique
+  /**
+   * از کجا کشف شد: suggest | related | seed | manual
+   */
+  source      String @default("suggest")
+  /**
+   * امتیاز اولویت در صف تولید
+   */
+  score       Int    @default(0)
+
+  status ContentJobStatus @default(PENDING)
+
+  /**
+   * نتایج بالای گوگل برای این عبارت: [{ title, url, snippet }] — فقط برای خلاصه تحقیق
+   */
+  sources Json  @default("[]")
+  /**
+   * خلاصه تحقیق: پرسش‌های کاربران، سرفصل‌های پیشنهادی، زاویه مقاله
+   */
+  brief   Json?
+
+  postId String?   @unique
+  post   BlogPost? @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  seoScore  Int?
+  wordCount Int?
+
+  /**
+   * مدل و مصرف توکن، برای رصد هزینه
+   */
+  model        String?
+  inputTokens  Int?
+  outputTokens Int?
+
+  /**
+   * دلیل شکست یا رد شدن، به فارسی
+   */
+  error String?
+
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("content_jobs")
 }

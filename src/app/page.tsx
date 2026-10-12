@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import {
-  Server,
   Zap,
   ShieldCheck,
   Radar,
@@ -26,6 +25,7 @@ import { buildCatalogPrices } from '@/lib/pricing';
 import { locationReachability } from '@/lib/ip-prefix';
 import { formatToman, formatNumber, formatTraffic } from '@/lib/money';
 import { locationFa, cn, faDate } from '@/lib/utils';
+import { SiteHeader, SiteFooter } from '@/components/site/chrome';
 
 export const dynamic = 'force-dynamic';
 
@@ -104,33 +104,7 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen">
-      {/* ── سربرگ ── */}
-      <header className="sticky top-0 z-40 border-b" style={{ background: 'color-mix(in srgb, var(--surface) 90%, transparent)', backdropFilter: 'blur(8px)' }}>
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--color-brand-600)] text-white">
-              <Server size={17} />
-            </span>
-            <span className="leading-tight">
-              <span className="block text-sm font-extrabold">{brand}</span>
-              <span className="block text-[11px] muted">سرور ابری با پرداخت ریالی</span>
-            </span>
-          </div>
-          <nav className="flex items-center gap-2">
-            {settings.blogEnabled ? (
-              <Link href="/blog" className="btn btn-ghost btn-sm">
-                وبلاگ
-              </Link>
-            ) : null}
-            <Link href="/login" className="btn btn-ghost btn-sm">
-              ورود
-            </Link>
-            <Link href="/register" className="btn btn-primary btn-sm">
-              ثبت‌نام رایگان
-            </Link>
-          </nav>
-        </div>
-      </header>
+      <SiteHeader brand={brand} blogEnabled={settings.blogEnabled} />
 
       <main className="mx-auto max-w-6xl px-4">
         {/* ── قهرمان ── */}
@@ -386,34 +360,7 @@ export default async function HomePage() {
         </section>
       </main>
 
-      <footer className="border-t py-6 text-center text-[11px] muted">
-        <nav aria-label="پیوندهای سایت" className="mb-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-          <Link href="/" className="hover:underline">
-            صفحه اصلی
-          </Link>
-          <a href="#pricing" className="hover:underline">
-            قیمت‌ها
-          </a>
-          {settings.blogEnabled ? (
-            <>
-              <Link href="/blog" className="hover:underline">
-                وبلاگ
-              </Link>
-              <Link href="/blog/rss.xml" className="hover:underline">
-                خوراک RSS
-              </Link>
-            </>
-          ) : null}
-          <Link href="/register" className="hover:underline">
-            ثبت‌نام
-          </Link>
-          <Link href="/login" className="hover:underline">
-            ورود
-          </Link>
-        </nav>
-        {brand} — تمامی حقوق محفوظ است.
-        {settings.supportEmail ? <span className="ltr mx-1 inline-block">{settings.supportEmail}</span> : null}
-      </footer>
+      <SiteFooter brand={brand} supportEmail={settings.supportEmail} blogEnabled={settings.blogEnabled} />
     </div>
   );
 }

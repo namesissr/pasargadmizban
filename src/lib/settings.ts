@@ -178,6 +178,25 @@ export type SettingsShape = {
   /** کد تأیید مالکیت بینگ وبمستر */
   bingSiteVerification: string;
 
+  // ─── تولید خودکار محتوا ───
+  /** خط تولید روزانه مقاله فعال باشد */
+  contentAutoEnabled: boolean;
+  /** چند مقاله در هر اجرای روزانه ساخته شود */
+  contentPerDay: number;
+  /** مقاله‌های ساخته‌شده خودکار منتشر شوند یا پیش‌نویس بمانند تا تأیید کنید */
+  contentAutoPublish: boolean;
+  /** مقاله با امتیاز سئوی کمتر از این عدد منتشر نمی‌شود */
+  contentMinSeoScore: number;
+  /**
+   * حداقل شمار کلمه مقاله. شمارش روی متن خالی انجام می‌شود و بلوک کد و
+   * جدول در آن حساب نمی‌شوند، پس عدد واقعی مقاله معمولاً بیشتر است.
+   */
+  contentMinWords: number;
+  /** اگر موضوع به هیچ دسته‌ای نخورد، در این دسته می‌رود (نشانی دسته) */
+  contentFallbackCategory: string;
+  /** ساعت اجرای روزانه به وقت تهران (۰ تا ۲۳) */
+  contentRunHour: number;
+
   // ─── سرور ایمیل (SMTP) ───
   // اگر میزبان خالی باشد، مقادیر فایل .env استفاده می‌شوند (سازگاری با نسخه قدیمی)
   smtpHost: string;
@@ -297,6 +316,14 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   googleSiteVerification: '',
   bingSiteVerification: '',
 
+  contentAutoEnabled: false,
+  contentPerDay: 3,
+  contentAutoPublish: false,
+  contentMinSeoScore: 75,
+  contentMinWords: 700,
+  contentFallbackCategory: '',
+  contentRunHour: 4,
+
   smtpHost: '',
   smtpPort: 587,
   smtpSecure: false,
@@ -377,6 +404,7 @@ function groupOf(key: string): string {
   if (key.startsWith('catalog')) return 'catalog';
   if (key.startsWith('smtp')) return 'smtp';
   if (key.startsWith('blog') || key.endsWith('SiteVerification')) return 'blog';
+  if (key.startsWith('content')) return 'content';
   if (key.startsWith('channel') || key.startsWith('default')) return 'notifications';
   return 'general';
 }

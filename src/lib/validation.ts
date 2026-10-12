@@ -278,6 +278,14 @@ export const adminSettingsSchema = z.object({
   googleSiteVerification: z.string().trim().max(200).optional(),
   bingSiteVerification: z.string().trim().max(200).optional(),
 
+  contentAutoEnabled: z.boolean().optional(),
+  contentPerDay: z.coerce.number().int().min(1).max(10).optional(),
+  contentAutoPublish: z.boolean().optional(),
+  contentMinSeoScore: z.coerce.number().int().min(0).max(100).optional(),
+  contentMinWords: z.coerce.number().int().min(300).max(5000).optional(),
+  contentFallbackCategory: z.string().trim().max(120).optional(),
+  contentRunHour: z.coerce.number().int().min(0).max(23).optional(),
+
   monitoringEnabled: z.boolean().optional(),
   monitorDefaultInterval: z.coerce.number().int().min(1).max(60).optional(),
   monitorMaxPerUser: z.coerce.number().int().min(0).max(1000).optional(),
