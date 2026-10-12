@@ -269,6 +269,15 @@ export const adminSettingsSchema = z.object({
   telegramPolling: z.boolean().optional(),
   telegramAllowActions: z.boolean().optional(),
 
+  blogEnabled: z.boolean().optional(),
+  blogTitle: z.string().trim().max(120).optional(),
+  blogDescription: z.string().trim().max(300).optional(),
+  blogPerPage: z.coerce.number().int().min(4).max(24).optional(),
+  blogOgImage: z.string().trim().max(300).optional(),
+  blogTwitter: z.string().trim().max(40).optional(),
+  googleSiteVerification: z.string().trim().max(200).optional(),
+  bingSiteVerification: z.string().trim().max(200).optional(),
+
   monitoringEnabled: z.boolean().optional(),
   monitorDefaultInterval: z.coerce.number().int().min(1).max(60).optional(),
   monitorMaxPerUser: z.coerce.number().int().min(0).max(1000).optional(),

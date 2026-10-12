@@ -15,22 +15,42 @@ import {
   ArrowLeft,
   Check,
   Globe,
+  BookOpen,
+  CalendarDays,
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
+import { latestPosts } from '@/lib/blog';
+import { siteInfo, buildMetadata } from '@/lib/seo';
 import { getSettings } from '@/lib/settings';
 import { buildCatalogPrices } from '@/lib/pricing';
 import { locationReachability } from '@/lib/ip-prefix';
 import { formatToman, formatNumber, formatTraffic } from '@/lib/money';
-import { locationFa, cn } from '@/lib/utils';
+import { locationFa, cn, faDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'پاسارگاد میزبان — سرور ابری با پرداخت ریالی',
-  description:
-    'سرور ابری آلمان و فنلاند با پرداخت ساعتی و ماهانه به تومان. تحویل زیر یک دقیقه، آی‌پی تست‌شده از ایران و تعویض آی‌پی.',
-  robots: { index: true, follow: true },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await siteInfo();
+
+  // صفحه اصلی قوی‌ترین صفحه سایت است: canonical، کارت اشتراک‌گذاری و کد
+  // تأیید سرچ کنسول همه از تنظیمات پنل خوانده می‌شوند
+  return buildMetadata({
+    site,
+    title: `${site.brandName} — سرور ابری با پرداخت ریالی`,
+    description:
+      'سرور ابری آلمان و فنلاند با پرداخت ساعتی و ماهانه به تومان. تحویل زیر یک دقیقه، آی‌پی تست‌شده از ایران و تعویض آی‌پی.',
+    path: '/',
+    keywords: [
+      'سرور ابری',
+      'خرید سرور مجازی',
+      'سرور مجازی آلمان',
+      'سرور ابری ایران',
+      'هتزنر',
+      'VPS ارزان',
+      'پرداخت ریالی سرور',
+    ],
+  });
+}
 
 const MIN_REACH_SAMPLES = 10;
 
@@ -39,9 +59,10 @@ export default async function HomePage() {
   if (user) redirect(user.role === 'USER' ? '/dashboard' : '/admin');
 
   const settings = await getSettings();
-  const [catalog, reachability] = await Promise.all([
+  const [catalog, reachability, posts] = await Promise.all([
     buildCatalogPrices().catch(() => null),
     locationReachability().catch(() => []),
+    settings.blogEnabled ? latestPosts(3).catch(() => []) : Promise.resolve([]),
   ]);
 
   const reachMap = new Map(
@@ -96,6 +117,11 @@ export default async function HomePage() {
             </span>
           </div>
           <nav className="flex items-center gap-2">
+            {settings.blogEnabled ? (
+              <Link href="/blog" className="btn btn-ghost btn-sm">
+                وبلاگ
+              </Link>
+            ) : null}
             <Link href="/login" className="btn btn-ghost btn-sm">
               ورود
             </Link>
@@ -303,6 +329,49 @@ export default async function HomePage() {
           </div>
         </section>
 
+        {/* ── آخرین مقاله‌های وبلاگ ── */}
+        {posts.length > 0 ? (
+          <section className="py-10" aria-labelledby="blog-heading">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 id="blog-heading" className="flex items-center gap-2 text-xl font-extrabold">
+                  <BookOpen size={18} /> از وبلاگ ما
+                </h2>
+                <p className="mt-2 text-xs leading-7 muted">
+                  آموزش و تجربه‌های واقعی راه‌اندازی سرور، به زبان ساده.
+                </p>
+              </div>
+              <Link href="/blog" className="btn btn-secondary btn-sm">
+                همه مقاله‌ها <ArrowLeft size={14} />
+              </Link>
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {posts.map((post) => (
+                <article key={post.id} className="card flex flex-col p-4">
+                  {post.category ? (
+                    <span className="text-[11px] font-bold text-[var(--color-brand-600)]">{post.category.name}</span>
+                  ) : null}
+                  <h3 className="mt-1.5 text-sm font-bold leading-7">
+                    <Link href={`/blog/${post.slug}`} className="hover:text-[var(--color-brand-600)]">
+                      {post.title}
+                    </Link>
+                  </h3>
+                  <p className="mt-2 line-clamp-3 flex-1 text-xs leading-6 muted">{post.excerpt}</p>
+                  <div className="mt-3 flex items-center gap-3 border-t pt-2.5 text-[11px] muted">
+                    <span className="flex items-center gap-1">
+                      <CalendarDays size={12} /> {faDate(post.publishedAt)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={12} /> {post.readingMinutes} دقیقه
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         {/* ── دعوت پایانی ── */}
         <section className="py-12 text-center">
           <div className="card mx-auto max-w-2xl p-8" style={{ background: 'color-mix(in srgb, var(--color-brand-500) 8%, var(--surface))' }}>
@@ -318,6 +387,30 @@ export default async function HomePage() {
       </main>
 
       <footer className="border-t py-6 text-center text-[11px] muted">
+        <nav aria-label="پیوندهای سایت" className="mb-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+          <Link href="/" className="hover:underline">
+            صفحه اصلی
+          </Link>
+          <a href="#pricing" className="hover:underline">
+            قیمت‌ها
+          </a>
+          {settings.blogEnabled ? (
+            <>
+              <Link href="/blog" className="hover:underline">
+                وبلاگ
+              </Link>
+              <Link href="/blog/rss.xml" className="hover:underline">
+                خوراک RSS
+              </Link>
+            </>
+          ) : null}
+          <Link href="/register" className="hover:underline">
+            ثبت‌نام
+          </Link>
+          <Link href="/login" className="hover:underline">
+            ورود
+          </Link>
+        </nav>
         {brand} — تمامی حقوق محفوظ است.
         {settings.supportEmail ? <span className="ltr mx-1 inline-block">{settings.supportEmail}</span> : null}
       </footer>

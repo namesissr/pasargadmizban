@@ -1,9 +1,12 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
+import { env } from '@/lib/env';
 import { ToastProvider } from '@/components/ui/toast';
 import { ThemeProvider } from '@/components/app/theme';
 
 export const metadata: Metadata = {
+  // مبنای ساخت آدرس‌های مطلق در متادیتا (canonical و تصویر اشتراک‌گذاری)
+  metadataBase: new URL(env.appUrl || 'http://localhost:3000'),
   title: {
     default: 'پاسارگاد میزبان — پنل سرور ابری',
     template: '%s | پاسارگاد میزبان',

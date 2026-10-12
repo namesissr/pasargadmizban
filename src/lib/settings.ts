@@ -160,6 +160,24 @@ export type SettingsShape = {
   /** هر چند ساعت یک بار کاتالوگ و موجودی پلن‌ها از هتزنر تازه شود */
   catalogSyncIntervalHours: number;
 
+  // ─── وبلاگ و سئو ───
+  /** نمایش وبلاگ روی سایت عمومی */
+  blogEnabled: boolean;
+  /** عنوان صفحه فهرست وبلاگ؛ خالی یعنی «وبلاگ + نام برند» */
+  blogTitle: string;
+  /** توضیح متای صفحه فهرست وبلاگ */
+  blogDescription: string;
+  /** تعداد مقاله در هر صفحه فهرست */
+  blogPerPage: number;
+  /** تصویر پیش‌فرض اشتراک‌گذاری (OG) برای صفحه‌هایی که تصویر شاخص ندارند */
+  blogOgImage: string;
+  /** شناسه شبکه اجتماعی برای کارت اشتراک‌گذاری، مثل @pasargadmizban */
+  blogTwitter: string;
+  /** کد تأیید مالکیت گوگل سرچ کنسول (مقدار محتوای متاتگ) */
+  googleSiteVerification: string;
+  /** کد تأیید مالکیت بینگ وبمستر */
+  bingSiteVerification: string;
+
   // ─── سرور ایمیل (SMTP) ───
   // اگر میزبان خالی باشد، مقادیر فایل .env استفاده می‌شوند (سازگاری با نسخه قدیمی)
   smtpHost: string;
@@ -270,6 +288,15 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   catalogAutoSyncEnabled: true,
   catalogSyncIntervalHours: 1,
 
+  blogEnabled: true,
+  blogTitle: '',
+  blogDescription: '',
+  blogPerPage: 9,
+  blogOgImage: '',
+  blogTwitter: '',
+  googleSiteVerification: '',
+  bingSiteVerification: '',
+
   smtpHost: '',
   smtpPort: 587,
   smtpSecure: false,
@@ -349,6 +376,7 @@ function groupOf(key: string): string {
   if (key.startsWith('weeklyReport')) return 'reports';
   if (key.startsWith('catalog')) return 'catalog';
   if (key.startsWith('smtp')) return 'smtp';
+  if (key.startsWith('blog') || key.endsWith('SiteVerification')) return 'blog';
   if (key.startsWith('channel') || key.startsWith('default')) return 'notifications';
   return 'general';
 }
