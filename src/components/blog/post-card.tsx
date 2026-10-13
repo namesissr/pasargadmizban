@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { coverVariant } from '@/lib/images/urls';
 import { Clock, Eye, CalendarDays } from 'lucide-react';
 import { faDate } from '@/lib/utils';
 import type { PostCard as PostCardData } from '@/lib/blog';
@@ -16,7 +17,7 @@ export function PostCard({ post, priority = false }: { post: PostCardData; prior
             // تصویرها از منابع گوناگون می‌آیند؛ img ساده، وابستگی به تنظیم دامنه ندارد
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={post.coverImage}
+              src={coverVariant(post.coverImage, { ratio: '16x9' }) ?? post.coverImage}
               alt={post.coverAlt || post.title}
               loading={priority ? 'eager' : 'lazy'}
               decoding="async"
@@ -74,7 +75,7 @@ export function FeaturedPostCard({ post }: { post: PostCardData }) {
           {post.coverImage ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={post.coverImage}
+              src={coverVariant(post.coverImage, { ratio: '16x9' }) ?? post.coverImage}
               alt={post.coverAlt || post.title}
               className="h-full w-full object-cover"
               decoding="async"

@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next';
+import { socialImage } from '@/lib/images/urls';
 import { sitemapEntries } from '@/lib/blog';
 import { siteInfo, absoluteUrl } from '@/lib/seo';
 
@@ -47,7 +48,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: 'monthly' as const,
       priority: 0.8,
       // تصویر شاخص در نقشه سایت، شانس دیده شدن در جستجوی تصویر گوگل را بالا می‌برد
-      ...(p.coverImage ? { images: [url(p.coverImage)] } : {}),
+      ...(p.coverImage ? { images: [url(socialImage(p.coverImage) ?? p.coverImage)] } : {}),
     })),
     ...tags.map((t) => ({
       url: url(`/blog/tag/${t.slug}`),

@@ -14,6 +14,14 @@ import {
   ExternalLink,
   HelpCircle,
   Clock,
+  ImagePlus,
+  Shuffle,
+  X,
+  ListOrdered,
+  Workflow,
+  Columns2,
+  ListChecks,
+  Cpu,
 } from 'lucide-react';
 import {
   Alert,
@@ -32,6 +40,7 @@ import { apiPatch, apiPost, errorFields, errorMessage, fetcher } from '@/lib/cli
 import { renderMarkdown } from '@/lib/markdown';
 import { seoReport } from '@/lib/seo-score';
 import { slugify } from '@/lib/slugify';
+import { autoCoverUrl, coverOptions, isAutoCover } from '@/lib/images/urls';
 import { SeoPanel } from './seo-panel';
 import type { AdminCategory, AdminPost, AdminTag, Faq, PostStatus } from './types';
 
@@ -70,6 +79,53 @@ apt update && apt upgrade -y
 
 برای ساخت سرور به [صفحه ثبت‌نام](/register) بروید.
 `;
+
+/** قالب آماده هر نوع نمودار برای درج در متن */
+const FIGURE_TEMPLATES: { kind: string; label: string; icon: React.ReactNode; body: string }[] = [
+  {
+    kind: 'steps',
+    label: 'مراحل',
+    icon: <ListOrdered size={13} />,
+    body: ':::figure steps مراحل کار\nمرحله اول\nمرحله دوم\nمرحله سوم\n:::',
+  },
+  {
+    kind: 'flow',
+    label: 'جریان',
+    icon: <Workflow size={13} />,
+    body: ':::figure flow مسیر درخواست\nکاربر\nسرور\nدیتابیس\n:::',
+  },
+  {
+    kind: 'compare',
+    label: 'مقایسه',
+    icon: <Columns2 size={13} />,
+    body: ':::figure compare مقایسه دو گزینه\nگزینه الف | گزینه ب\nمعیار اول | مقدار الف | مقدار ب\nمعیار دوم | مقدار الف | مقدار ب\n:::',
+  },
+  {
+    kind: 'checklist',
+    label: 'چک‌لیست',
+    icon: <ListChecks size={13} />,
+    body: ':::figure checklist فهرست بررسی\nمورد اول\nمورد دوم\nمورد سوم\nمورد چهارم\n:::',
+  },
+  {
+    kind: 'specs',
+    label: 'مشخصات',
+    icon: <Cpu size={13} />,
+    body: ':::figure specs مشخصات پلن\n۲ هسته | پردازنده\n۴ گیگ | رم\n۸۰ گیگ | فضای NVMe\n:::',
+  },
+];
+
+const TOPIC_OPTIONS: { value: string; label: string }[] = [
+  { value: '', label: 'تشخیص خودکار از عنوان' },
+  { value: 'server', label: 'سرور' },
+  { value: 'cloud', label: 'ابری' },
+  { value: 'terminal', label: 'ترمینال و لینوکس' },
+  { value: 'security', label: 'امنیت' },
+  { value: 'network', label: 'شبکه و آی‌پی' },
+  { value: 'speed', label: 'سرعت' },
+  { value: 'database', label: 'دیتابیس و بکاپ' },
+  { value: 'web', label: 'وب و دامنه' },
+  { value: 'email', label: 'ایمیل' },
+];
 
 export function PostEditor({
   post,
@@ -167,6 +223,52 @@ export function PostEditor({
   );
 
   const preview = useMemo(() => renderMarkdown(content, { ownHosts }), [content, ownHosts]);
+
+  /** درج قالب نمودار در جای مکان‌نما (یا انتهای متن) */
+  function insertFigure(body: string) {
+    const el = document.getElementById('post-content') as HTMLTextAreaElement | null;
+    const at = el && document.activeElement === el ? el.selectionStart : content.length;
+    const before = content.slice(0, at).replace(/\s*$/, '');
+    const after = content.slice(at).replace(/^\s*/, '');
+    const next = `${before}${before ? '\n\n' : ''}${body}\n\n${after}`;
+    setContent(next);
+    setTab('write');
+    requestAnimationFrame(() => {
+      const target = document.getElementById('post-content') as HTMLTextAreaElement | null;
+      if (!target) return;
+      const pos = (before ? before.length + 2 : 0) + body.length;
+      target.focus();
+      target.setSelectionRange(pos, pos);
+    });
+  }
+
+  // ── کاور خودکار ──
+  const categoryName = catData?.items.find((c) => c.id === categoryId)?.name ?? '';
+  const autoCover = isAutoCover(coverImage);
+  const coverOpts = coverOptions(coverImage);
+
+  function makeAutoCover(variant = 0, topic: string | null = null) {
+    setCoverImage(autoCoverUrl(effectiveSlug || 'post', { title: title.trim() || 'مقاله', category: categoryName, variant, topic }));
+    if (!coverAlt.trim()) setCoverAlt(title.trim());
+  }
+
+  /**
+   * پیش‌نمایش کاور خودکار از روی همین فرم (عنوان و دسته ذخیره‌نشده).
+   * بذر طرح شناسه مقاله است، همان که مسیر عمومی به کار می‌برد؛ پس پیش‌نمایش
+   * عیناً همان کاوری است که پس از ذخیره دیده می‌شود.
+   */
+  const coverPreview = useMemo(() => {
+    if (!title.trim()) return '';
+    const params = new URLSearchParams({
+      title: title.trim(),
+      seed: post?.id ?? title.trim(),
+      category: categoryName,
+      hint: [focusKeyword, ...tags].join(' '),
+    });
+    if (coverOpts.variant) params.set('n', String(coverOpts.variant));
+    if (coverOpts.topic) params.set('t', coverOpts.topic);
+    return `/media/blog/cover-preview?${params}`;
+  }, [title, post?.id, categoryName, focusKeyword, tags, coverOpts.variant, coverOpts.topic]);
 
   function addTag(raw?: string) {
     const value = (raw ?? tagDraft).trim();
@@ -338,7 +440,23 @@ export function PostEditor({
 
                 {tab === 'write' ? (
                   <>
+                    <div className="mb-2 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] muted">درج نمودار:</span>
+                      {FIGURE_TEMPLATES.map((t) => (
+                        <Button
+                          key={t.kind}
+                          variant="ghost"
+                          size="sm"
+                          icon={t.icon}
+                          onClick={() => insertFigure(t.body)}
+                          title={`درج نمودار ${t.label}`}
+                        >
+                          {t.label}
+                        </Button>
+                      ))}
+                    </div>
                     <Textarea
+                      id="post-content"
                       value={content}
                       onChange={(e) => setContent(e.target.value)}
                       rows={22}
@@ -348,7 +466,8 @@ export function PostEditor({
                     <p className="mt-1.5 text-[11px] leading-6 muted">
                       تیتر با <span className="ltr">##</span>، فهرست با <span className="ltr">-</span>، لینک با{' '}
                       <span className="ltr">[متن](/register)</span>، تصویر با{' '}
-                      <span className="ltr">![توضیح](آدرس)</span> و جعبه نکته با <span className="ltr">:::tip</span>.
+                      <span className="ltr">![توضیح](آدرس)</span>، جعبه نکته با <span className="ltr">:::tip</span> و نمودار با{' '}
+                      <span className="ltr">:::figure</span> — نمودار با رنگ برند به تصویر تبدیل می‌شود.
                     </p>
                   </>
                 ) : (
@@ -364,19 +483,79 @@ export function PostEditor({
             </div>
           </Card>
 
-          <Card title="تصویر شاخص" description="در فهرست وبلاگ، شبکه‌های اجتماعی و گوگل دیسکاور استفاده می‌شود.">
+          <Card
+            title="تصویر شاخص"
+            description="در فهرست وبلاگ، شبکه‌های اجتماعی و گوگل دیسکاور استفاده می‌شود. اگر خالی بماند، کاور با عنوان و رنگ برند خودکار طراحی می‌شود."
+            action={
+              <div className="flex flex-wrap gap-1.5">
+                {autoCover ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={<Shuffle size={14} />}
+                      onClick={() => makeAutoCover(coverOpts.variant + 1, coverOpts.topic)}
+                    >
+                      طرح دیگر
+                    </Button>
+                    <Button size="sm" variant="ghost" icon={<X size={14} />} onClick={() => setCoverImage('')}>
+                      برداشتن
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<ImagePlus size={14} />}
+                    onClick={() => makeAutoCover()}
+                    disabled={!title.trim()}
+                  >
+                    ساخت کاور خودکار
+                  </Button>
+                )}
+              </div>
+            }
+          >
             <div className="grid gap-3.5 sm:grid-cols-2">
-              <Field label="آدرس تصویر" hint="نشانی کامل تصویر یا مسیر داخلی مثل /uploads/docker.jpg">
+              <Field
+                label="آدرس تصویر"
+                hint={autoCover ? 'کاور خودکار؛ با تغییر عنوان یا رنگ برند خودش به‌روز می‌شود.' : 'نشانی کامل تصویر یا مسیر داخلی مثل /uploads/docker.jpg'}
+              >
                 <Input value={coverImage} onChange={(e) => setCoverImage(e.target.value)} className="ltr" />
               </Field>
               <Field label="متن جانشین تصویر (alt)" hint="تصویر را توصیف کنید؛ برای جستجوی تصویر گوگل مهم است.">
                 <Input value={coverAlt} onChange={(e) => setCoverAlt(e.target.value)} maxLength={300} />
               </Field>
             </div>
-            {coverImage ? (
+
+            {autoCover ? (
+              <Field label="تصویرسازی کاور" hint="موضوع تصویر از عنوان تشخیص داده می‌شود؛ اگر درست نبود، دستی انتخابش کنید." className="mt-3.5">
+                <Select
+                  value={coverOpts.topic ?? ''}
+                  onChange={(e) => makeAutoCover(coverOpts.variant, e.target.value || null)}
+                >
+                  {TOPIC_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>
+                      {o.label}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            ) : null}
+
+            {coverImage || coverPreview ? (
               <div className="mt-3 overflow-hidden rounded-xl border">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={coverImage} alt={coverAlt || 'پیش‌نمایش تصویر شاخص'} className="max-h-56 w-full object-cover" />
+                <img
+                  src={autoCover || !coverImage ? coverPreview : coverImage}
+                  alt={coverAlt || 'پیش‌نمایش تصویر شاخص'}
+                  className={`w-full object-cover ${!coverImage ? 'opacity-60' : ''}`}
+                />
+                {!coverImage ? (
+                  <p className="border-t px-3 py-2 text-[11px] muted">
+                    پیش‌نمایش کاوری که اگر تصویر نگذارید، هنگام ذخیره خودکار ساخته می‌شود.
+                  </p>
+                ) : null}
               </div>
             ) : null}
           </Card>

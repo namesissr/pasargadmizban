@@ -10,6 +10,7 @@
  */
 
 import { slugify } from './slugify';
+import { parseFigure, figureSize, figureUrl, figurePreviewUrl, FIGURE_KIND_FA, type FigureSpec } from './images/figure-spec';
 
 export type TocItem = { id: string; text: string; level: 2 | 3 };
 
@@ -132,7 +133,22 @@ function headingId(text: string, used: Set<string>): string {
 export type RenderOptions = {
   /** دامنه‌های خودمان (بدون پروتکل)، مثل ['example.com', 'cloud.example.com'] */
   ownHosts?: string[];
+  /** نشانی مقاله؛ برای ساختن نشانی تصویر نمودارهای داخل متن */
+  slug?: string;
+  /**
+   * سازنده نشانی دلخواه برای نمودار (ویرایشگر از این برای پیش‌نمایش متن
+   * ذخیره‌نشده استفاده می‌کند). بر slug اولویت دارد.
+   */
+  figureSrc?: (spec: FigureSpec, index: number) => string;
 };
+
+const ORDERED_ITEM = /^([0-9۰-۹٠-٩]+)[.)]\s+(.+)$/;
+
+/** «۱۲» یا «١٢» یا «12» ← 12 */
+function listNumber(raw: string): number {
+  const ascii = raw.replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d))).replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+  return Number(ascii) || 1;
+}
 
 export function renderMarkdown(markdown: string, options: RenderOptions = {}): RenderedMarkdown {
   const ownHosts = (options.ownHosts ?? []).map((h) => h.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, ''));
@@ -147,6 +163,7 @@ export function renderMarkdown(markdown: string, options: RenderOptions = {}): R
     images: [] as { src: string; alt: string }[],
     links: [] as { href: string; text: string; external: boolean }[],
   };
+  let figureIndex = 0;
 
   let i = 0;
 
@@ -200,6 +217,37 @@ export function renderMarkdown(markdown: string, options: RenderOptions = {}): R
       i++; // رد کردن خط بستن
       const cls = lang ? ` class="language-${escapeHtml(lang)}"` : '';
       html.push(`<pre dir="ltr"><code${cls}>${escapeHtml(body.join('\n'))}</code></pre>`);
+      continue;
+    }
+
+    // ── نمودار: :::figure steps عنوان ... ::: ──
+    const figure = /^:::\s*figure\s+([a-z]+)\s*(.*)$/.exec(trimmed);
+    if (figure) {
+      flushParagraph(paragraph);
+      paragraph = [];
+      const body: string[] = [];
+      i++;
+      while (i < lines.length && !/^:::\s*$/.test(lines[i].trim())) {
+        body.push(lines[i]);
+        i++;
+      }
+      i++;
+      const spec = parseFigure(figure[1], figure[2] ?? '', body);
+      // نمودار ناقص چیزی نشان نمی‌دهد؛ بهتر از تصویر خراب است
+      if (spec) {
+        const index = figureIndex++;
+        const src = options.figureSrc
+          ? options.figureSrc(spec, index)
+          : options.slug
+            ? figureUrl(options.slug, index, spec)
+            : figurePreviewUrl(spec);
+        const { width, height } = figureSize(spec);
+        const alt = `${FIGURE_KIND_FA[spec.kind]}: ${spec.title}`;
+        collect.images.push({ src, alt });
+        html.push(
+          `<figure class="post-figure"><img src="${escapeHtml(src)}" alt="${escapeHtml(alt)}" width="${width}" height="${height}" loading="lazy" decoding="async" /></figure>`,
+        );
+      }
       continue;
     }
 
@@ -299,7 +347,8 @@ export function renderMarkdown(markdown: string, options: RenderOptions = {}): R
 
     // ── فهرست‌ها ──
     const bullet = /^[-*+]\s+(.+)$/.exec(trimmed);
-    const ordered = /^(\d+)[.)]\s+(.+)$/.exec(trimmed);
+    // رقم فارسی («۱.») و عربی («١.») هم شماره فهرست است؛ نویسنده فارسی‌زبان معمولاً همین را می‌نویسد
+    const ordered = ORDERED_ITEM.exec(trimmed);
     if (bullet || ordered) {
       flushParagraph(paragraph);
       paragraph = [];
@@ -308,7 +357,7 @@ export function renderMarkdown(markdown: string, options: RenderOptions = {}): R
       while (i < lines.length) {
         const t = lines[i].trim();
         const b = /^[-*+]\s+(.+)$/.exec(t);
-        const o = /^(\d+)[.)]\s+(.+)$/.exec(t);
+        const o = ORDERED_ITEM.exec(t);
         if (isOrdered && o) items.push(o[2]);
         else if (!isOrdered && b) items.push(b[1]);
         else if (t && /^\s{2,}/.test(lines[i]) && items.length) items[items.length - 1] += ` ${t}`;
@@ -317,7 +366,8 @@ export function renderMarkdown(markdown: string, options: RenderOptions = {}): R
       }
       plain.push(items.join(' '));
       const tag = isOrdered ? 'ol' : 'ul';
-      const start = isOrdered && ordered && ordered[1] !== '1' ? ` start="${Number(ordered[1])}"` : '';
+      const first = ordered ? listNumber(ordered[1]) : 1;
+      const start = isOrdered && first !== 1 ? ` start="${first}"` : '';
       html.push(`<${tag}${start}>${items.map((it) => `<li>${inline(it, collect, ownHosts)}</li>`).join('')}</${tag}>`);
       continue;
     }

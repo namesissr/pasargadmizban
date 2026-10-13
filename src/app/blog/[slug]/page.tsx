@@ -12,6 +12,7 @@ import {
   parseFaqs,
 } from '@/lib/blog';
 import { renderMarkdown } from '@/lib/markdown';
+import { coverSize, schemaImages, socialImage } from '@/lib/images/urls';
 import {
   siteInfo,
   cloudLinks,
@@ -53,7 +54,8 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
     description: post.metaDescription || post.excerpt,
     path: `/blog/${post.slug}`,
     canonical: post.canonicalUrl || null,
-    image: post.ogImage || post.coverImage || undefined,
+    // پیش‌نمایش تلگرام، واتس‌اپ و توییتر: JPEG (WebP را همه نشان نمی‌دهند)
+    image: post.ogImage || socialImage(post.coverImage) || undefined,
     imageAlt: post.coverAlt,
     noindex: post.noindex,
     type: 'article',
@@ -78,7 +80,7 @@ export default async function BlogPostPage({ params }: { params: Params }) {
   }
 
   const site = await siteInfo();
-  const rendered = renderMarkdown(post.content, { ownHosts: ownHosts(site) });
+  const rendered = renderMarkdown(post.content, { ownHosts: ownHosts(site), slug: post.slug });
   const faqs = parseFaqs(post.faqs);
   const tags = post.tags.map((t) => t.tag);
 
@@ -108,7 +110,7 @@ export default async function BlogPostPage({ params }: { params: Params }) {
       title: post.metaTitle || post.title,
       description: post.metaDescription || post.excerpt,
       path,
-      image: post.ogImage || post.coverImage,
+      image: post.ogImage ? [post.ogImage] : schemaImages(post.coverImage),
       publishedAt: post.publishedAt,
       updatedAt: post.updatedAt,
       authorName,
@@ -146,7 +148,8 @@ export default async function BlogPostPage({ params }: { params: Params }) {
       </nav>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_280px]">
-        <article>
+        {/* min-w-0: بدون آن، خط بلند بلوک کد ستون را در گوشی از عرض صفحه بیرون می‌زند */}
+        <article className="min-w-0">
           <header>
             {post.category ? (
               <Link
@@ -194,7 +197,8 @@ export default async function BlogPostPage({ params }: { params: Params }) {
               <img
                 src={post.coverImage}
                 alt={post.coverAlt || post.title}
-                className="w-full object-cover"
+                {...(coverSize(post.coverImage) ?? {})}
+                className="h-auto w-full object-cover"
                 fetchPriority="high"
                 decoding="async"
               />

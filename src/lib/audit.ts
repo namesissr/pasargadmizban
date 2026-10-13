@@ -81,6 +81,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'admin.blog_tag_cleanup': 'پاکسازی برچسب‌های بی‌مقاله',
   'admin.blog_redirect_create': 'افزودن ریدایرکت',
   'admin.blog_redirect_delete': 'حذف ریدایرکت',
+  'admin.blog_images_auto': 'ساخت خودکار کاور و نمودار',
   'admin.content_run': 'اجرای دستی تولید محتوا',
   'admin.content_keyword': 'افزودن موضوع به صف تولید',
   'admin.content_approve': 'تأیید مقاله تولیدشده',

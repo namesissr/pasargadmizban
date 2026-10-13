@@ -5,6 +5,8 @@ import { slugify, uniqueSlug } from './slugify';
 import { renderMarkdown, autoExcerpt } from './markdown';
 import { seoReport } from './seo-score';
 import { siteInfo, ownHosts } from './seo';
+import { getSettings } from './settings';
+import { autoCoverUrl, coverOptions, isAutoCover } from './images/urls';
 
 /**
  * منطق ذخیره مقاله در یک جا.
@@ -65,17 +67,33 @@ async function slugTaken(slug: string, exceptId?: string): Promise<boolean> {
 
 /** داده‌های محاسبه‌شده مقاله از روی ورودی خام */
 export async function buildPostData(input: PostInput, exceptId?: string) {
-  const hosts = ownHosts(await siteInfo());
-  const rendered = renderMarkdown(input.content, { ownHosts: hosts });
+  const [site, settings] = await Promise.all([siteInfo(), getSettings()]);
+  const hosts = ownHosts(site);
   const excerpt = input.excerpt?.trim() || autoExcerpt(input.content, 180);
   const faqs = input.faqs ?? [];
 
   const desiredSlug = input.slug?.trim() ? slugify(input.slug) : slugify(input.focusKeyword || input.title);
   const slug = await uniqueSlug(desiredSlug || input.title, (s) => slugTaken(s, exceptId), 'post');
+  // نشانی مقاله پیش از رندر لازم است چون نمودارهای داخل متن به آن اشاره می‌کنند
+  const rendered = renderMarkdown(input.content, { ownHosts: hosts, slug });
 
   if (input.categoryId) {
     const exists = await prisma.blogCategory.findUnique({ where: { id: input.categoryId }, select: { id: true } });
     if (!exists) throw new ApiError('دسته انتخاب‌شده وجود ندارد.', 422, { fields: { categoryId: 'دسته نامعتبر است.' } });
+  }
+
+  // ── کاور خودکار ──
+  // اگر مدیر تصویر نگذاشته (یا کاور قبلی هم خودکار بوده)، نشانی کاور از روی
+  // نشانی و عنوان تازه ساخته می‌شود؛ شماره طرح و موضوع دستی حفظ می‌شود.
+  let coverImage = input.coverImage?.trim() || null;
+  let coverAlt = input.coverAlt?.trim() || null;
+  if ((!coverImage && settings.blogAutoCover) || isAutoCover(coverImage)) {
+    const { variant, topic } = coverOptions(coverImage);
+    const category = input.categoryId
+      ? await prisma.blogCategory.findUnique({ where: { id: input.categoryId }, select: { name: true } })
+      : null;
+    coverImage = autoCoverUrl(slug, { title: input.title.trim(), category: category?.name, variant, topic });
+    coverAlt = coverAlt || input.title.trim();
   }
 
   const report = seoReport({
@@ -86,8 +104,8 @@ export async function buildPostData(input: PostInput, exceptId?: string) {
     excerpt,
     focusKeyword: input.focusKeyword,
     content: input.content,
-    coverImage: input.coverImage,
-    coverAlt: input.coverAlt,
+    coverImage: coverImage ?? undefined,
+    coverAlt: coverAlt ?? undefined,
     faqs,
     categoryId: input.categoryId ?? null,
     tags: input.tags ?? [],
@@ -113,8 +131,8 @@ export async function buildPostData(input: PostInput, exceptId?: string) {
       excerpt,
       content: input.content,
       contentHtml: rendered.html,
-      coverImage: input.coverImage?.trim() || null,
-      coverAlt: input.coverAlt?.trim() || null,
+      coverImage,
+      coverAlt,
       metaTitle: input.metaTitle?.trim() || null,
       metaDescription: input.metaDescription?.trim() || null,
       focusKeyword: input.focusKeyword?.trim() || null,

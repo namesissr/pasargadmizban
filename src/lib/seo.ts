@@ -240,7 +240,8 @@ export type ArticleSchemaInput = {
   title: string;
   description: string;
   path: string;
-  image?: string | null;
+  /** یک یا چند تصویر (گوگل نسبت‌های ۱۶:۹، ۴:۳ و ۱:۱ را با هم ترجیح می‌دهد) */
+  image?: string | string[] | null;
   publishedAt?: Date | string | null;
   updatedAt?: Date | string | null;
   authorName: string;
@@ -262,7 +263,9 @@ export function articleSchema(input: ArticleSchemaInput): Json {
     inLanguage: 'fa-IR',
     mainEntityOfPage: { '@type': 'WebPage', '@id': url },
     url,
-    ...(input.image ? { image: [absoluteUrl(site.siteUrl, input.image)] } : {}),
+    ...(input.image && input.image.length
+      ? { image: (Array.isArray(input.image) ? input.image : [input.image]).map((i) => absoluteUrl(site.siteUrl, i)) }
+      : {}),
     datePublished: input.publishedAt ? new Date(input.publishedAt).toISOString() : undefined,
     dateModified: new Date(input.updatedAt ?? input.publishedAt ?? Date.now()).toISOString(),
     author: {

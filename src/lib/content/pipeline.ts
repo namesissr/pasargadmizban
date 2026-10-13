@@ -10,6 +10,7 @@ import { researchKeyword } from './research';
 import { writeArticle, type InternalLink } from './writer';
 import { checkArticle } from './quality';
 import { submitToIndexNow } from '../indexnow';
+import { withAutoFigure } from '../images/auto-figures';
 
 /**
  * خط تولید محتوا: از کشف موضوع تا مقاله آماده.
@@ -112,6 +113,7 @@ async function processCandidate(
     autoPublish: boolean;
     minSeoScore: number;
     minWords: number;
+    autoFigures: boolean;
   },
 ): Promise<JobOutcome> {
   // رکورد صف را اول می‌سازیم تا اگر همین موضوع در اجرای بعدی هم آمد، تکرار نشود.
@@ -199,11 +201,16 @@ async function processCandidate(
       context.categories.find((c) => c.slug === candidate.categorySlug) ??
       null;
 
+    // اگر نویسنده نموداری نگذاشته بود، یکی از ساختار خود مقاله ساخته می‌شود
+    const content = context.autoFigures
+      ? (withAutoFigure(written.article.content)?.content ?? written.article.content)
+      : written.article.content;
+
     const { data } = await buildPostData({
       title: written.article.title,
       slug: written.article.slug,
       excerpt: written.article.excerpt,
-      content: written.article.content,
+      content,
       metaTitle: written.article.metaTitle,
       metaDescription: written.article.metaDescription,
       focusKeyword: candidate.keyword,
@@ -347,6 +354,7 @@ export async function runContentPipeline(
     autoPublish: settings.contentAutoPublish,
     minSeoScore: settings.contentMinSeoScore,
     minWords: settings.contentMinWords,
+    autoFigures: settings.blogAutoFigures,
   };
 
   const outcomes: JobOutcome[] = [];

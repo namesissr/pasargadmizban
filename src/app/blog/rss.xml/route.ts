@@ -2,6 +2,7 @@ import prisma from '@/lib/prisma';
 import { publishedWhere } from '@/lib/blog';
 import { siteInfo, absoluteUrl } from '@/lib/seo';
 import { renderMarkdown } from '@/lib/markdown';
+import { socialImage } from '@/lib/images/urls';
 
 /**
  * خوراک RSS وبلاگ.
@@ -71,7 +72,7 @@ export async function GET() {
       <content:encoded><![CDATA[${html.replace(/]]>/g, ']]&gt;')}]]></content:encoded>
 ${post.authorName ? `      <dc:creator>${xmlEscape(post.authorName)}</dc:creator>\n` : ''}${categories}${
         post.coverImage
-          ? `\n      <enclosure url="${xmlEscape(absoluteUrl(site.siteUrl, post.coverImage))}" type="image/jpeg" />`
+          ? `\n      <enclosure url="${xmlEscape(absoluteUrl(site.siteUrl, socialImage(post.coverImage) ?? post.coverImage))}" type="image/jpeg" />`
           : ''
       }
     </item>`;

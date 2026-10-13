@@ -272,6 +272,8 @@ export const adminSettingsSchema = z.object({
   panelMode: z.enum(['full', 'blog']).optional(),
 
   blogEnabled: z.boolean().optional(),
+  blogAutoCover: z.boolean().optional(),
+  blogAutoFigures: z.boolean().optional(),
   blogTitle: z.string().trim().max(120).optional(),
   blogDescription: z.string().trim().max(300).optional(),
   blogPerPage: z.coerce.number().int().min(4).max(24).optional(),

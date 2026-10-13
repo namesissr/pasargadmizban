@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
-import { ImageIcon, AlertTriangle, Globe, FileWarning, Search } from 'lucide-react';
-import { Alert, Badge, Card, EmptyState, Input, LoadingBlock, Select, Stat, Tabs } from '@/components/ui';
-import { fetcher } from '@/lib/client';
+import { ImageIcon, AlertTriangle, Globe, FileWarning, Search, Sparkles, Shuffle, Wand2 } from 'lucide-react';
+import { Alert, Badge, Button, Card, ConfirmModal, EmptyState, Input, LoadingBlock, Select, Stat, Tabs, Toggle } from '@/components/ui';
+import { useToast } from '@/components/ui/toast';
+import { apiPatch, apiPost, errorMessage, fetcher } from '@/lib/client';
 import { formatNumber } from '@/lib/money';
 import { STATUS_FA, type PostStatus } from '../types';
 
@@ -18,6 +19,7 @@ type ImageRow = {
   postSlug: string;
   status: PostStatus;
   host: string;
+  auto: boolean;
 };
 
 type Data = {
@@ -31,6 +33,8 @@ type Data = {
     external: number;
     missingCover: number;
     posts: number;
+    auto: number;
+    postsWithoutFigure: number;
   };
   hosts: { host: string; count: number; own: boolean }[];
 };
@@ -43,7 +47,7 @@ type Data = {
  * کلیک کمتری می‌گیرد. اینجا هر دو را یک‌جا می‌بینید.
  */
 export function ImagesPanel() {
-  const { data, isLoading } = useSWR<Data>('/api/admin/blog/images', fetcher);
+  const { data, isLoading, mutate } = useSWR<Data>('/api/admin/blog/images', fetcher);
   const [tab, setTab] = useState<'all' | 'noalt' | 'external' | 'missing'>('all');
   const [query, setQuery] = useState('');
   const [host, setHost] = useState('');
@@ -62,6 +66,13 @@ export function ImagesPanel() {
 
   return (
     <div className="space-y-4">
+      <AutoImagesCard
+        missingCover={stats?.missingCover ?? 0}
+        withoutFigure={stats?.postsWithoutFigure ?? 0}
+        autoCount={stats?.auto ?? 0}
+        onDone={() => mutate()}
+      />
+
       <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-4">
         <Stat
           label="تصاویر وبلاگ"
@@ -171,6 +182,11 @@ export function ImagesPanel() {
                     <Badge tone={img.kind === 'cover' ? 'ok' : 'muted'}>
                       {img.kind === 'cover' ? 'تصویر شاخص' : 'داخل متن'}
                     </Badge>
+                    {img.auto ? (
+                      <Badge tone="ok">
+                        <Sparkles size={10} /> خودکار
+                      </Badge>
+                    ) : null}
                     {!img.alt.trim() ? <Badge tone="bad">بدون alt</Badge> : null}
                     <Link href={`/admin/blog/${img.postId}`} className="min-w-0 truncate text-xs font-semibold hover:underline">
                       {img.postTitle}
@@ -205,5 +221,143 @@ export function ImagesPanel() {
         )}
       </Card>
     </div>
+  );
+}
+
+type AutoSettings = { blogAutoCover: boolean; blogAutoFigures: boolean };
+
+/**
+ * ساخت خودکار تصویر: دو کلید (برای مقاله‌های تازه) و یک دکمه برای مقاله‌های
+ * موجود. کاوری که مدیر خودش گذاشته هیچ‌وقت عوض نمی‌شود.
+ */
+function AutoImagesCard({
+  missingCover,
+  withoutFigure,
+  autoCount,
+  onDone,
+}: {
+  missingCover: number;
+  withoutFigure: number;
+  autoCount: number;
+  onDone: () => void;
+}) {
+  const toast = useToast();
+  const { data: settingsData, mutate: mutateSettings } = useSWR<{ settings: AutoSettings }>('/api/admin/settings', fetcher);
+  const [form, setForm] = useState<AutoSettings | null>(null);
+  const [running, setRunning] = useState<'apply' | 'reshuffle' | null>(null);
+  const [confirmReshuffle, setConfirmReshuffle] = useState(false);
+  const fa = (n: number) => new Intl.NumberFormat('fa-IR').format(n);
+
+  useEffect(() => {
+    if (settingsData?.settings && !form) {
+      setForm({
+        blogAutoCover: settingsData.settings.blogAutoCover !== false,
+        blogAutoFigures: settingsData.settings.blogAutoFigures !== false,
+      });
+    }
+  }, [settingsData, form]);
+
+  async function toggle(key: keyof AutoSettings, value: boolean) {
+    setForm((f) => (f ? { ...f, [key]: value } : f));
+    try {
+      await apiPatch('/api/admin/settings', { [key]: value });
+      toast.success('ذخیره شد.');
+      mutateSettings();
+    } catch (err) {
+      toast.error(errorMessage(err));
+      setForm((f) => (f ? { ...f, [key]: !value } : f));
+    }
+  }
+
+  async function run(reshuffle: boolean) {
+    setRunning(reshuffle ? 'reshuffle' : 'apply');
+    try {
+      const res = await apiPost<{ message: string }>('/api/admin/blog/images/auto', {
+        covers: true,
+        figures: !reshuffle,
+        reshuffle,
+      });
+      toast.success(res.message);
+      setConfirmReshuffle(false);
+      onDone();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setRunning(null);
+    }
+  }
+
+  const pending = missingCover + withoutFigure;
+
+  return (
+    <Card
+      title="طراحی خودکار تصویر"
+      description="کاور هر مقاله با عنوان، دسته و رنگ برند طراحی می‌شود؛ تصویرسازی‌اش از موضوع مقاله (سرور، ترمینال، امنیت، شبکه…) انتخاب می‌شود. نمودار داخل مقاله هم از فهرست‌ها و سرفصل‌های خود متن ساخته می‌شود."
+    >
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="space-y-3.5">
+          <Toggle
+            checked={form?.blogAutoCover ?? true}
+            onChange={(v) => toggle('blogAutoCover', v)}
+            disabled={!form}
+            label="کاور خودکار برای مقاله‌های تازه"
+            description="هر مقاله‌ای که بدون تصویر ذخیره شود، کاور طراحی‌شده می‌گیرد."
+          />
+          <Toggle
+            checked={form?.blogAutoFigures ?? true}
+            onChange={(v) => toggle('blogAutoFigures', v)}
+            disabled={!form}
+            label="نمودار خودکار در مقاله‌های تولیدی"
+            description="اگر نویسنده هوش مصنوعی نموداری نگذاشت، یکی از ساختار مقاله ساخته می‌شود."
+          />
+        </div>
+
+        <div className="rounded-xl p-4 surface-2">
+          <p className="text-xs leading-7">
+            {pending ? (
+              <>
+                <b>{fa(missingCover)}</b> مقاله بی‌تصویر شاخص و <b>{fa(withoutFigure)}</b> مقاله بی‌نمودار دارید.
+              </>
+            ) : (
+              'همه مقاله‌ها تصویر و نمودار دارند.'
+            )}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              icon={<Wand2 size={14} />}
+              loading={running === 'apply'}
+              disabled={!pending || running !== null}
+              onClick={() => run(false)}
+            >
+              ساخت برای مقاله‌های موجود
+            </Button>
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<Shuffle size={14} />}
+              disabled={!autoCount || running !== null}
+              onClick={() => setConfirmReshuffle(true)}
+            >
+              طرح تازه برای کاورهای خودکار
+            </Button>
+          </div>
+          <p className="mt-3 text-[11px] leading-6 muted">
+            کاوری که خودتان گذاشته‌اید دست نمی‌خورد. تصویرها فایل روی دیسک نیستند؛ از روی مقاله ساخته و کش می‌شوند،
+            پس با تغییر عنوان یا رنگ برند خودشان به‌روز می‌شوند.
+          </p>
+        </div>
+      </div>
+
+      <ConfirmModal
+        open={confirmReshuffle}
+        onClose={() => setConfirmReshuffle(false)}
+        onConfirm={() => run(true)}
+        loading={running === 'reshuffle'}
+        title="طرح تازه برای کاورها"
+        message="پس‌زمینه و چیدمان همه کاورهای خودکار عوض می‌شود (عنوان و رنگ برند همان می‌ماند). کاورهای دستی دست نمی‌خورند."
+        confirmLabel="طرح تازه"
+      />
+    </Card>
   );
 }

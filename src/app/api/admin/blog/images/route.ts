@@ -3,6 +3,7 @@ import { ok, route } from '@/lib/api';
 import { requireStaff } from '@/lib/auth';
 import { renderMarkdown } from '@/lib/markdown';
 import { siteInfo, ownHosts } from '@/lib/seo';
+import { isAutoCover } from '@/lib/images/urls';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,8 @@ type ImageRow = {
   status: string;
   /** میزبان تصویر؛ خالی یعنی مسیر نسبی روی همین سایت */
   host: string;
+  /** کاور یا نمودار خودکار (طراحی‌شده با رنگ برند) */
+  auto: boolean;
 };
 
 /**
@@ -69,12 +72,13 @@ export const GET = route(async () => {
         postSlug: post.slug,
         status: post.status,
         host: hostOf(post.coverImage),
+        auto: isAutoCover(post.coverImage),
       });
     } else {
       missingCover.push({ id: post.id, title: post.title, slug: post.slug, status: post.status });
     }
 
-    const rendered = renderMarkdown(post.content, { ownHosts: hosts });
+    const rendered = renderMarkdown(post.content, { ownHosts: hosts, slug: post.slug });
     for (const img of rendered.images) {
       images.push({
         src: img.src,
@@ -85,6 +89,7 @@ export const GET = route(async () => {
         postSlug: post.slug,
         status: post.status,
         host: hostOf(img.src),
+        auto: img.src.startsWith('/media/blog/'),
       });
     }
   }
@@ -111,6 +116,8 @@ export const GET = route(async () => {
       external: external.length,
       missingCover: missingCover.length,
       posts: posts.length,
+      auto: images.filter((i) => i.auto).length,
+      postsWithoutFigure: posts.filter((p) => !p.content.includes(':::figure')).length,
     },
     hosts: [...byHost.entries()]
       .map(([host, count]) => ({ host, count, own: host === '(نسبی)' || ownHostSet.has(host) }))

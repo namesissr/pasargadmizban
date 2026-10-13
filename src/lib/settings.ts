@@ -182,6 +182,10 @@ export type SettingsShape = {
   blogOgImage: string;
   /** شناسه شبکه اجتماعی برای کارت اشتراک‌گذاری، مثل @pasargadmizban */
   blogTwitter: string;
+  /** مقاله بی‌تصویر، خودکار کاور طراحی‌شده با عنوان و رنگ برند بگیرد */
+  blogAutoCover: boolean;
+  /** مقاله‌ای که نمودار ندارد، یک نمودار خودکار از ساختار خودش بگیرد */
+  blogAutoFigures: boolean;
   /** کد تأیید مالکیت گوگل سرچ کنسول (مقدار محتوای متاتگ) */
   googleSiteVerification: string;
   /** کد تأیید مالکیت بینگ وبمستر */
@@ -351,6 +355,8 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   panelMode: 'full',
 
   blogEnabled: true,
+  blogAutoCover: true,
+  blogAutoFigures: true,
   blogTitle: '',
   blogDescription: '',
   blogPerPage: 9,
