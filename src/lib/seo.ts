@@ -366,14 +366,45 @@ export function plansSchema(
  */
 export function cloudLinks(site: SiteInfo) {
   const base = site.cloudUrl;
+  if (base) {
+    return {
+      /** صفحه ثبت‌نام و ساخت سرور */
+      register: `${base}/register`,
+      login: `${base}/login`,
+      pricing: `${base}/#pricing`,
+      home: base,
+      external: true,
+      configured: true,
+    };
+  }
+
+  /**
+   * آدرس پنل ابری تنظیم نشده است.
+   *
+   * اگر این نصب، وبلاگ جدا از سایت برند باشد (یعنی «آدرس سایت اصلی» پر
+   * شده)، لینک‌ها را به سایت اصلی می‌بریم، نه به /register همین سرور:
+   * سرور وبلاگ صفحه ثبت‌نام عمومی ندارد و فرستادن کاربر به آن، هم تجربه
+   * بدی است و هم ممکن است با ریدایرکت‌های وب‌سرور به جای اشتباه برود.
+   */
+  if (site.mainSiteUrl) {
+    return {
+      register: site.mainSiteUrl,
+      login: site.mainSiteUrl,
+      pricing: site.mainSiteUrl,
+      home: site.mainSiteUrl,
+      external: true,
+      configured: false,
+    };
+  }
+
+  // نصب یکپارچه: وبلاگ و پنل روی یک دامنه‌اند
   return {
-    /** صفحه ثبت‌نام و ساخت سرور */
-    register: base ? `${base}/register` : '/register',
-    login: base ? `${base}/login` : '/login',
-    pricing: base ? `${base}/#pricing` : '/#pricing',
-    home: base || '/',
-    /** آیا به دامنه دیگری می‌رود (برای rel و target) */
-    external: Boolean(base),
+    register: '/register',
+    login: '/login',
+    pricing: '/#pricing',
+    home: '/',
+    external: false,
+    configured: false,
   };
 }
 

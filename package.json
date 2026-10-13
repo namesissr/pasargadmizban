@@ -19,6 +19,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "catalog:sync": "tsx scripts/sync-catalog.ts",
     "blog:seed": "tsx scripts/seed-blog.ts",
+    "blog:fix-links": "tsx scripts/fix-blog-links.ts",
     "health": "tsx scripts/health-check.ts",
     "telegram": "tsx scripts/telegram-setup.ts",
     "setup": "prisma generate && prisma db push && tsx prisma/seed.ts"

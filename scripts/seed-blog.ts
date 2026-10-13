@@ -241,6 +241,12 @@ async function main() {
   const cloud = cloudLinks(site);
   // پایه لینک‌های فروش: آدرس پنل ابری، یا همین سایت اگر تنظیم نشده باشد
   const cloudBase = site.cloudUrl || '';
+  if (!cloud.configured) {
+    console.warn('⚠️  آدرس پنل ابری در تنظیمات خالی است.');
+    console.warn('   لینک‌های فروش مقاله‌ها درست ساخته نمی‌شوند. اول در پنل');
+    console.warn('   (مدیریت ← سئو و آمار ← تنظیمات سئو) فیلد «آدرس پنل ابری» را پر کنید،');
+    console.warn('   بعد این دستور را با --force دوباره اجرا کنید.');
+  }
   console.log(`🔗 لینک‌های فروش به: ${cloud.register}`);
 
   console.log('⏳ ساخت دسته‌های وبلاگ…');

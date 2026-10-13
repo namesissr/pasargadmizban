@@ -116,6 +116,16 @@ export function SeoSettingsPanel() {
 
   return (
     <div className="space-y-4">
+      {!form.cloudUrl.trim() ? (
+        <Alert tone="warning" title="آدرس پنل ابری تنظیم نشده است">
+          تا این فیلد پر نشود، دکمه‌های «ثبت‌نام» و «ساخت سرور» وبلاگ نمی‌دانند کاربر را کجا بفرستند. آدرس پنلی که
+          کاربر در آن ثبت‌نام می‌کند را پایین وارد کنید (مثل{' '}
+          <span className="ltr mono">https://cloud.pasargadmizban.com</span>) و ذخیره کنید. بعد از ذخیره، یک بار
+          دستور <span className="ltr mono">npm run blog:fix-links</span> را روی سرور اجرا کنید تا لینک‌های داخل
+          مقاله‌های موجود هم به همین آدرس تغییر کند.
+        </Alert>
+      ) : null}
+
       <Alert tone="info" title="سه کاری که فقط یک بار لازم است">
         ۱) آدرس سایت را درست وارد کنید. ۲) در{' '}
         <a href="https://search.google.com/search-console" target="_blank" rel="noopener" className="underline">
