@@ -45,23 +45,40 @@ async function main() {
   out('\n✅ ورود سرویس‌اکانت به گوگل موفق بود.');
 
   const auth = { authorization: `Bearer ${tok.access_token}` };
-  const showError = (status: number, body: { error?: { message?: string; details?: { reason?: string }[] } }) => {
-    const e = body?.error || {};
-    out(`   وضعیت ${status}: ${e.message || JSON.stringify(body).slice(0, 300)}`);
+  type ApiBody = { error?: { message?: string; details?: { reason?: string }[] } };
+  /** پاسخ گوگل همیشه JSON نیست (مثلاً صفحه HTML وقتی پیش از API رد می‌شود)؛ متن خام را هم نگه می‌داریم */
+  const readBody = async <T,>(res: Response): Promise<{ json: (T & ApiBody) | null; text: string }> => {
+    const text = await res.text().catch(() => '');
+    try {
+      return { json: JSON.parse(text) as T & ApiBody, text };
+    } catch {
+      return { json: null, text };
+    }
+  };
+  const showError = (res: Response, body: { json: ApiBody | null; text: string }) => {
+    const e = body.json?.error;
+    if (!e) {
+      const text = body.text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      out(`   وضعیت ${res.status} — پاسخ JSON نیست (content-type: ${res.headers.get('content-type') || '—'})`);
+      out(`   متن پاسخ: ${text ? text.slice(0, 400) : '— خالی —'}`);
+      out('   یعنی گوگل درخواست را پیش از رسیدن به Search Console API رد کرده است، نه به خاطر تنظیمات سرچ کنسول.');
+      return;
+    }
+    out(`   وضعیت ${res.status}: ${e.message || JSON.stringify(e).slice(0, 300)}`);
     const reasons = (e.details || []).map((d) => d.reason).filter(Boolean);
     if (reasons.length) out('   علت:', reasons.join(', '));
-    const link = JSON.stringify(body).match(/https:\/\/console\.developers\.google\.com[^"\s]*/);
+    const link = body.text.match(/https:\/\/console\.developers\.google\.com[^"\s]*/);
     if (link) out('   لینک روشن کردن API:', link[0]);
   };
 
   const sitesRes = await fetch('https://searchconsole.googleapis.com/webmasters/v3/sites', { headers: auth });
-  const sites = (await sitesRes.json().catch(() => ({}))) as { siteEntry?: { siteUrl: string; permissionLevel: string }[]; error?: { message?: string; details?: { reason?: string }[] } };
+  const sitesBody = await readBody<{ siteEntry?: { siteUrl: string; permissionLevel: string }[] }>(sitesRes);
   if (!sitesRes.ok) {
     out('\n❌ فهرست پراپرتی‌ها خوانده نشد:');
-    showError(sitesRes.status, sites);
+    showError(sitesRes, sitesBody);
     process.exit(1);
   }
-  const list = sites.siteEntry || [];
+  const list = sitesBody.json?.siteEntry || [];
   out(`\nپراپرتی‌هایی که این سرویس‌اکانت به آن‌ها دسترسی دارد (${list.length}):`);
   for (const s of list) out(`   • ${JSON.stringify(s.siteUrl)}  ← ${s.permissionLevel}`);
   if (!list.length) out('   — هیچ —  (ایمیل سرویس‌اکانت در Users and permissions سرچ کنسول اضافه نشده)');
@@ -80,9 +97,9 @@ async function main() {
     headers: { ...auth, 'content-type': 'application/json' },
     body: JSON.stringify({ startDate: day(30), endDate: day(2), rowLimit: 1 }),
   });
-  const q = (await qRes.json().catch(() => ({}))) as { rows?: unknown[]; error?: { message?: string; details?: { reason?: string }[] } };
-  if (!qRes.ok) { out('\n❌ خواندن آمار ناموفق:'); showError(qRes.status, q); process.exit(1); }
-  out(`\n✅ همه چیز درست است. ${(q.rows || []).length ? 'آمار موجود است.' : 'هنوز آماری نیست (برای پراپرتی تازه ۲ تا ۳ روز طول می‌کشد).'}`);
+  const qBody = await readBody<{ rows?: unknown[] }>(qRes);
+  if (!qRes.ok) { out('\n❌ خواندن آمار ناموفق:'); showError(qRes, qBody); process.exit(1); }
+  out(`\n✅ همه چیز درست است. ${(qBody.json?.rows || []).length ? 'آمار موجود است.' : 'هنوز آماری نیست (برای پراپرتی تازه ۲ تا ۳ روز طول می‌کشد).'}`);
 }
 
 main().catch((err) => {

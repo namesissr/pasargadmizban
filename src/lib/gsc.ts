@@ -82,12 +82,24 @@ async function forbiddenError(res: Response, token: string): Promise<GscError> {
   const raw = await res.text();
   let message = '';
   let reasons: string[] = [];
+  let apiError = false;
   try {
     const body = JSON.parse(raw) as { error?: { message?: string; details?: { reason?: string }[] } };
+    apiError = Boolean(body.error);
     message = body.error?.message ?? '';
     reasons = (body.error?.details ?? []).map((d) => d.reason ?? '').filter(Boolean);
   } catch {
-    message = raw.slice(0, 200);
+    message = raw;
+  }
+
+  // ۴۰۳ بدون پاسخ JSON یعنی درخواست پیش از رسیدن به خود API رد شده است؛
+  // نه مشکل دسترسی سرچ کنسول است و نه روشن نبودن API
+  if (!apiError) {
+    const text = message.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+    return new GscError(
+      `گوگل درخواست را پیش از رسیدن به Search Console API رد کرد (۴۰۳ بدون توضیح API)${text ? `: «${text}»` : ''}. معمولاً یعنی گوگل این سرویس را برای نشانی IP این سرور ارائه نمی‌دهد؛ تنظیمات سرچ کنسول و گوگل کلاد مشکلی ندارند.`,
+      403,
+    );
   }
 
   if (reasons.includes('SERVICE_DISABLED') || /has not been used|is disabled/i.test(message)) {
@@ -99,9 +111,12 @@ async function forbiddenError(res: Response, token: string): Promise<GscError> {
   }
 
   const sites = await listSites(token).catch(() => null);
-  const seen = sites?.length
-    ? ` پراپرتی‌هایی که این سرویس‌اکانت می‌بیند: ${sites.map((s) => `«${s}»`).join('، ')} — GSC_SITE_URL باید دقیقاً یکی از این‌ها باشد.`
-    : ' این سرویس‌اکانت هیچ پراپرتی‌ای نمی‌بیند؛ ایمیلش را در سرچ کنسول (Settings ← Users and permissions) با دسترسی Full اضافه کنید.';
+  const seen =
+    sites === null
+      ? ` فهرست پراپرتی‌های سرویس‌اکانت هم خوانده نشد. پیام گوگل: «${message.slice(0, 200)}»`
+      : sites.length
+        ? ` پراپرتی‌هایی که این سرویس‌اکانت می‌بیند: ${sites.map((s) => `«${s}»`).join('، ')} — GSC_SITE_URL باید دقیقاً یکی از این‌ها باشد.`
+        : ' این سرویس‌اکانت هیچ پراپرتی‌ای نمی‌بیند؛ ایمیلش را در سرچ کنسول (Settings ← Users and permissions) با دسترسی Full اضافه کنید.';
   return new GscError(
     `سرویس‌اکانت ${env.gsc.clientEmail} به پراپرتی «${env.gsc.siteUrl}» دسترسی ندارد.${seen}`,
     403,
