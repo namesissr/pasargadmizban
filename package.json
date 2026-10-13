@@ -21,6 +21,7 @@
     "blog:seed": "tsx scripts/seed-blog.ts",
     "blog:fix-links": "tsx scripts/fix-blog-links.ts",
     "blog:configure": "tsx scripts/configure-blog.ts",
+    "admin:create": "tsx scripts/create-admin.ts",
     "health": "tsx scripts/health-check.ts",
     "telegram": "tsx scripts/telegram-setup.ts",
     "setup": "prisma generate && prisma db push && tsx prisma/seed.ts"
