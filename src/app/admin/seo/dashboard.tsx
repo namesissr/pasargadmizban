@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import {
   TrendingUp,
@@ -141,20 +142,12 @@ export function SeoDashboard({ data }: { data: SeoResponse }) {
             </Card>
           </div>
         </>
-      ) : (
-        <Alert tone={gsc.error ? 'warning' : 'info'} title={gsc.error ? 'خواندن آمار گوگل ناموفق بود' : 'آمار واقعی گوگل وصل نیست'}>
-          {gsc.error ? (
-            gsc.error
-          ) : (
-            <>
-              برای دیدن جایگاه واقعی هر مقاله، عبارت‌های جستجو و وضعیت ایندکس، سرچ کنسول را وصل کنید: یک Service
-              Account در Google Cloud بسازید، ایمیلش را در سرچ کنسول به عنوان کاربر اضافه کنید و متغیرهای{' '}
-              <span className="ltr mono">GSC_CLIENT_EMAIL</span>، <span className="ltr mono">GSC_PRIVATE_KEY</span> و{' '}
-              <span className="ltr mono">GSC_SITE_URL</span> را تنظیم کنید. تا آن زمان، همه آمار درون‌سایتی پایین کار
-              می‌کند.
-            </>
-          )}
+      ) : gsc.error ? (
+        <Alert tone="warning" title="خواندن آمار گوگل ناموفق بود">
+          {gsc.error}
         </Alert>
+      ) : (
+        <GscOptionalNote />
       )}
 
       {/* ── سلامت سئوی سایت ── */}
@@ -276,5 +269,52 @@ export function SeoDashboard({ data }: { data: SeoResponse }) {
         </ul>
       </Card>
     </div>
+  );
+}
+
+const NOTE_KEY = 'pm:gsc-note-hidden';
+
+/**
+ * یادداشت «سرچ کنسول وصل نیست».
+ *
+ * اتصال سرچ کنسول اختیاری است؛ ایندکس شدن به آن وابسته نیست و همه آمار
+ * درون‌سایتی بدونش کار می‌کند. کسی که عمداً وصلش نکرده، می‌تواند یادداشت را
+ * ببندد (در همین مرورگر به خاطر می‌ماند).
+ */
+function GscOptionalNote() {
+  const [hidden, setHidden] = useState(true);
+
+  useEffect(() => {
+    try {
+      setHidden(localStorage.getItem(NOTE_KEY) === '1');
+    } catch {
+      setHidden(false);
+    }
+  }, []);
+
+  if (hidden) return null;
+
+  function hide() {
+    setHidden(true);
+    try {
+      localStorage.setItem(NOTE_KEY, '1');
+    } catch {
+      // ذخیره نشد؛ فقط تا بازخوانی صفحه پنهان می‌ماند
+    }
+  }
+
+  return (
+    <Alert
+      tone="info"
+      title="آمار گوگل (اختیاری) وصل نیست"
+      action={
+        <button type="button" onClick={hide} className="btn btn-ghost btn-sm">
+          دیگر نشان نده
+        </button>
+      }
+    >
+      کلیک، نمایش و رتبه گوگل را در خود سرچ کنسول (بخش Performance) ببینید. ایندکس شدن به این اتصال وابسته نیست و
+      همه آمار درون‌سایتی پایین بدون آن کار می‌کند. راهنمای اتصال در مستندات، بخش «اتصال گوگل سرچ کنسول».
+    </Alert>
   );
 }
