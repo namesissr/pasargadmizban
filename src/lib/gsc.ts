@@ -70,6 +70,55 @@ async function accessToken(): Promise<string> {
   return tokenCache.token;
 }
 
+/**
+ * گوگل برای ۴۰۳ دو علت کاملاً متفاوت دارد و راه‌حلشان هم فرق می‌کند:
+ *   ۱) Search Console API در پروژه سرویس‌اکانت روشن نیست
+ *   ۲) سرویس‌اکانت به این پراپرتی دسترسی ندارد (اضافه نشده، یا GSC_SITE_URL
+ *      دقیقاً با نشانی پراپرتی یکی نیست)
+ * پیام را از روی پاسخ خود گوگل می‌سازیم و در حالت دوم، پراپرتی‌هایی را که
+ * سرویس‌اکانت واقعاً می‌بیند هم نشان می‌دهیم تا مقدار درست معلوم باشد.
+ */
+async function forbiddenError(res: Response, token: string): Promise<GscError> {
+  const raw = await res.text();
+  let message = '';
+  let reasons: string[] = [];
+  try {
+    const body = JSON.parse(raw) as { error?: { message?: string; details?: { reason?: string }[] } };
+    message = body.error?.message ?? '';
+    reasons = (body.error?.details ?? []).map((d) => d.reason ?? '').filter(Boolean);
+  } catch {
+    message = raw.slice(0, 200);
+  }
+
+  if (reasons.includes('SERVICE_DISABLED') || /has not been used|is disabled/i.test(message)) {
+    const link = raw.match(/https:\/\/console\.developers\.google\.com[^"\s]*/)?.[0];
+    return new GscError(
+      `Search Console API در پروژه گوگل کلادی که این سرویس‌اکانت در آن ساخته شده روشن نیست${link ? ` — روشن کردن: ${link}` : ''}. اگر API را روشن کرده‌اید، احتمالاً در پروژه دیگری بوده؛ چند دقیقه پس از روشن کردن هم طول می‌کشد تا اثر کند.`,
+      403,
+    );
+  }
+
+  const sites = await listSites(token).catch(() => null);
+  const seen = sites?.length
+    ? ` پراپرتی‌هایی که این سرویس‌اکانت می‌بیند: ${sites.map((s) => `«${s}»`).join('، ')} — GSC_SITE_URL باید دقیقاً یکی از این‌ها باشد.`
+    : ' این سرویس‌اکانت هیچ پراپرتی‌ای نمی‌بیند؛ ایمیلش را در سرچ کنسول (Settings ← Users and permissions) با دسترسی Full اضافه کنید.';
+  return new GscError(
+    `سرویس‌اکانت ${env.gsc.clientEmail} به پراپرتی «${env.gsc.siteUrl}» دسترسی ندارد.${seen}`,
+    403,
+  );
+}
+
+/** نشانی پراپرتی‌هایی که سرویس‌اکانت در سرچ کنسول به آن‌ها دسترسی دارد */
+export async function listSites(token?: string): Promise<string[]> {
+  const bearer = token ?? (await accessToken());
+  const res = await fetch('https://searchconsole.googleapis.com/webmasters/v3/sites', {
+    headers: { authorization: `Bearer ${bearer}` },
+  });
+  if (!res.ok) throw new GscError(`خواندن فهرست پراپرتی‌ها ناموفق بود (${res.status})`, 502);
+  const data = (await res.json()) as { siteEntry?: { siteUrl: string }[] };
+  return (data.siteEntry ?? []).map((s) => s.siteUrl);
+}
+
 async function gscFetch<T>(path: string, body: unknown): Promise<T> {
   const token = await accessToken();
   const property = encodeURIComponent(env.gsc.siteUrl);
@@ -80,12 +129,7 @@ async function gscFetch<T>(path: string, body: unknown): Promise<T> {
     body: JSON.stringify(body),
   });
 
-  if (res.status === 403) {
-    throw new GscError(
-      'گوگل دسترسی نداد. ایمیل سرویس‌اکانت را در سرچ کنسول به عنوان کاربر اضافه کرده‌اید؟ و Search Console API را در Google Cloud فعال کرده‌اید؟',
-      403,
-    );
-  }
+  if (res.status === 403) throw await forbiddenError(res, token);
   if (!res.ok) {
     const text = await res.text();
     throw new GscError(`خطای سرچ کنسول (${res.status}): ${text.slice(0, 200)}`, 502);
