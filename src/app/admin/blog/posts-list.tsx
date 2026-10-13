@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
 import {
@@ -13,6 +13,12 @@ import {
   FileText,
   EyeOff,
   Gauge,
+  Eye,
+  CheckSquare,
+  FolderInput,
+  Send,
+  Undo2,
+  X,
 } from 'lucide-react';
 import {
   Badge,
@@ -22,12 +28,13 @@ import {
   EmptyState,
   Input,
   LoadingBlock,
+  Modal,
   Select,
   Stat,
   Tabs,
 } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
-import { apiDelete, apiPatch, errorMessage, fetcher } from '@/lib/client';
+import { apiDelete, apiPost, errorMessage, fetcher } from '@/lib/client';
 import { faDate, faRelative } from '@/lib/utils';
 import { STATUS_FA, scoreTone, type AdminCategory, type AdminPostRow, type PostStatus } from './types';
 
@@ -49,30 +56,51 @@ export function PostsList() {
   const [status, setStatus] = useState<'ALL' | PostStatus>('ALL');
   const [q, setQ] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [sort, setSort] = useState<'updated' | 'published' | 'views' | 'seo' | 'title' | 'words'>('updated');
   const [page, setPage] = useState(1);
   const [removing, setRemoving] = useState<AdminPostRow | null>(null);
   const [busy, setBusy] = useState(false);
+  /** شناسه مقاله‌های انتخاب‌شده برای عملیات گروهی */
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [movingCategory, setMovingCategory] = useState(false);
 
-  const params = new URLSearchParams({ status, page: String(page), perPage: '20' });
+  const params = new URLSearchParams({ status, sort, page: String(page), perPage: '20' });
   if (q.trim()) params.set('q', q.trim());
   if (categoryId) params.set('categoryId', categoryId);
 
   const { data, isLoading, mutate } = useSWR<ListResponse>(`/api/admin/blog/posts?${params}`, fetcher);
   const { data: catData } = useSWR<{ items: AdminCategory[] }>('/api/admin/blog/categories', fetcher);
 
-  const items = data?.items ?? [];
+  const items = useMemo(() => data?.items ?? [], [data]);
   const stats = data?.stats;
 
-  async function toggleFeatured(post: AdminPostRow) {
+  const allSelected = items.length > 0 && items.every((p) => selected.includes(p.id));
+  const toggleRow = (id: string) =>
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const toggleAll = () =>
+    setSelected((prev) => (allSelected ? prev.filter((id) => !items.some((p) => p.id === id)) : [
+      ...new Set([...prev, ...items.map((p) => p.id)]),
+    ]));
+
+  /**
+   * عملیات گروهی. حتی وقتی یک مقاله انتخاب شده، از همین مسیر می‌رویم: تغییر
+   * یک کلید بدون فرستادن کل مقاله، هم سریع‌تر است و هم خطر بازنویسی ناخواسته
+   * متن را ندارد.
+   */
+  async function bulk(action: string, categoryId?: string | null, ids = selected) {
+    if (!ids.length) return;
     setBusy(true);
     try {
-      // برای تغییر یک کلید، باید کل مقاله را بفرستیم؛ پس ابتدا نسخه کامل را می‌خوانیم
-      const { post: full } = await fetcher<{ post: Record<string, unknown> }>(`/api/admin/blog/posts/${post.id}`);
-      await apiPatch(`/api/admin/blog/posts/${post.id}`, {
-        ...toPayload(full),
-        featured: !post.featured,
+      const res = await apiPost<{ message: string }>('/api/admin/blog/posts/bulk', {
+        ids,
+        action,
+        ...(categoryId !== undefined ? { categoryId } : {}),
       });
-      toast.success(post.featured ? 'از مقاله‌های ویژه برداشته شد.' : 'به مقاله‌های ویژه اضافه شد.');
+      toast.success(res.message);
+      setSelected([]);
+      setBulkDeleting(false);
+      setMovingCategory(false);
       mutate();
     } catch (err) {
       toast.error(errorMessage(err));
@@ -80,6 +108,9 @@ export function PostsList() {
       setBusy(false);
     }
   }
+
+  const toggleFeatured = (post: AdminPostRow) =>
+    bulk(post.featured ? 'unfeature' : 'feature', undefined, [post.id]);
 
   async function remove() {
     if (!removing) return;
@@ -126,8 +157,8 @@ export function PostsList() {
           className="mb-3"
         />
 
-        <div className="mb-3 flex flex-wrap gap-2">
-          <label className="relative flex-1 min-w-48">
+        <div className="mb-3 grid gap-2 sm:grid-cols-[minmax(12rem,1fr)_11rem_11rem]">
+          <label className="relative">
             <span className="sr-only">جستجو در مقاله‌ها</span>
             <Search size={14} className="absolute top-1/2 right-3 -translate-y-1/2 opacity-50" />
             <Input
@@ -146,16 +177,77 @@ export function PostsList() {
               setCategoryId(e.target.value);
               setPage(1);
             }}
-            className="w-44"
           >
             <option value="">همه دسته‌ها</option>
+            <option value="none">بی‌دسته</option>
             {(catData?.items ?? []).map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
           </Select>
+          <Select
+            value={sort}
+            onChange={(e) => {
+              setSort(e.target.value as typeof sort);
+              setPage(1);
+            }}
+            aria-label="ترتیب نمایش"
+          >
+            <option value="updated">تازه‌ترین ویرایش</option>
+            <option value="published">تازه‌ترین انتشار</option>
+            <option value="views">پربازدیدترین</option>
+            <option value="seo">کم‌امتیازترین سئو</option>
+            <option value="words">کوتاه‌ترین متن</option>
+            <option value="title">الفبایی</option>
+          </Select>
         </div>
+
+        {/* نوار عملیات گروهی — فقط وقتی چیزی انتخاب شده باشد */}
+        {selected.length > 0 ? (
+          <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border p-2.5 surface-2">
+            <span className="flex items-center gap-1.5 px-1 text-xs font-bold">
+              <CheckSquare size={14} className="text-[var(--color-brand-600)]" />
+              {new Intl.NumberFormat('fa-IR').format(selected.length)} مقاله انتخاب شده
+            </span>
+            <div className="flex-1" />
+            <Button variant="secondary" size="sm" icon={<Send size={13} />} disabled={busy} onClick={() => bulk('publish')}>
+              انتشار
+            </Button>
+            <Button variant="secondary" size="sm" icon={<Undo2 size={13} />} disabled={busy} onClick={() => bulk('draft')}>
+              پیش‌نویس
+            </Button>
+            <Button variant="secondary" size="sm" icon={<Star size={13} />} disabled={busy} onClick={() => bulk('feature')}>
+              ویژه
+            </Button>
+            <Button variant="secondary" size="sm" icon={<Eye size={13} />} disabled={busy} onClick={() => bulk('index')}>
+              ایندکس شود
+            </Button>
+            <Button variant="secondary" size="sm" icon={<EyeOff size={13} />} disabled={busy} onClick={() => bulk('noindex')}>
+              بی‌ایندکس
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<FolderInput size={13} />}
+              disabled={busy}
+              onClick={() => setMovingCategory(true)}
+            >
+              تغییر دسته
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              icon={<Trash2 size={13} />}
+              disabled={busy}
+              className="hover:text-red-500"
+              onClick={() => setBulkDeleting(true)}
+            >
+              حذف
+            </Button>
+            <Button variant="ghost" size="sm" icon={<X size={13} />} onClick={() => setSelected([])} aria-label="لغو انتخاب" />
+          </div>
+        ) : null}
 
         {isLoading && !data ? (
           <LoadingBlock />
@@ -175,6 +267,15 @@ export function PostsList() {
             <table className="table">
               <thead>
                 <tr>
+                  <th className="w-8">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleAll}
+                      aria-label="انتخاب همه مقاله‌های این صفحه"
+                      className="h-4 w-4 cursor-pointer accent-[var(--color-brand-600)]"
+                    />
+                  </th>
                   <th>عنوان</th>
                   <th>وضعیت</th>
                   <th>سئو</th>
@@ -187,7 +288,16 @@ export function PostsList() {
                 {items.map((post) => {
                   const st = STATUS_FA[post.status];
                   return (
-                    <tr key={post.id}>
+                    <tr key={post.id} className={selected.includes(post.id) ? 'bg-[var(--surface-2)]' : undefined}>
+                      <td>
+                        <input
+                          type="checkbox"
+                          checked={selected.includes(post.id)}
+                          onChange={() => toggleRow(post.id)}
+                          aria-label={`انتخاب ${post.title}`}
+                          className="h-4 w-4 cursor-pointer accent-[var(--color-brand-600)]"
+                        />
+                      </td>
                       <td>
                         <div className="flex items-start gap-2">
                           <button
@@ -288,6 +398,25 @@ export function PostsList() {
       </Card>
 
       <ConfirmModal
+        open={bulkDeleting}
+        onClose={() => setBulkDeleting(false)}
+        onConfirm={() => bulk('delete')}
+        loading={busy}
+        title="حذف گروهی مقاله‌ها"
+        message={`${new Intl.NumberFormat('fa-IR').format(selected.length)} مقاله برای همیشه حذف می‌شوند. اگر هر کدام در گوگل رتبه دارد، آن رتبه از دست می‌رود؛ جایگزین بی‌خطرتر، «بی‌ایندکس» کردن است.`}
+        confirmLabel="حذف همه"
+      />
+
+      <MoveCategoryModal
+        open={movingCategory}
+        count={selected.length}
+        categories={catData?.items ?? []}
+        loading={busy}
+        onClose={() => setMovingCategory(false)}
+        onConfirm={(categoryId) => bulk('category', categoryId)}
+      />
+
+      <ConfirmModal
         open={!!removing}
         onClose={() => setRemoving(null)}
         onConfirm={remove}
@@ -300,29 +429,49 @@ export function PostsList() {
   );
 }
 
-/** تبدیل مقاله خوانده‌شده از API به بدنه‌ای که PATCH می‌پذیرد */
-function toPayload(post: Record<string, unknown>) {
-  return {
-    title: post.title,
-    slug: post.slug,
-    excerpt: post.excerpt,
-    content: post.content,
-    coverImage: post.coverImage ?? undefined,
-    coverAlt: post.coverAlt ?? undefined,
-    metaTitle: post.metaTitle ?? undefined,
-    metaDescription: post.metaDescription ?? undefined,
-    focusKeyword: post.focusKeyword ?? undefined,
-    keywords: post.keywords ?? undefined,
-    canonicalUrl: post.canonicalUrl ?? undefined,
-    ogImage: post.ogImage ?? undefined,
-    noindex: post.noindex,
-    faqs: Array.isArray(post.faqs) ? post.faqs : [],
-    status: post.status,
-    publishedAt: post.publishedAt ?? null,
-    categoryId: post.categoryId ?? null,
-    tags: Array.isArray(post.tags) ? post.tags : [],
-    authorName: post.authorName ?? undefined,
-    authorTitle: post.authorTitle ?? undefined,
-    authorBio: post.authorBio ?? undefined,
-  };
+/** جابه‌جایی گروهی مقاله‌ها بین دسته‌ها */
+function MoveCategoryModal({
+  open,
+  count,
+  categories,
+  loading,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  count: number;
+  categories: AdminCategory[];
+  loading: boolean;
+  onClose: () => void;
+  onConfirm: (categoryId: string | null) => void;
+}) {
+  const [categoryId, setCategoryId] = useState('');
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="تغییر دسته گروهی"
+      description={`${new Intl.NumberFormat('fa-IR').format(count)} مقاله به دسته انتخابی منتقل می‌شوند.`}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose} disabled={loading}>
+            انصراف
+          </Button>
+          <Button onClick={() => onConfirm(categoryId || null)} loading={loading}>
+            انتقال
+          </Button>
+        </>
+      }
+    >
+      <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+        <option value="">بی‌دسته</option>
+        {categories.map((c) => (
+          <option key={c.id} value={c.id}>
+            {c.name}
+          </option>
+        ))}
+      </Select>
+    </Modal>
+  );
 }

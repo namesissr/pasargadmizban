@@ -160,6 +160,15 @@ export type SettingsShape = {
   /** هر چند ساعت یک بار کاتالوگ و موجودی پلن‌ها از هتزنر تازه شود */
   catalogSyncIntervalHours: number;
 
+  // ─── حالت پنل ───
+  /**
+   * full = پنل کامل فروش سرور · blog = نصب فقط وبلاگ.
+   * در حالت blog همه بخش‌های سرور، هتزنر و مالی از پنل مدیریت برداشته
+   * می‌شوند و جایشان پنل وبلاگ می‌نشیند. متغیر محیطی APP_MODE بر این
+   * تنظیم اولویت دارد.
+   */
+  panelMode: string;
+
   // ─── وبلاگ و سئو ───
   /** نمایش وبلاگ روی سایت عمومی */
   blogEnabled: boolean;
@@ -339,6 +348,8 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   catalogAutoSyncEnabled: true,
   catalogSyncIntervalHours: 1,
 
+  panelMode: 'full',
+
   blogEnabled: true,
   blogTitle: '',
   blogDescription: '',
@@ -431,6 +442,7 @@ export function invalidateSettingsCache() {
 }
 
 function groupOf(key: string): string {
+  if (key === 'panelMode') return 'panel';
   if (['eurRate', 'markupPercent', 'markupFixed', 'vatPercent', 'roundMonthly', 'roundHourly', 'trafficOveragePerTb'].includes(key))
     return 'pricing';
   if (['minTopup', 'maxTopup', 'hourlyPrepayHours'].includes(key)) return 'billing';

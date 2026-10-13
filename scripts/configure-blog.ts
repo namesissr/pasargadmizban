@@ -3,6 +3,7 @@ import prisma from '../src/lib/prisma';
 import { setSettings, invalidateSettingsCache } from '../src/lib/settings';
 import { siteInfo, cloudLinks } from '../src/lib/seo';
 import { normalizeHex } from '../src/lib/brand';
+import { panelMode, panelModeLocked } from '../src/lib/panel-mode';
 
 /**
  * تنظیم یک‌جای برند و آدرس‌های وبلاگ از خط فرمان.
@@ -17,7 +18,8 @@ import { normalizeHex } from '../src/lib/brand';
  *     --main https://example.com \
  *     --site https://blog.example.com \
  *     --color "#0f62fe" \
- *     --cta "ساخت سرور ساعتی"
+ *     --cta "ساخت سرور ساعتی" \
+ *     --mode blog
  */
 
 function arg(name: string): string | undefined {
@@ -37,6 +39,13 @@ function cleanUrl(value: string, label: string): string {
   return url;
 }
 
+/** حالت پنل، با توجه به اینکه APP_MODE بر تنظیم دیتابیس اولویت دارد */
+async function describeMode(): Promise<string> {
+  const mode = await panelMode();
+  const label = mode === 'blog' ? 'فقط وبلاگ' : 'کامل (فروش سرور)';
+  return panelModeLocked() ? `${label} — قفل‌شده با APP_MODE در .env` : label;
+}
+
 async function report(title: string) {
   invalidateSettingsCache();
   const site = await siteInfo();
@@ -49,6 +58,7 @@ async function report(title: string) {
   console.log(`   • متن دکمه فروش:          ${site.cloudCtaLabel}`);
   console.log(`   • شعار زیر نام برند:      ${site.brandTagline}`);
   console.log(`   • رنگ برند:               ${site.brandColor}`);
+  console.log(`   • حالت پنل:               ${await describeMode()}`);
   console.log('');
   console.log(`   ➜ دکمه «ثبت‌نام / ساخت سرور» به: ${cloud.register}`);
   console.log(`   ➜ دکمه «ورود» به:               ${cloud.login}`);
@@ -66,12 +76,19 @@ async function main() {
   const color = arg('color');
   const cta = arg('cta');
   const tagline = arg('tagline');
+  const mode = arg('mode');
 
-  if (!cloud && !main_ && !site && !color && !cta && !tagline) {
+  if (mode && mode !== 'blog' && mode !== 'full') {
+    console.error('❌ حالت پنل باید blog یا full باشد.');
+    process.exit(1);
+  }
+
+  if (!cloud && !main_ && !site && !color && !cta && !tagline && !mode) {
     await report('📋 تنظیمات فعلی:');
     console.log('');
     console.log('برای تغییر، سوییچ‌ها را بدهید. نمونه:');
     console.log('  npm run blog:configure -- --cloud https://cloud.example.com --main https://example.com');
+    console.log('  npm run blog:configure -- --mode blog   # پنل مدیریت فقط بخش وبلاگ را نشان بدهد');
     return;
   }
 
@@ -82,6 +99,7 @@ async function main() {
   if (color) patch.brandColor = normalizeHex(color);
   if (cta) patch.cloudCtaLabel = cta;
   if (tagline) patch.brandTagline = tagline;
+  if (mode) patch.panelMode = mode;
 
   await setSettings(patch as never);
   await report('✅ تنظیمات ذخیره شد:');

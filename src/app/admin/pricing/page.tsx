@@ -1,11 +1,14 @@
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/app/shell';
+import { requireFullPanel } from '@/lib/panel-mode';
 import { PricingClient } from './client';
 
 export const metadata: Metadata = { title: 'قیمت‌گذاری' };
 export const dynamic = 'force-dynamic';
 
-export default function AdminPricingPage() {
+export default async function AdminPricingPage() {
+  // روی نصب «فقط وبلاگ» این بخش وجود ندارد
+  await requireFullPanel();
   return (
     <>
       <PageHeader

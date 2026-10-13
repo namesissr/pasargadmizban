@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Gauge,
   Coins,
+  Plus,
+  Lightbulb,
 } from 'lucide-react';
 import {
   Alert,
@@ -22,6 +24,7 @@ import {
   ConfirmModal,
   EmptyState,
   Field,
+  Input,
   LoadingBlock,
   NumberInput,
   Select,
@@ -110,6 +113,9 @@ export function ContentPanel() {
   const [busy, setBusy] = useState(false);
   const [removing, setRemoving] = useState<ContentJob | null>(null);
   const [rejecting, setRejecting] = useState<ContentJob | null>(null);
+  const [keyword, setKeyword] = useState('');
+  const [keywordCategory, setKeywordCategory] = useState('');
+  const [queueing, setQueueing] = useState<'queue' | 'now' | null>(null);
 
   useEffect(() => {
     if (settingsData?.settings && !form) {
@@ -153,6 +159,32 @@ export function ContentPanel() {
       toast.error(errorMessage(err));
     } finally {
       setRunning(false);
+    }
+  }
+
+  /**
+   * افزودن موضوع دستی.
+   *
+   * کشف خودکار کارش را می‌کند، ولی عبارت‌هایی که مشتری‌ها در تیکت می‌پرسند
+   * ارزش بیشتری دارند؛ موضوع دستی اول نوبت نوشته می‌شود.
+   */
+  async function enqueue(runNowToo: boolean) {
+    const clean = keyword.trim();
+    if (clean.length < 3) return;
+    setQueueing(runNowToo ? 'now' : 'queue');
+    try {
+      const res = await apiPost<{ message: string }>('/api/admin/blog/content/keyword', {
+        keyword: clean,
+        categorySlug: keywordCategory || undefined,
+        runNow: runNowToo,
+      });
+      toast.success(res.message);
+      setKeyword('');
+      mutate();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setQueueing(null);
     }
   }
 
@@ -317,6 +349,60 @@ export function ContentPanel() {
           </div>
         </Card>
       ) : null}
+
+      {/* افزودن موضوع دستی */}
+      <Card
+        title="افزودن موضوع به صف"
+        description="عبارتی که می‌دانید مشتری‌هایتان جستجو می‌کنند را اینجا بنویسید؛ پیش از موضوع‌های کشف‌شده نوشته می‌شود."
+      >
+        <div className="flex flex-wrap items-end gap-3">
+          <Field label="کلیدواژه هدف" className="min-w-56 flex-1" hint="همان‌طور که کاربر در گوگل می‌نویسد.">
+            <Input
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              maxLength={120}
+              placeholder="خرید سرور مجازی ایران"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') enqueue(false);
+              }}
+            />
+          </Field>
+          <Field label="دسته پیشنهادی" className="w-48">
+            <Select value={keywordCategory} onChange={(e) => setKeywordCategory(e.target.value)}>
+              <option value="">— انتخاب خودکار —</option>
+              {(catData?.items ?? []).map((c) => (
+                <option key={c.id} value={c.slug}>
+                  {c.name}
+                </option>
+              ))}
+            </Select>
+          </Field>
+          <Button
+            variant="secondary"
+            icon={<Plus size={15} />}
+            loading={queueing === 'queue'}
+            disabled={keyword.trim().length < 3 || queueing !== null}
+            onClick={() => enqueue(false)}
+          >
+            افزودن به صف
+          </Button>
+          <Button
+            icon={<Play size={15} />}
+            loading={queueing === 'now'}
+            disabled={keyword.trim().length < 3 || queueing !== null || !config?.apiKeyReady}
+            onClick={() => enqueue(true)}
+          >
+            همین حالا بنویس
+          </Button>
+        </div>
+        <p className="mt-3 flex items-start gap-1.5 rounded-xl p-3 text-[11px] leading-6 surface-2">
+          <Lightbulb size={13} className="mt-1 shrink-0 text-amber-500" />
+          <span>
+            «همین حالا بنویس» چند دقیقه طول می‌کشد و صفحه باید باز بماند. «افزودن به صف» سبک‌تر است: موضوع در
+            اجرای روزانه بعدی نوشته می‌شود.
+          </span>
+        </p>
+      </Card>
 
       {/* اجرای دستی */}
       <Card title="تولید همین حالا" description="برای آزمایش یا پر کردن فوری وبلاگ، بدون انتظار برای اجرای روزانه.">

@@ -13,6 +13,9 @@ const querySchema = z.object({
   status: z.enum(['ALL', 'DRAFT', 'SCHEDULED', 'PUBLISHED']).optional().default('ALL'),
   q: z.string().trim().max(120).optional(),
   categoryId: z.string().trim().max(40).optional(),
+  /** برچسب، با نشانی (slug) */
+  tag: z.string().trim().max(80).optional(),
+  sort: z.enum(['updated', 'published', 'views', 'seo', 'title', 'words']).optional().default('updated'),
   page: z.string().optional(),
   perPage: z.string().optional(),
 });
@@ -20,12 +23,13 @@ const querySchema = z.object({
 /** فهرست مقاله‌ها برای پنل مدیریت (پیش‌نویس‌ها هم دیده می‌شوند) */
 export const GET = route(async (req: Request) => {
   await requireStaff();
-  const { status, q, categoryId } = parseQuery(req, querySchema);
+  const { status, q, categoryId, tag, sort } = parseQuery(req, querySchema);
   const { page, perPage, skip, take } = pagination(req, { page: 1, perPage: 20, maxPerPage: 100 });
 
   const where: Record<string, unknown> = {};
   if (status !== 'ALL') where.status = status;
-  if (categoryId) where.categoryId = categoryId;
+  if (categoryId) where.categoryId = categoryId === 'none' ? null : categoryId;
+  if (tag) where.tags = { some: { tag: { slug: tag } } };
   if (q) {
     where.OR = [
       { title: { contains: q, mode: 'insensitive' } },
@@ -34,10 +38,24 @@ export const GET = route(async (req: Request) => {
     ];
   }
 
+  // ترتیب‌های پرکاربرد پنل: تازه‌ترین ویرایش، پربازدید، کم‌امتیاز سئو…
+  const orderBy =
+    sort === 'published'
+      ? [{ publishedAt: 'desc' as const }]
+      : sort === 'views'
+        ? [{ views: 'desc' as const }]
+        : sort === 'seo'
+          ? [{ seoScore: 'asc' as const }]
+          : sort === 'words'
+            ? [{ wordCount: 'asc' as const }]
+            : sort === 'title'
+              ? [{ title: 'asc' as const }]
+              : [{ updatedAt: 'desc' as const }];
+
   const [items, total, counts] = await Promise.all([
     prisma.blogPost.findMany({
       where,
-      orderBy: [{ updatedAt: 'desc' }],
+      orderBy,
       skip,
       take,
       select: {

@@ -1,11 +1,14 @@
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/app/shell';
+import { requireFullPanel } from '@/lib/panel-mode';
 import { PromosClient } from './client';
 
 export const metadata: Metadata = { title: 'کدهای هدیه و تخفیف' };
 export const dynamic = 'force-dynamic';
 
-export default function AdminPromosPage() {
+export default async function AdminPromosPage() {
+  // روی نصب «فقط وبلاگ» این بخش وجود ندارد
+  await requireFullPanel();
   return (
     <>
       <PageHeader

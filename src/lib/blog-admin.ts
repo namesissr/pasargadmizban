@@ -151,8 +151,25 @@ export async function syncTags(postId: string, names: string[] | undefined): Pro
     ).entries(),
   );
 
+  // برچسب موجود را اول با نام و بعد با نشانی پیدا می‌کنیم. اگر نام برچسبی
+  // در پنل عوض شده باشد (و نشانی‌اش دست‌نخورده مانده)، جستجوی فقط-با-نشانی
+  // یک برچسب تکراری می‌ساخت؛ این ترتیب جلوی آن را می‌گیرد.
+  const existing = await prisma.blogTag.findMany({
+    where: {
+      OR: [{ name: { in: clean.map(([, name]) => name) } }, { slug: { in: clean.map(([slug]) => slug) } }],
+    },
+    select: { id: true, name: true, slug: true },
+  });
+  const byName = new Map(existing.map((t) => [t.name, t]));
+  const bySlug = new Map(existing.map((t) => [t.slug, t]));
+
   const tagIds: string[] = [];
   for (const [slug, name] of clean) {
+    const found = byName.get(name) ?? bySlug.get(slug);
+    if (found) {
+      tagIds.push(found.id);
+      continue;
+    }
     const tag = await prisma.blogTag.upsert({
       where: { slug },
       create: { slug, name },

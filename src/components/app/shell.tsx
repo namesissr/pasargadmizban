@@ -33,10 +33,17 @@ import {
   Mail,
   Megaphone,
   Newspaper,
+  FileText,
   TrendingUp,
   MoreHorizontal,
   Send,
   Landmark,
+  FolderTree,
+  Hash,
+  CalendarDays,
+  Bot,
+  ImageIcon,
+  Link2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatToman } from '@/lib/money';
@@ -69,6 +76,9 @@ const USER_NAV: NavItem[] = [
   { href: '/dashboard/profile', label: 'حساب کاربری', icon: User },
 ];
 
+/** حالت نصب: پنل کامل فروش سرور یا نصب «فقط وبلاگ» */
+export type PanelMode = 'full' | 'blog';
+
 const ADMIN_NAV: NavItem[] = [
   { href: '/admin', label: 'داشبورد مدیریت', icon: LayoutDashboard, exact: true },
   { href: '/admin/users', label: 'کاربران', icon: Users },
@@ -90,6 +100,36 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin/logs', label: 'گزارش رویدادها', icon: ScrollText },
 ];
 
+/**
+ * منوی نصب «فقط وبلاگ»: هرچه به سرور، هتزنر و صورتحساب ساعتی مربوط است
+ * اینجا نیست، چون روی این نصب کاری انجام نمی‌دهد.
+ */
+const BLOG_ADMIN_NAV: NavItem[] = [
+  { href: '/admin', label: 'داشبورد وبلاگ', icon: LayoutDashboard, exact: true },
+  { href: '/admin/blog', label: 'مقاله‌ها', icon: FileText },
+  { href: '/admin/blog/categories', label: 'دسته‌ها', icon: FolderTree },
+  { href: '/admin/blog/tags', label: 'برچسب‌ها', icon: Hash },
+  { href: '/admin/blog/calendar', label: 'تقویم انتشار', icon: CalendarDays },
+  { href: '/admin/blog/content', label: 'تولید خودکار', icon: Bot },
+  { href: '/admin/blog/images', label: 'تصاویر و رسانه', icon: ImageIcon },
+  { href: '/admin/blog/redirects', label: 'ریدایرکت‌ها', icon: Link2 },
+  { href: '/admin/seo', label: 'سئو و آمار', icon: TrendingUp },
+  { href: '/admin/users', label: 'کاربران و نویسندگان', icon: Users },
+  { href: '/admin/announcements', label: 'اعلان‌های سایت', icon: Megaphone },
+  { href: '/admin/tickets', label: 'تیکت‌ها', icon: LifeBuoy },
+  { href: '/admin/messaging', label: 'ایمیل و پیامک', icon: Mail },
+  { href: '/admin/settings', label: 'تنظیمات', icon: Settings },
+  { href: '/admin/logs', label: 'گزارش رویدادها', icon: ScrollText },
+];
+
+/** روی نصب وبلاگ، پنل کاربری فقط حساب و اطلاع‌رسانی است */
+const BLOG_USER_NAV: NavItem[] = [
+  { href: '/dashboard', label: 'داشبورد', icon: LayoutDashboard, exact: true },
+  { href: '/dashboard/tickets', label: 'پشتیبانی', icon: LifeBuoy },
+  { href: '/dashboard/notifications-settings', label: 'اطلاع‌رسانی', icon: BellRing },
+  { href: '/dashboard/profile', label: 'حساب کاربری', icon: User },
+];
+
 /** چهار میان‌بر پرکاربرد که روی گوشی در نوار پایین می‌نشینند */
 const USER_TABS: NavItem[] = [
   { href: '/dashboard', label: 'خانه', icon: LayoutDashboard, exact: true },
@@ -105,22 +145,54 @@ const ADMIN_TABS: NavItem[] = [
   { href: '/admin/tickets', label: 'تیکت‌ها', icon: LifeBuoy },
 ];
 
-function isActive(pathname: string, item: NavItem) {
+const BLOG_ADMIN_TABS: NavItem[] = [
+  { href: '/admin', label: 'خانه', icon: LayoutDashboard, exact: true },
+  { href: '/admin/blog', label: 'مقاله‌ها', icon: FileText },
+  { href: '/admin/blog/content', label: 'تولید خودکار', icon: Bot },
+  { href: '/admin/seo', label: 'سئو', icon: TrendingUp },
+];
+
+const BLOG_USER_TABS: NavItem[] = [
+  { href: '/dashboard', label: 'خانه', icon: LayoutDashboard, exact: true },
+  { href: '/dashboard/tickets', label: 'پشتیبانی', icon: LifeBuoy },
+  { href: '/dashboard/profile', label: 'حساب', icon: User },
+];
+
+function matches(pathname: string, item: NavItem) {
   return item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
+}
+
+/**
+ * از میان گزینه‌هایی که با مسیر فعلی می‌خوانند، فقط دقیق‌ترین (بلندترین) یکی
+ * روشن می‌شود؛ وگرنه در منوی تودرتوی وبلاگ دو گزینه هم‌زمان فعال می‌شدند.
+ */
+function activeHref(pathname: string, nav: NavItem[]): string | null {
+  let best: string | null = null;
+  for (const item of nav) {
+    if (!matches(pathname, item)) continue;
+    if (!best || item.href.length > best.length) best = item.href;
+  }
+  return best;
 }
 
 export function Shell({
   user,
   area = 'user',
+  mode = 'full',
   children,
 }: {
   user: ShellUser;
   area?: 'user' | 'admin';
+  /** نصب فقط وبلاگ؟ منوها و میان‌برهای مربوط به سرور کنار می‌روند */
+  mode?: PanelMode;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const nav = area === 'admin' ? ADMIN_NAV : USER_NAV;
+  const blogOnly = mode === 'blog';
+  const nav =
+    area === 'admin' ? (blogOnly ? BLOG_ADMIN_NAV : ADMIN_NAV) : blogOnly ? BLOG_USER_NAV : USER_NAV;
+  const current = activeHref(pathname, nav);
 
   useEffect(() => {
     setOpen(false);
@@ -164,11 +236,19 @@ export function Shell({
         <div className="safe-top flex items-center justify-between gap-2 border-b px-4 py-4">
           <Link href={area === 'admin' ? '/admin' : '/dashboard'} className="flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--color-brand-600)] text-white">
-              <Server size={17} />
+              {blogOnly ? <Newspaper size={17} /> : <Server size={17} />}
             </span>
             <span className="leading-tight">
               <span className="block text-sm font-extrabold">پاسارگاد میزبان</span>
-              <span className="block text-[11px] muted">{area === 'admin' ? 'پنل مدیریت' : 'سرور ابری'}</span>
+              <span className="block text-[11px] muted">
+                {blogOnly
+                  ? area === 'admin'
+                    ? 'پنل مدیریت وبلاگ'
+                    : 'وبلاگ'
+                  : area === 'admin'
+                    ? 'پنل مدیریت'
+                    : 'سرور ابری'}
+              </span>
             </span>
           </Link>
           <button
@@ -181,15 +261,21 @@ export function Shell({
         </div>
 
         <nav className="flex-1 overflow-y-auto p-3">
-          {area === 'user' ? (
+          {area === 'user' && !blogOnly ? (
             <Link href="/dashboard/servers/new" className="btn btn-primary mb-3 w-full">
               <Plus size={16} /> ساخت سرور جدید
             </Link>
           ) : null}
 
+          {area === 'admin' && blogOnly ? (
+            <Link href="/admin/blog/new" className="btn btn-primary mb-3 w-full">
+              <Plus size={16} /> مقاله جدید
+            </Link>
+          ) : null}
+
           <ul className="space-y-1">
             {nav.map((item) => {
-              const active = isActive(pathname, item);
+              const active = current === item.href;
               const Icon = item.icon;
               return (
                 <li key={item.href}>
@@ -232,11 +318,11 @@ export function Shell({
           </div>
         </nav>
 
-        <BalanceBox balance={user.balance} area={area} />
+        {blogOnly ? null : <BalanceBox balance={user.balance} area={area} />}
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar user={user} area={area} onMenu={() => setOpen(true)} />
+        <Topbar user={user} area={area} mode={mode} onMenu={() => setOpen(true)} />
         <main className="has-bottom-nav flex-1 p-4 sm:p-6">
           <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
@@ -245,15 +331,18 @@ export function Shell({
         </footer>
       </div>
 
-      <BottomNav area={area} onMenu={() => setOpen(true)} />
+      <BottomNav area={area} mode={mode} onMenu={() => setOpen(true)} />
     </div>
   );
 }
 
 /** نوار پیمایش پایین صفحه — فقط روی گوشی و تبلت کوچک دیده می‌شود */
-function BottomNav({ area, onMenu }: { area: 'user' | 'admin'; onMenu: () => void }) {
+function BottomNav({ area, mode, onMenu }: { area: 'user' | 'admin'; mode: PanelMode; onMenu: () => void }) {
   const pathname = usePathname();
-  const tabs = area === 'admin' ? ADMIN_TABS : USER_TABS;
+  const blogOnly = mode === 'blog';
+  const tabs =
+    area === 'admin' ? (blogOnly ? BLOG_ADMIN_TABS : ADMIN_TABS) : blogOnly ? BLOG_USER_TABS : USER_TABS;
+  const current = activeHref(pathname, tabs);
 
   return (
     <nav
@@ -266,7 +355,7 @@ function BottomNav({ area, onMenu }: { area: 'user' | 'admin'; onMenu: () => voi
     >
       <div className="mx-auto flex max-w-lg items-stretch">
         {tabs.map((item) => {
-          const active = isActive(pathname, item);
+          const active = current === item.href;
           const Icon = item.icon;
           return (
             <Link
@@ -354,7 +443,17 @@ function LogoutButton({ className, children }: { className?: string; children: R
   );
 }
 
-function Topbar({ user, area, onMenu }: { user: ShellUser; area: 'user' | 'admin'; onMenu: () => void }) {
+function Topbar({
+  user,
+  area,
+  mode,
+  onMenu,
+}: {
+  user: ShellUser;
+  area: 'user' | 'admin';
+  mode: PanelMode;
+  onMenu: () => void;
+}) {
   const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
 
   return (
@@ -373,12 +472,18 @@ function Topbar({ user, area, onMenu }: { user: ShellUser; area: 'user' | 'admin
 
       <div className="flex-1" />
 
-      {area === 'user' ? (
+      {area === 'user' && mode !== 'blog' ? (
         <Link
           href="/dashboard/servers/new"
           className="btn btn-primary btn-sm hidden sm:inline-flex lg:hidden"
         >
           <Plus size={15} /> سرور جدید
+        </Link>
+      ) : null}
+
+      {area === 'admin' && mode === 'blog' ? (
+        <Link href="/admin/blog/new" className="btn btn-primary btn-sm hidden sm:inline-flex lg:hidden">
+          <Plus size={15} /> مقاله جدید
         </Link>
       ) : null}
 

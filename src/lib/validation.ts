@@ -269,6 +269,8 @@ export const adminSettingsSchema = z.object({
   telegramPolling: z.boolean().optional(),
   telegramAllowActions: z.boolean().optional(),
 
+  panelMode: z.enum(['full', 'blog']).optional(),
+
   blogEnabled: z.boolean().optional(),
   blogTitle: z.string().trim().max(120).optional(),
   blogDescription: z.string().trim().max(300).optional(),

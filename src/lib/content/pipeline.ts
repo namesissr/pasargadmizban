@@ -69,9 +69,40 @@ async function internalLinkPool(cloud: { register: string; pricing: string }): P
   ];
 }
 
+/**
+ * موضوع‌هایی که مدیر خودش در صف گذاشته است.
+ *
+ * اینها بر موضوع‌های کشف‌شده اولویت دارند: اگر مدیر وقت گذاشته و کلیدواژه‌ای
+ * را دستی وارد کرده، همان اول نوبت نوشته می‌شود.
+ */
+async function queuedCandidates(limit: number, jobIds?: string[]): Promise<QueuedCandidate[]> {
+  if (limit <= 0) return [];
+  const rows = await prisma.contentJob.findMany({
+    where: jobIds?.length ? { id: { in: jobIds } } : { status: 'PENDING' },
+    orderBy: [{ score: 'desc' }, { createdAt: 'asc' }],
+    take: limit,
+    select: { id: true, keyword: true, keywordNorm: true, source: true, score: true, brief: true },
+  });
+
+  return rows.map((row) => {
+    const brief = (row.brief ?? null) as { categorySlug?: string } | null;
+    return {
+      jobId: row.id,
+      keyword: row.keyword,
+      keywordNorm: row.keywordNorm,
+      source: (row.source as KeywordCandidate['source']) ?? 'manual',
+      categorySlug: brief?.categorySlug ?? '',
+      score: row.score,
+    };
+  });
+}
+
+/** نامزد تولید؛ اگر از صف آمده باشد، شناسه ردیف صف را هم دارد */
+type QueuedCandidate = KeywordCandidate & { jobId?: string };
+
 /** یک موضوع را از صفر تا مقاله می‌برد */
 async function processCandidate(
-  candidate: KeywordCandidate,
+  candidate: QueuedCandidate,
   context: {
     categories: { id: string; slug: string; name: string }[];
     internalLinks: InternalLink[];
@@ -83,18 +114,25 @@ async function processCandidate(
     minWords: number;
   },
 ): Promise<JobOutcome> {
-  // رکورد صف را اول می‌سازیم تا اگر همین موضوع در اجرای بعدی هم آمد، تکرار نشود
-  const job = await prisma.contentJob.create({
-    data: {
-      keyword: candidate.keyword,
-      keywordNorm: candidate.keywordNorm,
-      source: candidate.source,
-      score: candidate.score,
-      status: 'RESEARCHING',
-      startedAt: new Date(),
-    },
-    select: { id: true },
-  });
+  // رکورد صف را اول می‌سازیم تا اگر همین موضوع در اجرای بعدی هم آمد، تکرار نشود.
+  // موضوع‌هایی که مدیر دستی در صف گذاشته، ردیفشان از قبل هست و فقط تازه می‌شود.
+  const job = candidate.jobId
+    ? await prisma.contentJob.update({
+        where: { id: candidate.jobId },
+        data: { status: 'RESEARCHING', startedAt: new Date(), error: null },
+        select: { id: true },
+      })
+    : await prisma.contentJob.create({
+        data: {
+          keyword: candidate.keyword,
+          keywordNorm: candidate.keywordNorm,
+          source: candidate.source,
+          score: candidate.score,
+          status: 'RESEARCHING',
+          startedAt: new Date(),
+        },
+        select: { id: true },
+      });
 
   const fail = async (status: 'FAILED' | 'REJECTED', error: string, extra?: Record<string, unknown>) => {
     await prisma.contentJob.update({
@@ -235,7 +273,9 @@ async function processCandidate(
  * اجرای خط تولید.
  * `force` برای اجرای دستی از پنل است و کلید «فعال بودن» را نادیده می‌گیرد.
  */
-export async function runContentPipeline(options: { count?: number; force?: boolean } = {}): Promise<PipelineResult> {
+export async function runContentPipeline(
+  options: { count?: number; force?: boolean; jobIds?: string[] } = {},
+): Promise<PipelineResult> {
   const settings = await getSettings();
   const requested = Math.max(1, Math.min(10, options.count ?? settings.contentPerDay));
 
@@ -273,10 +313,23 @@ export async function runContentPipeline(options: { count?: number; force?: bool
   const cloud = cloudLinks(site);
   const internalLinks = await internalLinkPool(cloud);
 
-  // چند نامزد بیشتر برمی‌داریم، چون بعضی موضوع‌ها از دروازه کیفیت رد نمی‌شوند
-  const candidates = await discoverKeywords(requested * 3);
+  // اول صف دستی مدیر، بعد موضوع‌های کشف‌شده. چند نامزد بیشتر برمی‌داریم،
+  // چون بعضی موضوع‌ها از دروازه کیفیت رد نمی‌شوند.
+  const queued = await queuedCandidates(options.jobIds?.length ? options.jobIds.length : requested, options.jobIds);
+  const discovered = options.jobIds?.length
+    ? []
+    : queued.length >= requested
+      ? []
+      : await discoverKeywords((requested - queued.length) * 3);
+  const candidates: QueuedCandidate[] = [...queued, ...discovered];
+
   if (!candidates.length) {
-    return { ...empty, skipped: 'موضوع تازه‌ای پیدا نشد؛ عبارت‌های کشف‌شده قبلاً استفاده شده‌اند.' };
+    return {
+      ...empty,
+      skipped: options.jobIds?.length
+        ? 'این موضوع‌ها در صف پیدا نشدند.'
+        : 'موضوع تازه‌ای پیدا نشد؛ عبارت‌های کشف‌شده قبلاً استفاده شده‌اند. از بخش «افزودن موضوع» کلیدواژه دلخواه را دستی در صف بگذارید.',
+    };
   }
 
   const context = {
