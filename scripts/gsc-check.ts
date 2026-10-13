@@ -58,7 +58,7 @@ async function main() {
   const showError = (res: Response, body: { json: ApiBody | null; text: string }) => {
     const e = body.json?.error;
     if (!e) {
-      const text = body.text.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      const text = body.text.replace(/<(style|script)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
       out(`   وضعیت ${res.status} — پاسخ JSON نیست (content-type: ${res.headers.get('content-type') || '—'})`);
       out(`   متن پاسخ: ${text ? text.slice(0, 400) : '— خالی —'}`);
       out('   یعنی گوگل درخواست را پیش از رسیدن به Search Console API رد کرده است، نه به خاطر تنظیمات سرچ کنسول.');

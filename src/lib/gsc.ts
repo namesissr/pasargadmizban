@@ -95,7 +95,7 @@ async function forbiddenError(res: Response, token: string): Promise<GscError> {
   // ۴۰۳ بدون پاسخ JSON یعنی درخواست پیش از رسیدن به خود API رد شده است؛
   // نه مشکل دسترسی سرچ کنسول است و نه روشن نبودن API
   if (!apiError) {
-    const text = message.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
+    const text = message.replace(/<(style|script)[\s\S]*?<\/\1>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 200);
     return new GscError(
       `گوگل درخواست را پیش از رسیدن به Search Console API رد کرد (۴۰۳ بدون توضیح API)${text ? `: «${text}»` : ''}. معمولاً یعنی گوگل این سرویس را برای نشانی IP این سرور ارائه نمی‌دهد؛ تنظیمات سرچ کنسول و گوگل کلاد مشکلی ندارند.`,
       403,
