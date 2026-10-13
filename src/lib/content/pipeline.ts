@@ -2,6 +2,7 @@ import prisma from '../prisma';
 import { audit } from '../audit';
 import { env } from '../env';
 import { getSettings } from '../settings';
+import { siteInfo, cloudLinks } from '../seo';
 import { buildPostData, syncTags } from '../blog-admin';
 import { publishedWhere } from '../blog';
 import { discoverKeywords, type KeywordCandidate } from './keywords';
@@ -47,8 +48,12 @@ export type PipelineResult = {
   skipped?: string;
 };
 
-/** لینک‌های داخلی مجاز: صفحه‌های فروش + مقاله‌های موجود */
-async function internalLinkPool(): Promise<InternalLink[]> {
+/**
+ * لینک‌های داخلی مجاز: صفحه‌های فروش پنل ابری + مقاله‌های موجود.
+ * آدرس پنل از تنظیمات می‌آید تا همه مقاله‌ها کاربر را به همان جایی ببرند
+ * که ثبت‌نام و ساخت سرور انجام می‌شود.
+ */
+async function internalLinkPool(cloud: { register: string; pricing: string }): Promise<InternalLink[]> {
   const posts = await prisma.blogPost.findMany({
     where: publishedWhere(),
     select: { slug: true, title: true },
@@ -57,8 +62,8 @@ async function internalLinkPool(): Promise<InternalLink[]> {
   });
 
   return [
-    { path: '/register', title: 'ثبت‌نام و ساخت سرور' },
-    { path: '/#pricing', title: 'قیمت سرورهای ابری' },
+    { path: cloud.register, title: 'ساخت سرور ساعتی ایران و خارج' },
+    { path: cloud.pricing, title: 'قیمت سرورهای ساعتی' },
     { path: '/blog', title: 'وبلاگ' },
     ...posts.map((p) => ({ path: `/blog/${p.slug}`, title: p.title })),
   ];
@@ -71,6 +76,7 @@ async function processCandidate(
     categories: { id: string; slug: string; name: string }[];
     internalLinks: InternalLink[];
     brandName: string;
+    cloudRegisterUrl: string;
     author: { name: string; title: string; bio: string };
     autoPublish: boolean;
     minSeoScore: number;
@@ -114,6 +120,7 @@ async function processCandidate(
       internalLinks: context.internalLinks,
       categories: context.categories.map((c) => ({ slug: c.slug, name: c.name })),
       brandName: context.brandName,
+      cloudRegisterUrl: context.cloudRegisterUrl,
     });
 
     const verdict = await checkArticle({
@@ -262,7 +269,9 @@ export async function runContentPipeline(options: { count?: number; force?: bool
   const fallback = categories.find((c) => c.slug === settings.contentFallbackCategory);
   const ordered = fallback ? [fallback, ...categories.filter((c) => c.id !== fallback.id)] : categories;
 
-  const internalLinks = await internalLinkPool();
+  const site = await siteInfo();
+  const cloud = cloudLinks(site);
+  const internalLinks = await internalLinkPool(cloud);
 
   // چند نامزد بیشتر برمی‌داریم، چون بعضی موضوع‌ها از دروازه کیفیت رد نمی‌شوند
   const candidates = await discoverKeywords(requested * 3);
@@ -274,6 +283,7 @@ export async function runContentPipeline(options: { count?: number; force?: bool
     categories: ordered,
     internalLinks,
     brandName: settings.brandName,
+    cloudRegisterUrl: cloud.register,
     author: {
       name: settings.defaultAuthorName || `تیم فنی ${settings.brandName}`,
       title: settings.defaultAuthorTitle || 'مهندسی زیرساخت',

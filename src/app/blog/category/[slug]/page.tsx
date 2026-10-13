@@ -98,7 +98,7 @@ export default async function CategoryPage({ params, searchParams }: { params: P
           <Pager basePath={base} page={list.page} totalPages={list.totalPages} />
         </div>
 
-        <BlogSidebar popular={popular} categories={categories} tags={tags} brand={site.brandName} />
+        <BlogSidebar popular={popular} categories={categories} tags={tags} site={site} />
       </div>
     </main>
   );

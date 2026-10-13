@@ -178,6 +178,24 @@ export type SettingsShape = {
   /** کد تأیید مالکیت بینگ وبمستر */
   bingSiteVerification: string;
 
+  /**
+   * نشانی سایت اصلی برند (مثل https://pasargadmizban.com).
+   * لوگوی سربرگ و لینک «صفحه اصلی» به اینجا می‌رود. خالی یعنی همین سایت.
+   */
+  mainSiteUrl: string;
+  /**
+   * نشانی پنل ابری که کاربر در آن ثبت‌نام و سرور می‌سازد
+   * (مثل https://cloud.pasargadmizban.com). همه دکمه‌های فروش وبلاگ و
+   * لینک‌های داخلی مقاله‌ها به این آدرس می‌روند.
+   */
+  cloudUrl: string;
+  /** متن دکمه اصلی فروش در وبلاگ */
+  cloudCtaLabel: string;
+  /** یک خط توضیح زیر نام برند در سربرگ */
+  brandTagline: string;
+  /** رنگ اصلی برند به هگز؛ طیف کامل رنگ از همین ساخته می‌شود */
+  brandColor: string;
+
   /** نشانی لوگوی سازمان برای داده ساخت‌یافته (۱۱۲×۱۱۲ یا بزرگ‌تر) */
   orgLogoUrl: string;
   /** نشانی شبکه‌های اجتماعی، هر خط یکی — به گوگل کمک می‌کند برند را یک موجودیت بشناسد */
@@ -330,6 +348,12 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   googleSiteVerification: '',
   bingSiteVerification: '',
 
+  mainSiteUrl: '',
+  cloudUrl: '',
+  cloudCtaLabel: 'ساخت سرور ساعتی',
+  brandTagline: 'سرور ساعتی ایران و خارج',
+  brandColor: '#17b19a',
+
   orgLogoUrl: '',
   orgSameAs: '',
   defaultAuthorName: '',
@@ -431,6 +455,7 @@ function groupOf(key: string): string {
   if (key.startsWith('content')) return 'content';
   if (key.startsWith('org') || key.startsWith('defaultAuthor') || key.startsWith('indexNow') || key === 'homeSchemaEnabled')
     return 'seo';
+  if (['mainSiteUrl', 'cloudUrl', 'cloudCtaLabel', 'brandTagline', 'brandColor'].includes(key)) return 'brand';
   if (key.startsWith('channel') || key.startsWith('default')) return 'notifications';
   return 'general';
 }

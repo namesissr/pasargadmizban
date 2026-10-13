@@ -14,6 +14,8 @@ import {
 import { renderMarkdown } from '@/lib/markdown';
 import {
   siteInfo,
+  cloudLinks,
+  ownHosts,
   buildMetadata,
   breadcrumbSchema,
   articleSchema,
@@ -76,7 +78,7 @@ export default async function BlogPostPage({ params }: { params: Params }) {
   }
 
   const site = await siteInfo();
-  const rendered = renderMarkdown(post.content);
+  const rendered = renderMarkdown(post.content, { ownHosts: ownHosts(site) });
   const faqs = parseFaqs(post.faqs);
   const tags = post.tags.map((t) => t.tag);
 
@@ -87,6 +89,7 @@ export default async function BlogPostPage({ params }: { params: Params }) {
     tagsWithCounts(24),
   ]);
 
+  const cloud = cloudLinks(site);
   const path = `/blog/${post.slug}`;
   const url = absoluteUrl(site.siteUrl, path);
   const authorName = post.authorName || site.brandName;
@@ -260,13 +263,14 @@ export default async function BlogPostPage({ params }: { params: Params }) {
             className="card mt-6 p-6 text-center"
             style={{ background: 'color-mix(in srgb, var(--color-brand-500) 8%, var(--surface))' }}
           >
-            <h2 className="text-base font-extrabold">سرور ابری خودتان را در کمتر از یک دقیقه بسازید</h2>
+            <h2 className="text-base font-extrabold">سرور ساعتی ایران و خارج، در کمتر از یک دقیقه</h2>
             <p className="mx-auto mt-2 max-w-xl text-xs leading-7 muted">
-              پرداخت ساعتی به تومان، آی‌پی تست‌شده از ایران و تعویض آدرس با یک کلیک. ثبت‌نام رایگان است.
+              پرداخت ساعتی به تومان، آی‌پی تست‌شده از ایران و تعویض آدرس با یک کلیک. ثبت‌نام رایگان است و همین حالا
+              می‌توانید سرورتان را بسازید.
             </p>
-            <Link href="/register" className="btn btn-primary mt-4">
-              شروع کنید <ArrowLeft size={15} />
-            </Link>
+            <a href={cloud.register} rel="noopener" className="btn btn-primary mt-4">
+              {site.cloudCtaLabel} <ArrowLeft size={15} />
+            </a>
           </section>
 
           {related.length > 0 ? (
@@ -287,7 +291,7 @@ export default async function BlogPostPage({ params }: { params: Params }) {
           </p>
         </article>
 
-        <BlogSidebar popular={popular} categories={categories} tags={sidebarTags} brand={site.brandName} />
+        <BlogSidebar popular={popular} categories={categories} tags={sidebarTags} site={site} />
       </div>
     </main>
   );

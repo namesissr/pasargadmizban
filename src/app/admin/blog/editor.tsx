@@ -71,7 +71,16 @@ apt update && apt upgrade -y
 برای ساخت سرور به [صفحه ثبت‌نام](/register) بروید.
 `;
 
-export function PostEditor({ post, siteUrl }: { post?: AdminPost; siteUrl: string }) {
+export function PostEditor({
+  post,
+  siteUrl,
+  ownHosts = [],
+}: {
+  post?: AdminPost;
+  siteUrl: string;
+  /** دامنه‌های خودمان؛ لینک به پنل ابری هم لینک داخلی حساب می‌شود */
+  ownHosts?: string[];
+}) {
   const toast = useToast();
   const router = useRouter();
   const editMode = !!post;
@@ -138,11 +147,26 @@ export function PostEditor({ post, siteUrl }: { post?: AdminPost; siteUrl: strin
         faqs,
         categoryId: categoryId || null,
         tags,
+        ownHosts,
       }),
-    [title, metaTitle, metaDescription, effectiveSlug, excerpt, focusKeyword, content, coverImage, coverAlt, faqs, categoryId, tags],
+    [
+      title,
+      metaTitle,
+      metaDescription,
+      effectiveSlug,
+      excerpt,
+      focusKeyword,
+      content,
+      coverImage,
+      coverAlt,
+      faqs,
+      categoryId,
+      tags,
+      ownHosts,
+    ],
   );
 
-  const preview = useMemo(() => renderMarkdown(content), [content]);
+  const preview = useMemo(() => renderMarkdown(content, { ownHosts }), [content, ownHosts]);
 
   function addTag(raw?: string) {
     const value = (raw ?? tagDraft).trim();

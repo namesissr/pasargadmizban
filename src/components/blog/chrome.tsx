@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Search } from 'lucide-react';
+import type { SiteInfo } from '@/lib/seo';
 import { SiteHeader, SiteFooter } from '@/components/site/chrome';
 
 /**
@@ -13,20 +14,17 @@ import { SiteHeader, SiteFooter } from '@/components/site/chrome';
 export type NavCategory = { slug: string; name: string; count: number };
 
 export function BlogHeader({
-  brand,
-  blogEnabled = true,
+  site,
   categories,
   query,
 }: {
-  brand: string;
-  blogEnabled?: boolean;
+  site: SiteInfo;
   categories: NavCategory[];
   query?: string;
 }) {
   return (
     <SiteHeader
-      brand={brand}
-      blogEnabled={blogEnabled}
+      site={site}
       extraNav={
         <form action="/blog" className="hidden items-center sm:flex">
           <label className="relative">
@@ -64,22 +62,10 @@ export function BlogHeader({
   );
 }
 
-export function BlogFooter({
-  brand,
-  categories,
-  supportEmail,
-  blogEnabled = true,
-}: {
-  brand: string;
-  categories: NavCategory[];
-  supportEmail?: string;
-  blogEnabled?: boolean;
-}) {
+export function BlogFooter({ site, categories }: { site: SiteInfo; categories: NavCategory[] }) {
   return (
     <SiteFooter
-      brand={brand}
-      supportEmail={supportEmail}
-      blogEnabled={blogEnabled}
+      site={site}
       links={categories.slice(0, 4).map((c) => ({ href: `/blog/category/${c.slug}`, label: c.name }))}
     />
   );

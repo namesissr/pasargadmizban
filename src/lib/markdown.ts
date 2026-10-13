@@ -54,10 +54,28 @@ function isExternal(href: string): boolean {
   return /^https?:\/\//i.test(href) || href.startsWith('//');
 }
 
+/**
+ * آیا این آدرس به دامنه‌های خودمان می‌رود؟
+ *
+ * پنل ابری روی دامنه دیگری است (مثل cloud.example.com) ولی مال خودمان
+ * است: نه باید nofollow بخورد و نه باید لینک «بیرونی» حساب شود، چون در
+ * واقع لینک داخلی مجموعه ماست.
+ */
+function isOwnHost(href: string, ownHosts: string[]): boolean {
+  if (!ownHosts.length || !isExternal(href)) return false;
+  try {
+    const host = new URL(href.startsWith('//') ? `https:${href}` : href).host.toLowerCase();
+    return ownHosts.some((own) => host === own || host.endsWith(`.${own}`));
+  } catch {
+    return false;
+  }
+}
+
 /** متن داخل خط: پررنگ، مورب، کد، لینک و تصویر */
 function inline(
   raw: string,
   collect?: { images: { src: string; alt: string }[]; links: { href: string; text: string; external: boolean }[] },
+  ownHosts: string[] = [],
 ): string {
   let out = escapeHtml(raw);
 
@@ -82,10 +100,12 @@ function inline(
   // لینک: [متن](href)
   out = out.replace(/\[([^\]]+)\]\(([^)\s]+)(?:\s+&quot;([^&]*)&quot;)?\)/g, (_m, text: string, href: string, title?: string) => {
     const url = safeUrl(href);
-    const external = isExternal(url);
+    const own = isOwnHost(url, ownHosts);
+    const external = isExternal(url) && !own;
     collect?.links.push({ href: url, text: text.replace(/<[^>]+>/g, ''), external });
     const titleAttr = title ? ` title="${title}"` : '';
-    const extra = external ? ' target="_blank" rel="noopener nofollow"' : '';
+    // لینک دامنه خودمان در تب تازه باز می‌شود ولی nofollow نمی‌خورد
+    const extra = external ? ' target="_blank" rel="noopener nofollow"' : own ? ' rel="noopener"' : '';
     return `<a href="${url}"${titleAttr}${extra}>${text}</a>`;
   });
 
@@ -109,7 +129,13 @@ function headingId(text: string, used: Set<string>): string {
   return id;
 }
 
-export function renderMarkdown(markdown: string): RenderedMarkdown {
+export type RenderOptions = {
+  /** دامنه‌های خودمان (بدون پروتکل)، مثل ['example.com', 'cloud.example.com'] */
+  ownHosts?: string[];
+};
+
+export function renderMarkdown(markdown: string, options: RenderOptions = {}): RenderedMarkdown {
+  const ownHosts = (options.ownHosts ?? []).map((h) => h.toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, ''));
   const src = (markdown ?? '').replace(/\r\n/g, '\n').replace(/\t/g, '  ');
   const lines = src.split('\n');
 
@@ -142,7 +168,7 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
       );
       return;
     }
-    html.push(`<p>${inline(text, collect)}</p>`);
+    html.push(`<p>${inline(text, collect, ownHosts)}</p>`);
   };
 
   let paragraph: string[] = [];
@@ -191,7 +217,7 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
         i++;
       }
       i++;
-      const inner = renderMarkdown(body.join('\n'));
+      const inner = renderMarkdown(body.join('\n'), options);
       plain.push(inner.text);
       html.push(
         `<aside class="callout callout-${kind.tone}">` +
@@ -209,7 +235,7 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
       // h1 به h2 تبدیل می‌شود؛ هر صفحه فقط یک h1 دارد و آن عنوان مقاله است
       const level = Math.min(6, Math.max(2, heading[1].length === 1 ? 2 : heading[1].length));
       const id = headingId(raw, usedIds);
-      const content = inline(raw, collect);
+      const content = inline(raw, collect, ownHosts);
       plain.push(raw);
       if (level === 2 || level === 3) toc.push({ id, text: raw.replace(/[*`~]/g, ''), level });
       html.push(`<h${level} id="${id}">${content}</h${level}>`);
@@ -235,7 +261,7 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
         body.push(lines[i].trim().replace(/^>\s?/, ''));
         i++;
       }
-      const inner = renderMarkdown(body.join('\n'));
+      const inner = renderMarkdown(body.join('\n'), options);
       plain.push(inner.text);
       html.push(`<blockquote>${inner.html}</blockquote>`);
       continue;
@@ -263,9 +289,9 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
       plain.push([...head, ...body.flat()].join(' '));
       html.push(
         `<div class="table-wrap"><table><thead><tr>${head
-          .map((c) => `<th>${inline(c, collect)}</th>`)
+          .map((c) => `<th>${inline(c, collect, ownHosts)}</th>`)
           .join('')}</tr></thead><tbody>${body
-          .map((row) => `<tr>${row.map((c) => `<td>${inline(c, collect)}</td>`).join('')}</tr>`)
+          .map((row) => `<tr>${row.map((c) => `<td>${inline(c, collect, ownHosts)}</td>`).join('')}</tr>`)
           .join('')}</tbody></table></div>`,
       );
       continue;
@@ -292,7 +318,7 @@ export function renderMarkdown(markdown: string): RenderedMarkdown {
       plain.push(items.join(' '));
       const tag = isOrdered ? 'ol' : 'ul';
       const start = isOrdered && ordered && ordered[1] !== '1' ? ` start="${Number(ordered[1])}"` : '';
-      html.push(`<${tag}${start}>${items.map((it) => `<li>${inline(it, collect)}</li>`).join('')}</${tag}>`);
+      html.push(`<${tag}${start}>${items.map((it) => `<li>${inline(it, collect, ownHosts)}</li>`).join('')}</${tag}>`);
       continue;
     }
 

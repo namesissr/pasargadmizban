@@ -1,6 +1,8 @@
 import Link from 'next/link';
-import { Flame, Tags, FolderTree, ArrowLeft } from 'lucide-react';
+import { Flame, Tags, FolderTree, ArrowLeft, Clock } from 'lucide-react';
 import type { PostCard as PostCardData } from '@/lib/blog';
+import type { SiteInfo } from '@/lib/seo';
+import { cloudLinks } from '@/lib/seo';
 
 /**
  * ستون کنار فهرست و مقاله: پربازدیدها، دسته‌ها، برچسب‌ها و یک جعبه فروش.
@@ -11,26 +13,32 @@ export function BlogSidebar({
   popular,
   categories,
   tags,
-  brand,
+  site,
 }: {
   popular: PostCardData[];
   categories: { slug: string; name: string; count: number }[];
   tags: { slug: string; name: string; count: number }[];
-  brand: string;
+  site: SiteInfo;
 }) {
+  const cloud = cloudLinks(site);
+
   return (
     <aside className="space-y-4 lg:sticky lg:top-24">
+      {/* جعبه فروش — پرکلیک‌ترین جای وبلاگ، چون کنار متن و چسبان است */}
       <div className="card p-4" style={{ background: 'color-mix(in srgb, var(--color-brand-500) 7%, var(--surface))' }}>
-        <p className="text-sm font-extrabold">سرور ابری {brand}</p>
+        <p className="text-sm font-extrabold">سرور ساعتی ایران و خارج</p>
         <p className="mt-2 text-[11px] leading-6 muted">
-          پرداخت ساعتی به تومان، تحویل خودکار زیر یک دقیقه و تعویض آی‌پی با یک کلیک.
+          پرداخت ساعتی به تومان، تحویل خودکار زیر یک دقیقه و تعویض آی‌پی با یک کلیک. ثبت‌نام رایگان است.
         </p>
-        <Link href="/register" className="btn btn-primary btn-sm mt-3 w-full">
-          ساخت سرور <ArrowLeft size={14} />
-        </Link>
-        <Link href="/#pricing" className="btn btn-ghost btn-sm mt-1.5 w-full">
+        <a href={cloud.register} rel="noopener" className="btn btn-primary btn-sm mt-3 w-full">
+          {site.cloudCtaLabel} <ArrowLeft size={14} />
+        </a>
+        <a href={cloud.pricing} rel="noopener" className="btn btn-ghost btn-sm mt-1.5 w-full">
           دیدن قیمت‌ها
-        </Link>
+        </a>
+        <p className="mt-2 flex items-center justify-center gap-1 text-[10px] muted">
+          <Clock size={10} /> تحویل خودکار، بدون انتظار
+        </p>
       </div>
 
       {popular.length > 0 ? (

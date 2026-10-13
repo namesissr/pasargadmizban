@@ -5,6 +5,7 @@ import { publishedWhere } from './blog';
 import { renderMarkdown } from './markdown';
 import { normalizeFa } from './seo-score';
 import { gscConfigured } from './gsc';
+import { siteInfo, ownHosts } from './seo';
 
 /**
  * حسابرسی سئوی سایت — بدون نیاز به هیچ سرویس بیرونی.
@@ -56,6 +57,7 @@ const STALE_DAYS = 180;
 
 export async function auditSite(): Promise<SiteSeoHealth> {
   const settings = await getSettings();
+  const hosts = ownHosts(await siteInfo());
 
   const [posts, drafts, categories, tags] = await Promise.all([
     prisma.blogPost.findMany({
@@ -91,7 +93,7 @@ export async function auditSite(): Promise<SiteSeoHealth> {
   // ── نقشه لینک‌های داخلی: کدام مقاله به کدام مقاله لینک داده ──
   const incoming = new Map<string, number>();
   for (const post of posts) {
-    const rendered = renderMarkdown(post.content);
+    const rendered = renderMarkdown(post.content, { ownHosts: hosts });
     for (const link of rendered.links) {
       if (link.external) continue;
       const match = /^\/blog\/([^/?#]+)/.exec(link.href);
@@ -274,7 +276,9 @@ export async function auditSite(): Promise<SiteSeoHealth> {
     posts: brief(orphans),
   });
 
-  const fewOutLinks = posts.filter((p) => renderMarkdown(p.content).links.filter((l) => !l.external).length < 2);
+  const fewOutLinks = posts.filter(
+    (p) => renderMarkdown(p.content, { ownHosts: hosts }).links.filter((l) => !l.external).length < 2,
+  );
   add({
     key: 'few-internal-links',
     severity: 'info',
@@ -432,6 +436,7 @@ export type PostSeoRow = {
 
 /** جدول سئوی مقاله‌ها — داده‌های درون‌سایتی، بدون نیاز به سرچ کنسول */
 export async function postSeoRows(): Promise<PostSeoRow[]> {
+  const hosts = ownHosts(await siteInfo());
   const posts = await prisma.blogPost.findMany({
     select: {
       id: true,
@@ -458,7 +463,7 @@ export async function postSeoRows(): Promise<PostSeoRow[]> {
 
   const incoming = new Map<string, number>();
   for (const post of posts) {
-    for (const link of renderMarkdown(post.content).links) {
+    for (const link of renderMarkdown(post.content, { ownHosts: hosts }).links) {
       if (link.external) continue;
       const match = /^\/blog\/([^/?#]+)/.exec(link.href);
       if (!match) continue;

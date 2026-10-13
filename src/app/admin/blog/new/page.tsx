@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/app/shell';
 import { requireAdmin } from '@/lib/auth';
-import { siteInfo } from '@/lib/seo';
+import { siteInfo, ownHosts } from '@/lib/seo';
 import { PostEditor } from '../editor';
 
 export const metadata: Metadata = { title: 'مقاله تازه' };
@@ -22,7 +22,7 @@ export default async function NewPostPage() {
           { href: '/admin/blog/new', label: 'مقاله تازه' },
         ]}
       />
-      <PostEditor siteUrl={site.siteUrl} />
+      <PostEditor siteUrl={site.siteUrl} ownHosts={ownHosts(site)} />
     </>
   );
 }

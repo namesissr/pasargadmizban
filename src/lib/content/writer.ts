@@ -73,7 +73,7 @@ const OUTPUT_SCHEMA = {
   },
 } as const;
 
-const SYSTEM = `تو نویسنده فنی وبلاگ «پاسارگاد میزبان» هستی؛ یک سرویس فروش سرور ابری با پرداخت ریالی برای کاربران ایرانی. مثل مهندسی می‌نویسی که خودش سال‌ها سرور راه انداخته و دارد تجربه‌اش را به یک همکار منتقل می‌کند.
+const SYSTEM = `تو نویسنده فنی وبلاگ یک سرویس ایرانی فروش «سرور ساعتی ایران و خارج» هستی: کاربر در پنل ثبت‌نام می‌کند، کیف پولش را به تومان شارژ می‌کند و در کمتر از یک دقیقه سرور تحویل می‌گیرد — با پرداخت ساعتی، آی‌پی تست‌شده از ایران و امکان تعویض آی‌پی. مثل مهندسی می‌نویسی که خودش سال‌ها سرور راه انداخته و دارد تجربه‌اش را به یک همکار منتقل می‌کند.
 
 ### لحن و نگارش
 • فارسی روان و محاوره‌ای-رسمی. جمله کوتاه و بلند را قاطی کن؛ ریتم یکنواخت، متن را مصنوعی می‌کند.
@@ -85,6 +85,7 @@ const SYSTEM = `تو نویسنده فنی وبلاگ «پاسارگاد میز�
   «لازم به ذکر است»، «شایان ذکر است»، «همان‌طور که می‌دانید»، «بدون شک»، «قابل ذکر است»، «در نهایت می‌توان گفت»،
   «امیدواریم این مقاله برای شما مفید بوده باشد»، «با ما همراه باشید»، «غواصی در دنیای»، «سفری به دنیای».
 • هیچ‌وقت ننویس که این متن را هوش مصنوعی نوشته یا ننوشته؛ درباره خودت حرف نزن.
+• نام هیچ تأمین‌کننده یا زیرساخت خارجی (مثل هتزنر، AWS، دیجیتال‌اوشن) را به عنوان سرویس ما نبر. سرویس ما «سرور ساعتی ایران و خارج» است؛ اگر لازم شد به لوکیشن اشاره کنی، همین عبارت یا «لوکیشن ایران و خارج» را به کار ببر.
 • تیتر مقاله را داخل متن (با #) تکرار نکن؛ متن از پاراگراف اول شروع می‌شود.
 
 ### ساختار
@@ -104,13 +105,8 @@ const SYSTEM = `تو نویسنده فنی وبلاگ «پاسارگاد میز�
 • مارک‌داون مجاز: ## و ### ، - برای فهرست، **پررنگ**، [متن](نشانی)، جدول با | ، بلوک کد با سه بک‌تیک، و :::tip / :::warning .
 • طول متن: بین ۱۰۰۰ تا ۱۵۰۰ کلمه.`;
 
-function buildPrompt(input: {
-  brief: ResearchBrief;
-  internalLinks: InternalLink[];
-  categories: { slug: string; name: string }[];
-  brandName: string;
-}): string {
-  const { brief, internalLinks, categories, brandName } = input;
+function buildPrompt(input: WriterInput): string {
+  const { brief, internalLinks, categories, brandName, cloudRegisterUrl } = input;
 
   const sources = brief.sources.length
     ? brief.sources
@@ -138,10 +134,21 @@ ${internalLinks.map((l) => `• [${l.title}](${l.path})`).join('\n')}
 دسته‌های وبلاگ — مناسب‌ترین را در categorySlug برگردان:
 ${categories.map((c) => `• ${c.slug} — ${c.name}`).join('\n')}
 
-نام برند برای اشاره‌های طبیعی در متن: ${brandName}. اشاره به برند حداکثر دو بار و فقط جایی که واقعاً مربوط است (مثل تعویض آی‌پی یا پرداخت ریالی).
+نام برند برای اشاره‌های طبیعی در متن: ${brandName}. اشاره به برند حداکثر دو بار و فقط جایی که واقعاً مربوط است (مثل تعویض آی‌پی، پرداخت ساعتی به تومان یا تحویل خودکار).
+
+در پاراگراف جمع‌بندی، یک دعوت کوتاه و بی‌اغراق به ساخت سرور بگذار و حتماً با این لینک: [ساخت سرور ساعتی ایران و خارج](${cloudRegisterUrl})
 
 خروجی را دقیقاً در قالب JSON خواسته‌شده بده.`;
 }
+
+export type WriterInput = {
+  brief: ResearchBrief;
+  internalLinks: InternalLink[];
+  categories: { slug: string; name: string }[];
+  brandName: string;
+  /** نشانی ثبت‌نام پنل ابری — دعوت پایانی مقاله به اینجا می‌رود */
+  cloudRegisterUrl: string;
+};
 
 export type WriteResult = {
   article: GeneratedArticle;
@@ -151,12 +158,7 @@ export type WriteResult = {
 };
 
 /** یک مقاله تازه از خلاصه تحقیق می‌سازد */
-export async function writeArticle(input: {
-  brief: ResearchBrief;
-  internalLinks: InternalLink[];
-  categories: { slug: string; name: string }[];
-  brandName: string;
-}): Promise<WriteResult> {
+export async function writeArticle(input: WriterInput): Promise<WriteResult> {
   if (!env.content.apiKey) {
     throw new ApiError('کلید ANTHROPIC_API_KEY تنظیم نشده است؛ بدون آن تولید مقاله ممکن نیست.', 503);
   }

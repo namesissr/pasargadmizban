@@ -3,6 +3,7 @@ import { categoriesWithCounts } from '@/lib/blog';
 import { siteInfo, organizationSchema, websiteSchema, jsonLdGraph } from '@/lib/seo';
 import { BlogHeader, BlogFooter } from '@/components/blog/chrome';
 import { JsonLd } from '@/components/blog/json-ld';
+import { BrandStyle } from '@/components/site/brand-style';
 
 /**
  * پوسته صفحه‌های عمومی وبلاگ.
@@ -18,10 +19,11 @@ export default async function BlogLayout({ children }: { children: React.ReactNo
 
   return (
     <div className="min-h-screen">
+      <BrandStyle color={site.brandColor} />
       <JsonLd json={jsonLdGraph([organizationSchema(site), websiteSchema(site)])} />
-      <BlogHeader brand={site.brandName} categories={categories} />
+      <BlogHeader site={site} categories={categories} />
       {children}
-      <BlogFooter brand={site.brandName} categories={categories} supportEmail={site.supportEmail} />
+      <BlogFooter site={site} categories={categories} />
     </div>
   );
 }

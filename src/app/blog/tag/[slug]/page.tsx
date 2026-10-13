@@ -102,7 +102,7 @@ export default async function TagPage({ params, searchParams }: { params: Params
           <Pager basePath={base} page={list.page} totalPages={list.totalPages} />
         </div>
 
-        <BlogSidebar popular={popular} categories={categories} tags={tags} brand={site.brandName} />
+        <BlogSidebar popular={popular} categories={categories} tags={tags} site={site} />
       </div>
     </main>
   );

@@ -128,6 +128,6 @@ certbot --nginx -d example.com -d www.example.com
 
 ## منابع بیشتر
 
-راهنمای امنیت اوبونتو مرجع رسمی خوبی است: [ubuntu.com/security](https://ubuntu.com/security). اگر تازه سرور گرفته‌اید، [راهنمای انتخاب پلن](/blog/kharid-server-majazi-alman) و [تفاوت سرور ابری و مجازی](/blog/server-abri-chist) را هم ببینید.
+راهنمای امنیت اوبونتو مرجع رسمی خوبی است: [ubuntu.com/security](https://ubuntu.com/security). اگر تازه سرور گرفته‌اید، [راهنمای انتخاب پلن](/blog/kharid-server-majazi-irani-va-khareji) و [تفاوت سرور ابری و مجازی](/blog/server-abri-chist) را هم ببینید.
 
-سرور ندارید و می‌خواهید این قدم‌ها را تمرین کنید؟ [با پرداخت ساعتی یک سرور کوچک بسازید](/register)؛ چند ساعت تمرین، هزینه‌ای ناچیز دارد.
+سرور ندارید و می‌خواهید این قدم‌ها را تمرین کنید؟ [با پرداخت ساعتی یک سرور کوچک بسازید]({{CLOUD}}/register)؛ چند ساعت تمرین، هزینه‌ای ناچیز دارد.

@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import prisma from '@/lib/prisma';
 import { PageHeader } from '@/components/app/shell';
 import { requireAdmin } from '@/lib/auth';
-import { siteInfo } from '@/lib/seo';
+import { siteInfo, ownHosts } from '@/lib/seo';
 import { parseFaqs } from '@/lib/blog';
 import { PostEditor } from '../editor';
 import type { AdminPost } from '../types';
@@ -67,7 +67,7 @@ export default async function EditPostPage({ params }: { params: Promise<{ id: s
           { href: `/admin/blog/${post.id}`, label: 'ویرایش' },
         ]}
       />
-      <PostEditor post={initial} siteUrl={site.siteUrl} />
+      <PostEditor post={initial} siteUrl={site.siteUrl} ownHosts={ownHosts(site)} />
     </>
   );
 }

@@ -1,6 +1,7 @@
 import prisma from '../prisma';
 import { renderMarkdown } from '../markdown';
 import { seoReport, normalizeFa } from '../seo-score';
+import { siteInfo, ownHosts } from '../seo';
 import type { SourceResult } from './research';
 import type { GeneratedArticle } from './writer';
 
@@ -97,7 +98,11 @@ export async function checkArticle(input: {
   const { article, keyword, sources, minSeoScore, minWords } = input;
   const reasons: string[] = [];
 
-  const rendered = renderMarkdown(article.content);
+  // لینک به پنل ابری خودمان، لینک داخلی حساب می‌شود
+  const site = await siteInfo();
+  const hosts = ownHosts(site);
+
+  const rendered = renderMarkdown(article.content, { ownHosts: hosts });
   const internalLinks = rendered.links.filter((l) => !l.external).length;
 
   // ── طول و ساختار ──
@@ -122,6 +127,7 @@ export async function checkArticle(input: {
     faqs: article.faqs,
     categoryId: article.categorySlug ?? null,
     tags: article.tags,
+    ownHosts: hosts,
   });
   if (report.score < minSeoScore) {
     reasons.push(`امتیاز سئو ${fa(report.score)} است و از حد تعیین‌شده (${fa(minSeoScore)}) کمتر است.`);
@@ -154,7 +160,7 @@ export async function checkArticle(input: {
   let maxSimilarity = 0;
   let similarTitle = '';
   for (const post of existing) {
-    const ratio = similarity(bodyShingles, shingles(renderMarkdown(post.content).text, 5));
+    const ratio = similarity(bodyShingles, shingles(renderMarkdown(post.content, { ownHosts: hosts }).text, 5));
     if (ratio > maxSimilarity) {
       maxSimilarity = ratio;
       similarTitle = post.title;

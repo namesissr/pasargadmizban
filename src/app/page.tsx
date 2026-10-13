@@ -36,6 +36,7 @@ import { locationReachability } from '@/lib/ip-prefix';
 import { formatToman, formatNumber, formatTraffic } from '@/lib/money';
 import { locationFa, cn, faDate } from '@/lib/utils';
 import { SiteHeader, SiteFooter } from '@/components/site/chrome';
+import { BrandStyle } from '@/components/site/brand-style';
 
 export const dynamic = 'force-dynamic';
 
@@ -162,7 +163,8 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen">
       {homeJsonLd ? <JsonLd json={homeJsonLd} /> : null}
-      <SiteHeader brand={brand} blogEnabled={settings.blogEnabled} />
+      <BrandStyle color={site.brandColor} />
+      <SiteHeader site={site} />
 
       <main className="mx-auto max-w-6xl px-4">
         {/* ── قهرمان ── */}
@@ -401,7 +403,7 @@ export default async function HomePage() {
         </section>
       </main>
 
-      <SiteFooter brand={brand} supportEmail={settings.supportEmail} blogEnabled={settings.blogEnabled} />
+      <SiteFooter site={site} />
     </div>
   );
 }

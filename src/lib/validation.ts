@@ -278,6 +278,17 @@ export const adminSettingsSchema = z.object({
   googleSiteVerification: z.string().trim().max(200).optional(),
   bingSiteVerification: z.string().trim().max(200).optional(),
 
+  mainSiteUrl: z.string().trim().max(200).optional(),
+  cloudUrl: z.string().trim().max(200).optional(),
+  cloudCtaLabel: z.string().trim().max(60).optional(),
+  brandTagline: z.string().trim().max(80).optional(),
+  /** کد رنگ هگز، مثل #0f62fe */
+  brandColor: z
+    .string()
+    .trim()
+    .regex(/^#?[0-9a-fA-F]{6}$/, 'کد رنگ باید شش‌رقمی هگز باشد، مثل #0f62fe.')
+    .optional(),
+
   orgLogoUrl: z.string().trim().max(300).optional(),
   orgSameAs: z.string().trim().max(1000).optional(),
   defaultAuthorName: z.string().trim().max(120).optional(),

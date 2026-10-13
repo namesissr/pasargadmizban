@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { env } from './env';
 import { getSettings } from './settings';
+import { normalizeHex } from './brand';
 
 /**
  * ابزارهای سئو: آدرس مطلق، متادیتای صفحه و داده‌های ساخت‌یافته (JSON-LD).
@@ -14,6 +15,13 @@ import { getSettings } from './settings';
 export type SiteInfo = {
   siteUrl: string;
   brandName: string;
+  /** سایت اصلی برند؛ لوگو و «صفحه اصلی» به اینجا می‌رود */
+  mainSiteUrl: string;
+  /** پنل ابری؛ همه دکمه‌های فروش به اینجا می‌روند */
+  cloudUrl: string;
+  cloudCtaLabel: string;
+  brandTagline: string;
+  brandColor: string;
   blogTitle: string;
   blogDescription: string;
   defaultOgImage: string;
@@ -40,6 +48,11 @@ export async function siteInfo(): Promise<SiteInfo> {
   return {
     siteUrl,
     brandName: s.brandName,
+    mainSiteUrl: (s.mainSiteUrl || '').trim().replace(/\/+$/, ''),
+    cloudUrl: (s.cloudUrl || '').trim().replace(/\/+$/, ''),
+    cloudCtaLabel: s.cloudCtaLabel || 'ساخت سرور ساعتی',
+    brandTagline: s.brandTagline || 'سرور ساعتی ایران و خارج',
+    brandColor: normalizeHex(s.brandColor),
     blogTitle: s.blogTitle || `وبلاگ ${s.brandName}`,
     blogDescription:
       s.blogDescription ||
@@ -344,4 +357,41 @@ export function plansSchema(
       },
     })),
   };
+}
+
+/**
+ * نشانی‌های پنل ابری.
+ * اگر مدیر، آدرس پنل را تنظیم نکرده باشد، به مسیرهای همین سایت برمی‌گردیم
+ * تا لینک‌ها هیچ‌وقت شکسته نشوند.
+ */
+export function cloudLinks(site: SiteInfo) {
+  const base = site.cloudUrl;
+  return {
+    /** صفحه ثبت‌نام و ساخت سرور */
+    register: base ? `${base}/register` : '/register',
+    login: base ? `${base}/login` : '/login',
+    pricing: base ? `${base}/#pricing` : '/#pricing',
+    home: base || '/',
+    /** آیا به دامنه دیگری می‌رود (برای rel و target) */
+    external: Boolean(base),
+  };
+}
+
+/** نشانی سایت اصلی برند */
+export function mainSiteLink(site: SiteInfo): { href: string; external: boolean } {
+  return site.mainSiteUrl ? { href: site.mainSiteUrl, external: true } : { href: '/', external: false };
+}
+
+/** دامنه‌های خودمان: همین سایت، سایت اصلی و پنل ابری */
+export function ownHosts(site: SiteInfo): string[] {
+  const hosts = new Set<string>();
+  for (const url of [site.siteUrl, site.mainSiteUrl, site.cloudUrl]) {
+    if (!url) continue;
+    try {
+      hosts.add(new URL(url).host.toLowerCase());
+    } catch {
+      // آدرس نامعتبر در تنظیمات — نادیده می‌گیریم
+    }
+  }
+  return [...hosts];
 }

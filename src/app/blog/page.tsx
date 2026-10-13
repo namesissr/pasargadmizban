@@ -162,7 +162,7 @@ export default async function BlogIndexPage({ searchParams }: { searchParams: Se
           <Pager basePath="/blog" page={list.page} totalPages={list.totalPages} query={q} />
         </div>
 
-        <BlogSidebar popular={popular} categories={categories} tags={tags} brand={site.brandName} />
+        <BlogSidebar popular={popular} categories={categories} tags={tags} site={site} />
       </div>
 
       <p className="mt-10 text-center text-[11px] muted">

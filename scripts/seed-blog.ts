@@ -3,7 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import prisma from '../src/lib/prisma';
-import { buildPostData, syncTags, type PostInput } from '../src/lib/blog-admin';
+import { buildPostData, syncTags, recordSlugChange, type PostInput } from '../src/lib/blog-admin';
+import { siteInfo, cloudLinks } from '../src/lib/seo';
 
 /**
  * محتوای آغازین وبلاگ.
@@ -17,17 +18,24 @@ import { buildPostData, syncTags, type PostInput } from '../src/lib/blog-admin';
  */
 
 const here = dirname(fileURLToPath(import.meta.url));
-const read = (name: string) => readFileSync(join(here, 'blog-seed', name), 'utf8');
+
+/**
+ * متن مقاله را می‌خواند و جای {{CLOUD}} را با آدرس پنل ابری (از تنظیمات)
+ * پر می‌کند؛ اینطور همه دعوت‌های مقاله به همان جایی می‌رود که کاربر
+ * ثبت‌نام می‌کند و سرور می‌سازد.
+ */
+const read = (name: string, cloudBase: string) =>
+  readFileSync(join(here, 'blog-seed', name), 'utf8').replaceAll('{{CLOUD}}', cloudBase);
 
 const CATEGORIES = [
   {
     slug: 'rahnamaye-kharid',
     name: 'راهنمای خرید سرور',
     description:
-      'پیش از پرداخت، بدانید چه می‌خرید: مقایسه پلن‌ها، انتخاب لوکیشن، محاسبه هزینه واقعی و پرسش‌هایی که باید از فروشنده بپرسید.',
+      'پیش از پرداخت، بدانید چه می‌خرید: مقایسه پلن‌ها، انتخاب لوکیشن ایران یا خارج، پرداخت ساعتی یا ماهانه و محاسبه هزینه واقعی.',
     metaTitle: 'راهنمای خرید سرور مجازی و ابری | پاسارگاد میزبان',
     metaDescription:
-      'راهنمای کامل انتخاب سرور: مقایسه پلن‌ها، انتخاب لوکیشن آلمان و فنلاند، محاسبه هزینه واقعی و نکته‌های مهم پیش از خرید.',
+      'راهنمای کامل انتخاب سرور: مقایسه پلن‌ها، انتخاب لوکیشن ایران یا خارج، محاسبه هزینه واقعی و نکته‌های مهم پیش از خرید.',
     order: 1,
   },
   {
@@ -57,7 +65,12 @@ const CATEGORIES = [
   },
 ] as const;
 
-type SeedPost = Omit<PostInput, 'content'> & { file: string; categorySlug: string };
+type SeedPost = Omit<PostInput, 'content'> & {
+  file: string;
+  categorySlug: string;
+  /** نشانی‌های قدیمی همین مقاله؛ اگر وجود داشته باشند، همان مقاله به‌روز و با ۳۰۱ منتقل می‌شود */
+  previousSlugs?: string[];
+};
 
 const AUTHOR = {
   authorName: 'تیم فنی پاسارگاد میزبان',
@@ -68,19 +81,20 @@ const AUTHOR = {
 
 const POSTS: SeedPost[] = [
   {
-    file: 'kharid-server-majazi-alman.md',
-    slug: 'kharid-server-majazi-alman',
-    title: 'خرید سرور مجازی آلمان: راهنمای کامل انتخاب پلن و لوکیشن',
-    metaTitle: 'خرید سرور مجازی آلمان — راهنمای انتخاب پلن (۱۴۰۴)',
+    file: 'kharid-server-majazi-irani-va-khareji.md',
+    slug: 'kharid-server-majazi-irani-va-khareji',
+    previousSlugs: ['kharid-server-majazi-alman'],
+    title: 'خرید سرور مجازی ایران و خارج: راهنمای انتخاب لوکیشن و پلن',
+    metaTitle: 'خرید سرور مجازی ایران و خارج — راهنمای انتخاب پلن',
     metaDescription:
-      'راهنمای خرید سرور مجازی آلمان: انتخاب پلن بر اساس کاربرد، تفاوت پردازنده مشترک و اختصاصی، ترافیک، و ۵ پرسشی که باید پیش از پرداخت بپرسید.',
+      'راهنمای خرید سرور مجازی: لوکیشن ایران یا خارج، پرداخت ساعتی یا ماهانه، انتخاب پلن بر اساس کاربرد و ۵ پرسشی که باید پیش از پرداخت بپرسید.',
     excerpt:
-      'پیش از خرید سرور مجازی آلمان، بدانید چه پلنی برای کارتان لازم است، چه چیزهایی را باید از فروشنده بپرسید و کجاها معمولاً هزینه اضافه می‌دهید.',
-    focusKeyword: 'خرید سرور مجازی آلمان',
-    keywords: 'سرور مجازی آلمان, خرید vps آلمان, سرور ابری آلمان, قیمت سرور مجازی',
+      'لوکیشن ایران بگیرم یا خارج؟ ساعتی حساب کنم یا ماهانه؟ این راهنما با جدول و مثال، انتخاب پلن و لوکیشن را روشن می‌کند.',
+    focusKeyword: 'خرید سرور مجازی ایران و خارج',
+    keywords: 'سرور مجازی ایران, سرور مجازی خارج, سرور ساعتی, قیمت سرور مجازی, vps ایران',
     categorySlug: 'rahnamaye-kharid',
-    tags: ['سرور مجازی', 'آلمان', 'راهنمای خرید'],
-    coverAlt: 'مقایسه پلن‌های سرور مجازی آلمان',
+    tags: ['سرور مجازی', 'سرور ایران', 'راهنمای خرید'],
+    coverAlt: 'مقایسه لوکیشن ایران و خارج برای سرور مجازی',
     featured: true,
     faqs: [
       {
@@ -88,8 +102,8 @@ const POSTS: SeedPost[] = [
         a: 'پلن ۲ هسته پردازنده، ۴ گیگابایت رم و ۴۰ گیگابایت فضا برای بیشتر سایت‌های وردپرسی با ترافیک متوسط کافی است. اگر فروشگاه دارید یا افزونه‌های سنگین نصب کرده‌اید، ۴ هسته و ۸ گیگ رم انتخاب مطمئن‌تری است.',
       },
       {
-        q: 'آلمان بهتر است یا فنلاند؟',
-        a: 'تأخیر هر دو تا ایران نزدیک است و تفاوتشان برای کاربردهای معمول محسوس نیست. فنلاند معمولاً چند درصد ارزان‌تر است؛ انتخاب نهایی را بر اساس قیمت و دسترس‌پذیری آی‌پی از ایران انجام دهید.',
+        q: 'لوکیشن ایران بگیرم یا خارج؟',
+        a: 'اگر کاربران سرویس شما داخل ایران هستند، لوکیشن ایران تأخیر کمتری می‌دهد و همیشه در دسترس است. اگر سرویس شما به APIها و سرویس‌های جهانی وصل می‌شود، لوکیشن خارج مناسب‌تر است. با پرداخت ساعتی می‌توانید هر دو را یک روز امتحان کنید.',
       },
       {
         q: 'اگر سرور به کارم نیامد، پولم برمی‌گردد؟',
@@ -223,6 +237,12 @@ const POSTS: SeedPost[] = [
 async function main() {
   const force = process.argv.includes('--force');
 
+  const site = await siteInfo();
+  const cloud = cloudLinks(site);
+  // پایه لینک‌های فروش: آدرس پنل ابری، یا همین سایت اگر تنظیم نشده باشد
+  const cloudBase = site.cloudUrl || '';
+  console.log(`🔗 لینک‌های فروش به: ${cloud.register}`);
+
   console.log('⏳ ساخت دسته‌های وبلاگ…');
   const categoryIds = new Map<string, string>();
   for (const category of CATEGORIES) {
@@ -247,9 +267,23 @@ async function main() {
   let updated = 0;
   let skipped = 0;
 
-  for (const { file, categorySlug, ...meta } of POSTS) {
-    const existing = await prisma.blogPost.findUnique({ where: { slug: meta.slug! }, select: { id: true } });
-    if (existing && !force) {
+  for (const { file, categorySlug, previousSlugs, ...meta } of POSTS) {
+    // مقاله ممکن است با نشانی قدیمی ثبت شده باشد؛ همان را به‌روز می‌کنیم
+    let existing = await prisma.blogPost.findUnique({ where: { slug: meta.slug! }, select: { id: true, slug: true } });
+    let renamedFrom: string | null = null;
+
+    if (!existing && previousSlugs?.length) {
+      const old = await prisma.blogPost.findFirst({
+        where: { slug: { in: previousSlugs } },
+        select: { id: true, slug: true },
+      });
+      if (old) {
+        existing = old;
+        renamedFrom = old.slug;
+      }
+    }
+
+    if (existing && !force && !renamedFrom) {
       skipped++;
       console.log(`   − ${meta.title} (از قبل هست)`);
       continue;
@@ -257,7 +291,7 @@ async function main() {
 
     const input: PostInput = {
       ...meta,
-      content: read(file),
+      content: read(file, cloudBase),
       categoryId: categoryIds.get(categorySlug) ?? null,
       status: 'PUBLISHED',
     };
@@ -268,11 +302,14 @@ async function main() {
       ? await prisma.blogPost.update({ where: { id: existing.id }, data, select: { id: true } })
       : await prisma.blogPost.create({ data, select: { id: true } });
 
+    // نشانی قدیمی با ۳۰۱ به نشانی تازه می‌رود تا رتبه و لینک‌ها نسوزد
+    if (renamedFrom) await recordSlugChange(post.id, renamedFrom, data.slug);
+
     await syncTags(post.id, meta.tags);
 
     if (existing) updated++;
     else created++;
-    console.log(`   ✓ ${meta.title}`);
+    console.log(`   ✓ ${meta.title}${renamedFrom ? ` (نشانی از ${renamedFrom} منتقل شد)` : ''}`);
   }
 
   console.log('✅ محتوای آغازین آماده شد:');

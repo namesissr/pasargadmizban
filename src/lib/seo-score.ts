@@ -48,6 +48,8 @@ export type SeoInput = {
   faqs?: { q: string; a: string }[];
   categoryId?: string | null;
   tags?: string[];
+  /** دامنه‌های خودمان؛ لینک به پنل ابری هم لینک داخلی حساب می‌شود */
+  ownHosts?: string[];
 };
 
 /** یکدست‌سازی متن فارسی برای مقایسه: نیم‌فاصله، ی/ك عربی و اعراب */
@@ -84,7 +86,7 @@ function countOccurrences(haystack: string, needle: string): number {
 const contains = (haystack: string, needle: string) => countOccurrences(haystack, needle) > 0;
 
 export function seoReport(input: SeoInput): SeoReport {
-  const rendered = renderMarkdown(input.content ?? '');
+  const rendered = renderMarkdown(input.content ?? '', { ownHosts: input.ownHosts });
   const title = (input.title ?? '').trim();
   const seoTitle = (input.metaTitle || title).trim();
   const description = (input.metaDescription || input.excerpt || '').trim();

@@ -4,6 +4,7 @@ import { ApiError } from './errors';
 import { slugify, uniqueSlug } from './slugify';
 import { renderMarkdown, autoExcerpt } from './markdown';
 import { seoReport } from './seo-score';
+import { siteInfo, ownHosts } from './seo';
 
 /**
  * منطق ذخیره مقاله در یک جا.
@@ -64,7 +65,8 @@ async function slugTaken(slug: string, exceptId?: string): Promise<boolean> {
 
 /** داده‌های محاسبه‌شده مقاله از روی ورودی خام */
 export async function buildPostData(input: PostInput, exceptId?: string) {
-  const rendered = renderMarkdown(input.content);
+  const hosts = ownHosts(await siteInfo());
+  const rendered = renderMarkdown(input.content, { ownHosts: hosts });
   const excerpt = input.excerpt?.trim() || autoExcerpt(input.content, 180);
   const faqs = input.faqs ?? [];
 
@@ -89,6 +91,7 @@ export async function buildPostData(input: PostInput, exceptId?: string) {
     faqs,
     categoryId: input.categoryId ?? null,
     tags: input.tags ?? [],
+    ownHosts: hosts,
   });
 
   const status = input.status ?? 'DRAFT';

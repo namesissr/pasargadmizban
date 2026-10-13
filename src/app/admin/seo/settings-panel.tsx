@@ -9,6 +9,11 @@ import { apiPatch, apiPost, errorMessage, fetcher } from '@/lib/client';
 
 type Form = {
   siteUrl: string;
+  mainSiteUrl: string;
+  cloudUrl: string;
+  cloudCtaLabel: string;
+  brandTagline: string;
+  brandColor: string;
   blogEnabled: boolean;
   blogTitle: string;
   blogDescription: string;
@@ -29,6 +34,11 @@ type Form = {
 
 const KEYS: (keyof Form)[] = [
   'siteUrl',
+  'mainSiteUrl',
+  'cloudUrl',
+  'cloudCtaLabel',
+  'brandTagline',
+  'brandColor',
   'blogEnabled',
   'blogTitle',
   'blogDescription',
@@ -115,10 +125,91 @@ export function SeoSettingsPanel() {
         <span className="ltr mono">{site}/sitemap.xml</span> را در سرچ کنسول ثبت کنید.
       </Alert>
 
-      <Card title="هویت سایت" description="مبنای همه آدرس‌های canonical و داده ساخت‌یافته.">
+      <Card
+        title="برند، رنگ و آدرس‌ها"
+        description="رنگ برند و آدرس پنل ابری؛ همه دکمه‌های فروش وبلاگ به پنل ابری می‌روند."
+      >
         <div className="space-y-3.5">
-          <Field label="آدرس کامل سایت" required hint="با https و بدون اسلش آخر.">
-            <Input value={form.siteUrl} onChange={(e) => set('siteUrl', e.target.value)} className="ltr" placeholder="https://pasargadmizban.ir" />
+          <div className="grid gap-3.5 sm:grid-cols-2">
+            <Field
+              label="رنگ اصلی برند"
+              hint="کد رنگ سایت اصلی را بگذارید؛ طیف کامل رنگ وبلاگ از همین ساخته می‌شود."
+            >
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={/^#[0-9a-fA-F]{6}$/.test(form.brandColor) ? form.brandColor : '#17b19a'}
+                  onChange={(e) => set('brandColor', e.target.value)}
+                  className="h-10 w-14 shrink-0 cursor-pointer rounded-lg border bg-transparent p-1"
+                  aria-label="انتخاب رنگ برند"
+                />
+                <Input
+                  value={form.brandColor}
+                  onChange={(e) => set('brandColor', e.target.value)}
+                  className="ltr"
+                  placeholder="#17b19a"
+                  maxLength={7}
+                />
+              </div>
+            </Field>
+
+            <Field label="یک خط توضیح زیر نام برند" hint="در سربرگ کنار نام برند دیده می‌شود.">
+              <Input
+                value={form.brandTagline}
+                onChange={(e) => set('brandTagline', e.target.value)}
+                maxLength={80}
+                placeholder="سرور ساعتی ایران و خارج"
+              />
+            </Field>
+          </div>
+
+          {/* پیش‌نمایش رنگ */}
+          <div className="rounded-xl border p-3">
+            <p className="label mb-2">پیش‌نمایش رنگ</p>
+            <div className="flex flex-wrap items-center gap-2">
+              <span
+                className="rounded-lg px-3 py-1.5 text-xs font-bold text-white"
+                style={{ background: /^#[0-9a-fA-F]{6}$/.test(form.brandColor) ? form.brandColor : '#17b19a' }}
+              >
+                {form.cloudCtaLabel || 'ساخت سرور ساعتی'}
+              </span>
+              <span className="text-[11px] muted">دکمه‌ها، لینک‌ها و تیترهای وبلاگ با همین رنگ رسم می‌شوند.</span>
+            </div>
+          </div>
+
+          <div className="grid gap-3.5 sm:grid-cols-2">
+            <Field
+              label="آدرس پنل ابری"
+              hint="جایی که کاربر ثبت‌نام می‌کند و سرور می‌سازد. همه دکمه‌های فروش و لینک‌های داخلی مقاله‌ها به اینجا می‌روند."
+            >
+              <Input
+                value={form.cloudUrl}
+                onChange={(e) => set('cloudUrl', e.target.value)}
+                className="ltr"
+                placeholder="https://cloud.pasargadmizban.com"
+              />
+            </Field>
+            <Field label="متن دکمه فروش">
+              <Input
+                value={form.cloudCtaLabel}
+                onChange={(e) => set('cloudCtaLabel', e.target.value)}
+                maxLength={60}
+                placeholder="ساخت سرور ساعتی"
+              />
+            </Field>
+          </div>
+
+          <Field label="آدرس سایت اصلی" hint="لوگوی سربرگ و لینک «صفحه اصلی» به اینجا می‌رود. خالی یعنی همین سایت.">
+            <Input
+              value={form.mainSiteUrl}
+              onChange={(e) => set('mainSiteUrl', e.target.value)}
+              className="ltr"
+              placeholder="https://pasargadmizban.com"
+            />
+          </Field>
+
+          <Field label="آدرس همین سایت (وبلاگ)" required hint="با https و بدون اسلش آخر. مبنای canonical و نقشه سایت.">
+            <Input value={form.siteUrl} onChange={(e) => set('siteUrl', e.target.value)} className="ltr" placeholder="https://blog.pasargadmizban.com" />
           </Field>
 
           <div className="grid gap-3.5 sm:grid-cols-2">
