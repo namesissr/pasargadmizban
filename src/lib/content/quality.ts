@@ -88,6 +88,56 @@ function copiesSource(text: string, sources: SourceResult[]): string | null {
   return null;
 }
 
+/**
+ * تیترهای سطح یک متن را درست می‌کند، بی‌آنکه مقاله رد شود.
+ *
+ * عنوان مقاله خودش h1 صفحه است. اگر مدل عنوان را با «# » در اول متن تکرار
+ * کرده باشد، آن خط حذف می‌شود؛ هر «# » دیگر به «## » تبدیل می‌شود. خط‌های
+ * داخل بلوک کد دست نمی‌خورند: «# به‌روزرسانی بسته‌ها» در bash کامنت است، نه تیتر.
+ */
+export function normalizeHeadings(content: string, title?: string): string {
+  const lines = content.replace(/\r\n?/g, '\n').split('\n');
+  const norm = (t: string) => t.replace(/[\s\u200c]+/g, ' ').replace(/[#*`:؟?!.]/g, '').trim();
+  let inFence = false;
+  let seenContent = false;
+  const out: string[] = [];
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (/^```/.test(t)) inFence = !inFence;
+    if (inFence || /^```/.test(t)) {
+      out.push(line);
+      if (t) seenContent = true;
+      continue;
+    }
+    const h1 = /^#\s+(.+?)\s*#*$/.exec(t);
+    if (h1) {
+      // تکرار عنوان در خط اول: حذف
+      if (!seenContent && title && norm(h1[1]) === norm(title)) continue;
+      out.push(`## ${h1[1]}`);
+      seenContent = true;
+      continue;
+    }
+    if (t) seenContent = true;
+    out.push(line);
+  }
+  return out.join('\n').replace(/^\s*\n/, '');
+}
+
+/** آیا متن بیرون از بلوک‌های کد، تیتر سطح یک دارد؟ */
+function hasH1OutsideCode(content: string): boolean {
+  let inFence = false;
+  for (const line of content.split('\n')) {
+    const t = line.trim();
+    if (/^```/.test(t)) {
+      inFence = !inFence;
+      continue;
+    }
+    if (!inFence && /^#\s/.test(t)) return true;
+  }
+  return false;
+}
+
 export async function checkArticle(input: {
   article: GeneratedArticle;
   keyword: string;
@@ -112,7 +162,7 @@ export async function checkArticle(input: {
   const h2 = rendered.toc.filter((t) => t.level === 2).length;
   if (h2 < 3) reasons.push(`مقاله فقط ${fa(h2)} سرفصل دارد؛ دست‌کم ۳ سرفصل لازم است.`);
   if (internalLinks < 2) reasons.push(`تعداد لینک داخلی ${fa(internalLinks)} است؛ دست‌کم ۲ لینک لازم است.`);
-  if (/^#\s/m.test(article.content)) reasons.push('متن تیتر سطح یک دارد؛ این تیتر مخصوص عنوان صفحه است.');
+  if (hasH1OutsideCode(article.content)) reasons.push('متن تیتر سطح یک دارد؛ این تیتر مخصوص عنوان صفحه است.');
 
   // ── سئو ──
   const report = seoReport({

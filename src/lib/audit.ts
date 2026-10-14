@@ -87,6 +87,7 @@ export const AUDIT_LABELS: Record<string, string> = {
   'admin.content_approve': 'تأیید مقاله تولیدشده',
   'admin.content_reject': 'رد مقاله تولیدشده',
   'admin.content_delete': 'حذف از صف تولید',
+  'admin.content_retry': 'تلاش دوباره برای موضوع ردشده',
   'admin.indexnow_submit': 'اعلام نشانی به موتورهای جست‌وجو',
   'admin.account_provisioned': 'ساخت حساب مدیر از خط فرمان',
   'content.auto_publish': 'انتشار خودکار مقاله',

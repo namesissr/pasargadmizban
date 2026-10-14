@@ -11,7 +11,17 @@ export const dynamic = 'force-dynamic';
 
 type Ctx = { params: Promise<{ id: string }> };
 
-const patchSchema = z.object({ action: z.enum(['publish', 'reject']) });
+/** بازگرداندن یک موضوع به صف تولید، با پاک کردن نتیجه تلاش قبلی */
+const RETRY_DATA = {
+  status: 'PENDING' as const,
+  error: null,
+  seoScore: null,
+  wordCount: null,
+  startedAt: null,
+  finishedAt: null,
+};
+
+const patchSchema = z.object({ action: z.enum(['publish', 'reject', 'retry']) });
 
 /** تأیید و انتشار یا رد مقاله‌ای که خودکار ساخته شده است */
 export const PATCH = route(async (req: Request, ctx: Ctx) => {
@@ -22,9 +32,27 @@ export const PATCH = route(async (req: Request, ctx: Ctx) => {
 
   const job = await prisma.contentJob.findUnique({
     where: { id },
-    select: { id: true, keyword: true, postId: true, post: { select: { slug: true, status: true } } },
+    select: { id: true, keyword: true, status: true, postId: true, post: { select: { slug: true, status: true } } },
   });
   if (!job) throw new ApiError('این مورد یافت نشد.', 404);
+
+  // تلاش دوباره: موضوع ردشده یا ناموفق به صف برمی‌گردد و در اجرای بعدی نوشته می‌شود
+  if (action === 'retry') {
+    if (job.status !== 'REJECTED' && job.status !== 'FAILED') {
+      throw new ApiError('فقط موضوع ردشده یا ناموفق را می‌شود دوباره به صف فرستاد.', 422);
+    }
+    await prisma.contentJob.update({ where: { id }, data: RETRY_DATA });
+    await audit({
+      userId: admin.id,
+      actorType: 'admin',
+      action: 'admin.content_retry',
+      entity: 'content_job',
+      entityId: id,
+      ip: await clientIp(),
+      meta: { keyword: job.keyword },
+    });
+    return ok({ message: 'به صف برگشت؛ در اجرای بعدی (یا با «تولید همین حالا») دوباره نوشته می‌شود.' });
+  }
 
   if (action === 'publish') {
     if (!job.postId) throw new ApiError('این مورد مقاله‌ای ندارد که منتشر شود.', 422);

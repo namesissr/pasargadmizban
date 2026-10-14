@@ -15,6 +15,7 @@ import {
   Coins,
   Plus,
   Lightbulb,
+  RotateCcw,
 } from 'lucide-react';
 import {
   Alert,
@@ -185,6 +186,33 @@ export function ContentPanel() {
       toast.error(errorMessage(err));
     } finally {
       setQueueing(null);
+    }
+  }
+
+  /** موضوع ردشده یا ناموفق را دوباره به صف می‌فرستد */
+  async function retry(job: ContentJob) {
+    setBusy(true);
+    try {
+      const res = await apiPatch<{ message: string }>(`/api/admin/blog/content/${job.id}`, { action: 'retry' });
+      toast.success(res.message);
+      mutate();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function retryAll() {
+    setBusy(true);
+    try {
+      const res = await apiPost<{ message: string }>('/api/admin/blog/content/retry');
+      toast.success(res.message);
+      mutate();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -418,7 +446,18 @@ export function ContentPanel() {
       </Card>
 
       {/* صف و تاریخچه */}
-      <Card title="صف تولید" description="هر ردیف، یک موضوع از کشف تا انتشار." bodyClassName={items.length ? 'space-y-2.5' : undefined}>
+      <Card
+        title="صف تولید"
+        description="هر ردیف، یک موضوع از کشف تا انتشار."
+        action={
+          stats && stats.rejected + stats.failed > 0 ? (
+            <Button size="sm" variant="secondary" icon={<RotateCcw size={14} />} loading={busy} onClick={retryAll}>
+              تلاش دوباره برای ردشده‌ها ({fa(stats.rejected + stats.failed)})
+            </Button>
+          ) : null
+        }
+        bodyClassName={items.length ? 'space-y-2.5' : undefined}
+      >
         {items.length === 0 ? (
           <EmptyState
             icon={<Bot size={28} />}
@@ -470,6 +509,17 @@ export function ContentPanel() {
                       <Link href={`/blog/${job.post.slug}`} target="_blank" className="btn btn-ghost btn-sm" aria-label="دیدن مقاله">
                         <ExternalLink size={14} />
                       </Link>
+                    ) : null}
+                    {job.status === 'REJECTED' || job.status === 'FAILED' ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        icon={<RotateCcw size={14} />}
+                        loading={busy}
+                        onClick={() => retry(job)}
+                      >
+                        تلاش دوباره
+                      </Button>
                     ) : null}
                     {job.status === 'DRAFTED' ? (
                       <>

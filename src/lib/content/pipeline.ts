@@ -8,7 +8,7 @@ import { publishedWhere } from '../blog';
 import { discoverKeywords, type KeywordCandidate } from './keywords';
 import { researchKeyword } from './research';
 import { writeArticle, type InternalLink } from './writer';
-import { checkArticle } from './quality';
+import { checkArticle, normalizeHeadings } from './quality';
 import { submitToIndexNow } from '../indexnow';
 import { withAutoFigure } from '../images/auto-figures';
 
@@ -164,6 +164,9 @@ async function processCandidate(
       brandName: context.brandName,
       cloudRegisterUrl: context.cloudRegisterUrl,
     });
+
+    // تیتر سطح یک دلیل رد شدن نیست؛ درست‌شدنی است
+    written.article.content = normalizeHeadings(written.article.content, written.article.title);
 
     const verdict = await checkArticle({
       article: written.article,
