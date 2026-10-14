@@ -82,6 +82,12 @@ export function SiteHeader({
               وبلاگ
             </Link>
           ) : null}
+          {/* در موبایل جا نیست؛ آنجا از نوار زیر سربرگ و پابرگ در دسترس است */}
+          <span className="hidden sm:inline-flex">
+            <Link href="/tools" className="btn btn-ghost btn-sm">
+              ابزارها
+            </Link>
+          </span>
           <SmartLink href={cloud.login} external={cloud.external} className="btn btn-ghost btn-sm">
             ورود
           </SmartLink>
@@ -125,6 +131,9 @@ export function SiteFooter({
             </Link>
           </>
         ) : null}
+        <Link href="/tools" className="hover:underline">
+          ابزارهای رایگان
+        </Link>
         {links.map((link) => (
           <Link key={link.href} href={link.href} className="hover:underline">
             {link.label}

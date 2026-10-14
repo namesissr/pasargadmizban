@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { Flame, Tags, FolderTree, ArrowLeft, Clock } from 'lucide-react';
+import { Flame, Tags, FolderTree, ArrowLeft, Clock, Wrench } from 'lucide-react';
+import { TOOLS } from '@/lib/tools/registry';
 import type { PostCard as PostCardData } from '@/lib/blog';
 import type { SiteInfo } from '@/lib/seo';
 import { cloudLinks } from '@/lib/seo';
@@ -40,6 +41,24 @@ export function BlogSidebar({
           <Clock size={10} /> تحویل خودکار، بدون انتظار
         </p>
       </div>
+
+      <section className="card p-4">
+        <p className="flex items-center gap-2 text-xs font-bold">
+          <Wrench size={14} /> ابزارهای رایگان
+        </p>
+        <ul className="mt-3 space-y-1.5">
+          {TOOLS.slice(0, 5).map((tool) => (
+            <li key={tool.slug}>
+              <Link href={`/tools/${tool.slug}`} className="text-xs muted hover:text-[var(--color-brand-600)]">
+                {tool.name}
+              </Link>
+            </li>
+          ))}
+        </ul>
+        <Link href="/tools" className="mt-2 inline-flex items-center gap-1 text-[11px] text-[var(--color-brand-600)] hover:underline">
+          همه ابزارها <ArrowLeft size={11} />
+        </Link>
+      </section>
 
       {popular.length > 0 ? (
         <section className="card p-4">

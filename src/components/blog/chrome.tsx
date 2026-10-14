@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Search } from 'lucide-react';
+import { Search, Wrench } from 'lucide-react';
 import type { SiteInfo } from '@/lib/seo';
 import { SiteHeader, SiteFooter } from '@/components/site/chrome';
 
@@ -44,6 +44,12 @@ export function BlogHeader({
         categories.length > 0 ? (
           <nav aria-label="دسته‌های وبلاگ" className="border-t">
             <div className="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 py-2 snap-x-scroll">
+              <Link
+                href="/tools"
+                className="flex shrink-0 items-center gap-1 rounded-full border border-[var(--color-brand-300)] bg-[var(--color-brand-50)] px-3 py-1 text-[11px] font-semibold text-[var(--color-brand-700)] transition hover:border-[var(--color-brand-500)]"
+              >
+                <Wrench size={11} /> ابزارهای رایگان
+              </Link>
               {categories.map((c) => (
                 <Link
                   key={c.slug}
