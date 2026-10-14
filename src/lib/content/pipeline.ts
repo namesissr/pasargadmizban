@@ -107,6 +107,7 @@ async function processCandidate(
   context: {
     categories: { id: string; slug: string; name: string }[];
     internalLinks: InternalLink[];
+    existingTags: { name: string; posts: number }[];
     brandName: string;
     cloudRegisterUrl: string;
     author: { name: string; title: string; bio: string };
@@ -159,6 +160,7 @@ async function processCandidate(
       brief,
       internalLinks: context.internalLinks,
       categories: context.categories.map((c) => ({ slug: c.slug, name: c.name })),
+      existingTags: context.existingTags,
       brandName: context.brandName,
       cloudRegisterUrl: context.cloudRegisterUrl,
     });
@@ -320,6 +322,14 @@ export async function runContentPipeline(
   const cloud = cloudLinks(site);
   const internalLinks = await internalLinkPool(cloud);
 
+  // پرکاربردترین برچسب‌ها، تا نویسنده به‌جای ساختن برچسب تازه از همین‌ها استفاده کند
+  const tagRows = await prisma.blogTag.findMany({
+    select: { name: true, _count: { select: { posts: true } } },
+    orderBy: { posts: { _count: 'desc' } },
+    take: 60,
+  });
+  const existingTags = tagRows.filter((t) => t._count.posts > 0).map((t) => ({ name: t.name, posts: t._count.posts }));
+
   // اول صف دستی مدیر، بعد موضوع‌های کشف‌شده. چند نامزد بیشتر برمی‌داریم،
   // چون بعضی موضوع‌ها از دروازه کیفیت رد نمی‌شوند.
   const queued = await queuedCandidates(options.jobIds?.length ? options.jobIds.length : requested, options.jobIds);
@@ -342,6 +352,7 @@ export async function runContentPipeline(
   const context = {
     categories: ordered,
     internalLinks,
+    existingTags,
     brandName: settings.brandName,
     cloudRegisterUrl: cloud.register,
     author: {

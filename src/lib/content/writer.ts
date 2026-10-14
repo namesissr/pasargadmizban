@@ -118,7 +118,7 @@ const SYSTEM = `تو نویسنده فنی وبلاگ یک سرویس ایران
 • طول متن: بین ۱۰۰۰ تا ۱۵۰۰ کلمه.`;
 
 function buildPrompt(input: WriterInput): string {
-  const { brief, internalLinks, categories, brandName, cloudRegisterUrl } = input;
+  const { brief, internalLinks, categories, brandName, cloudRegisterUrl, existingTags = [] } = input;
 
   const sources = brief.sources.length
     ? brief.sources
@@ -146,6 +146,10 @@ ${internalLinks.map((l) => `• [${l.title}](${l.path})`).join('\n')}
 دسته‌های وبلاگ — مناسب‌ترین را در categorySlug برگردان:
 ${categories.map((c) => `• ${c.slug} — ${c.name}`).join('\n')}
 
+برچسب‌های موجود وبلاگ (عدد = شمار مقاله‌ها):
+${existingTags.length ? existingTags.map((t) => `• ${t.name} (${t.posts})`).join('\n') : '• (هنوز برچسبی نیست)'}
+برچسب‌ها را تا جای ممکن از همین فهرست و با همین نوشتار دقیق انتخاب کن؛ صفحه هر برچسب فقط وقتی در گوگل ایندکس می‌شود که دست‌کم سه مقاله داشته باشد. برچسب تازه فقط برای موضوعی بساز که در فهرست نیست و احتمالاً مقاله‌های بعدی هم درباره‌اش نوشته می‌شود. هم‌معنای یک برچسب موجود را نساز (مثلاً اگر «سرور مجازی» هست، «VPS» نساز).
+
 نام برند برای اشاره‌های طبیعی در متن: ${brandName}. اشاره به برند حداکثر دو بار و فقط جایی که واقعاً مربوط است (مثل تعویض آی‌پی، پرداخت ساعتی به تومان یا تحویل خودکار).
 
 در پاراگراف جمع‌بندی، یک دعوت کوتاه و بی‌اغراق به ساخت سرور بگذار و حتماً با این لینک: [ساخت سرور ساعتی ایران و خارج](${cloudRegisterUrl})
@@ -157,6 +161,11 @@ export type WriterInput = {
   brief: ResearchBrief;
   internalLinks: InternalLink[];
   categories: { slug: string; name: string }[];
+  /**
+   * برچسب‌های موجود وبلاگ، پرکاربردترین اول. بی این فهرست، هر مقاله برچسب‌های
+   * تازه می‌ساخت و بیشتر برچسب‌ها با یک مقاله می‌ماندند (صفحه‌شان noindex).
+   */
+  existingTags?: { name: string; posts: number }[];
   brandName: string;
   /** نشانی ثبت‌نام پنل ابری — دعوت پایانی مقاله به اینجا می‌رود */
   cloudRegisterUrl: string;
