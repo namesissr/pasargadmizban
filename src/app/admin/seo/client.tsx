@@ -3,8 +3,8 @@
 import { useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { LayoutDashboard, FileText, Settings, RefreshCw, Target } from 'lucide-react';
-import { Button, LoadingBlock, Tabs } from '@/components/ui';
-import { fetcher } from '@/lib/client';
+import { Alert, Button, LoadingBlock, Tabs } from '@/components/ui';
+import { errorMessage, fetcher } from '@/lib/client';
 import { SeoDashboard } from './dashboard';
 import { SeoPostsTable } from './posts-table';
 import { SeoSettingsPanel } from './settings-panel';
@@ -17,7 +17,7 @@ const TABS: Tab[] = ['dashboard', 'opportunities', 'posts', 'settings'];
 /** چهار بخش: داشبورد سلامت و آمار، فرصت‌های صفحه اول، جدول سئوی مقاله‌ها، و تنظیمات */
 export function SeoClient() {
   const [tab, setTab] = useState<Tab>('dashboard');
-  const { data, isLoading, mutate, isValidating } = useSWR<SeoResponse>('/api/admin/seo', fetcher, {
+  const { data, error, isLoading, mutate, isValidating } = useSWR<SeoResponse>('/api/admin/seo', fetcher, {
     revalidateOnFocus: false,
   });
 
@@ -50,6 +50,11 @@ export function SeoClient() {
 
       {tab === 'settings' ? (
         <SeoSettingsPanel />
+      ) : error && !data ? (
+        <Alert tone="error" title="خواندن داده‌های سئو ناموفق بود">
+          {errorMessage(error)} — اگر تازه نسخه جدید را نصب کرده‌اید، دستور{' '}
+          <span className="ltr mono">docker compose run --rm app npm run db:push</span> را اجرا کنید.
+        </Alert>
       ) : isLoading || !data ? (
         <LoadingBlock label="در حال خواندن داده‌های سئو…" />
       ) : tab === 'dashboard' ? (

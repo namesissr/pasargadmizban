@@ -22,6 +22,7 @@ import {
   Columns2,
   ListChecks,
   Cpu,
+  Sparkles,
 } from 'lucide-react';
 import {
   Alert,
@@ -42,6 +43,7 @@ import { seoReport } from '@/lib/seo-score';
 import { slugify } from '@/lib/slugify';
 import { autoCoverUrl, coverOptions, isAutoCover } from '@/lib/images/urls';
 import { SeoPanel } from './seo-panel';
+import { ImproveModal } from '../seo/improve-modal';
 import type { AdminCategory, AdminPost, AdminTag, Faq, PostStatus } from './types';
 
 const STATUS_OPTIONS: { value: PostStatus; label: string; hint: string }[] = [
@@ -183,6 +185,7 @@ export function PostEditor({
   const [busy, setBusy] = useState(false);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [helpOpen, setHelpOpen] = useState(false);
+  const [improveOpen, setImproveOpen] = useState(false);
 
   const effectiveSlug = slug.trim() || slugify(focusKeyword || title);
 
@@ -347,6 +350,11 @@ export function PostEditor({
           <Button variant="ghost" size="sm" icon={<HelpCircle size={14} />} onClick={() => setHelpOpen(true)}>
             راهنمای نوشتن
           </Button>
+          {editMode ? (
+            <Button variant="ghost" size="sm" icon={<Sparkles size={14} />} onClick={() => setImproveOpen(true)}>
+              بهبود با هوش مصنوعی
+            </Button>
+          ) : null}
         </div>
 
         <div className="flex flex-wrap gap-2">
@@ -812,6 +820,14 @@ export function PostEditor({
           یک مقاله سطحی بهتر جواب می‌دهد.
         </div>
       </Modal>
+      {editMode ? (
+        <ImproveModal
+          postId={improveOpen ? post.id : null}
+          onClose={() => setImproveOpen(false)}
+          // متن ویرایشگر از مقاله قبلی است؛ بعد از اعمال یا بازگشت، صفحه تازه می‌شود
+          onChanged={() => window.location.reload()}
+        />
+      ) : null}
     </div>
   );
 }
