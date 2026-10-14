@@ -144,8 +144,10 @@ export async function checkArticle(input: {
   sources: SourceResult[];
   minSeoScore: number;
   minWords: number;
+  /** بازنویسی یک مقاله موجود: شباهت با نسخه قبلی خودش طبیعی است و حساب نمی‌شود */
+  excludePostId?: string;
 }): Promise<QualityVerdict> {
-  const { article, keyword, sources, minSeoScore, minWords } = input;
+  const { article, keyword, sources, minSeoScore, minWords, excludePostId } = input;
   const reasons: string[] = [];
 
   // لینک به پنل ابری خودمان، لینک داخلی حساب می‌شود
@@ -201,6 +203,7 @@ export async function checkArticle(input: {
   if (copied) reasons.push(`جمله‌ای عیناً شبیه خلاصه نتیجه گوگل است (${copied}).`);
 
   const existing = await prisma.blogPost.findMany({
+    where: excludePostId ? { id: { not: excludePostId } } : undefined,
     select: { title: true, content: true },
     orderBy: { createdAt: 'desc' },
     take: 60,

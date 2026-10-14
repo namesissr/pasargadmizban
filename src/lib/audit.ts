@@ -34,6 +34,11 @@ export async function audit(input: AuditInput): Promise<void> {
 
 /** برچسب فارسی برای نمایش در پنل مدیریت */
 export const AUDIT_LABELS: Record<string, string> = {
+  'admin.gsc_import': 'بارگذاری خروجی سرچ کنسول',
+  'admin.gsc_import_delete': 'حذف خروجی سرچ کنسول',
+  'admin.blog_improve': 'ساخت نسخه بهتر مقاله با هوش مصنوعی',
+  'admin.blog_improve_apply': 'اعمال نسخه بهتر مقاله',
+  'admin.blog_improve_revert': 'بازگشت مقاله به نسخه قبلی',
   'auth.register': 'ثبت‌نام',
   'auth.login': 'ورود موفق',
   'auth.login_failed': 'ورود ناموفق',

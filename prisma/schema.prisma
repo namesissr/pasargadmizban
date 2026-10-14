@@ -1373,10 +1373,7 @@ model BlogPost {
   coverAlt   String?
 
   // ─── سئو ───
-  /**
-   * /**
-   * /** عنوان سئو؛ اگر خالی باشد از title استفاده می‌شود
-   */
+  /// عنوان سئو؛ اگر خالی باشد از title استفاده می‌شود
   metaTitle       String?
   metaDescription String?
   /**
@@ -1420,6 +1417,7 @@ model BlogPost {
   tags        BlogPostTag[]
   slugHistory BlogSlugHistory[]
   contentJob  ContentJob?
+  revisions   BlogPostRevision[]
 
   @@index([status, publishedAt])
   @@index([categoryId, status, publishedAt])
@@ -1452,6 +1450,90 @@ model BlogSlugHistory {
 
   @@index([postId])
   @@map("blog_slug_history")
+}
+
+/**
+ * نسخه‌های دیگر یک مقاله.
+ * suggestion: نسخه بهترشده‌ای که هوش مصنوعی پیشنهاد داده و مدیر هنوز
+ * اعمالش نکرده (برای هر مقاله حداکثر یکی)
+ * backup:     متن مقاله درست پیش از اعمال یک پیشنهاد، برای بازگشت
+ */
+model BlogPostRevision {
+  id     String   @id @default(cuid())
+  postId String
+  post   BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  kind   String
+
+  title           String
+  excerpt         String
+  content         String
+  metaTitle       String?
+  metaDescription String?
+  faqs            Json    @default("[]")
+
+  /**
+   * فهرست کوتاه تغییرها (برای پیشنهاد) — به فارسی، برای نمایش به مدیر
+   */
+  changes   Json @default("[]")
+  /**
+   * هشدارهای دروازه کیفیت برای نسخه پیشنهادی
+   */
+  issues    Json @default("[]")
+  seoScore  Int?
+  wordCount Int?
+
+  model        String?
+  inputTokens  Int?
+  outputTokens Int?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([postId, kind, createdAt])
+  @@map("blog_post_revisions")
+}
+
+/**
+ * خروجی بارگذاری‌شده از بخش Performance سرچ کنسول.
+ * وقتی API سرچ کنسول از سرور در دسترس نیست، مدیر فایل خروجی (CSV/Excel) را
+ * از خود سرچ کنسول دانلود و اینجا بارگذاری می‌کند.
+ * scope=site: کل پراپرتی | scope=page: خروجی فیلترشده روی نشانی یک مقاله
+ */
+model GscImport {
+  id         String  @id @default(cuid())
+  scope      String  @default("site")
+  pageUrl    String?
+  postId     String?
+  fileName   String
+  /**
+   * بازه انتخاب‌شده در سرچ کنسول، همان‌طور که در فایل آمده (مثل Last 3 months)
+   */
+  rangeLabel String?
+  startDate  String?
+  endDate    String?
+
+  clicks      Int   @default(0)
+  impressions Int   @default(0)
+  ctr         Float @default(0)
+  position    Float @default(0)
+  /**
+   * اگر خروجی در حالت «مقایسه» گرفته شده باشد، عددهای بازه قبل
+   */
+  previous    Json?
+
+  /**
+   * [{ key, clicks, impressions, ctr, position }]
+   */
+  queries Json @default("[]")
+  pages   Json @default("[]")
+  daily   Json @default("[]")
+
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([scope, createdAt])
+  @@index([postId, createdAt])
+  @@map("gsc_imports")
 }
 
 // ═══════════════════  تولید خودکار محتوا  ═══════════════════

@@ -54,6 +54,8 @@ export type SiteSeoHealth = {
 };
 
 const STALE_DAYS = 180;
+/** خروجی بارگذاری‌شده سرچ کنسول تا این چند روز «تازه» حساب می‌شود */
+const IMPORT_FRESH_DAYS = 40;
 
 export async function auditSite(): Promise<SiteSeoHealth> {
   const settings = await getSettings();
@@ -133,13 +135,28 @@ export async function auditSite(): Promise<SiteSeoHealth> {
       href: '/admin/seo',
     });
   }
-  if (!gscConfigured()) {
+  // آمار گوگل یا از API می‌آید یا از خروجی‌ای که مدیر ماهانه بارگذاری می‌کند
+  const lastImport = gscConfigured()
+    ? null
+    : await prisma.gscImport.findFirst({ where: { scope: 'site' }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } });
+  const importAge = lastImport ? (Date.now() - lastImport.createdAt.getTime()) / 86_400_000 : null;
+  const googleData = gscConfigured() || (importAge !== null && importAge <= IMPORT_FRESH_DAYS);
+  if (!gscConfigured() && importAge === null) {
     add({
-      key: 'gsc-api',
+      key: 'gsc-data',
       severity: 'info',
-      title: 'اتصال API سرچ کنسول برقرار نیست',
+      title: 'آمار گوگل در پنل نیست',
       detail:
-        'با اتصال سرویس‌اکانت، جایگاه واقعی هر مقاله در گوگل، عبارت‌های جستجو و وضعیت ایندکس در همین پنل نمایش داده می‌شود. متغیرهای GSC_* را تنظیم کنید.',
+        'از سرچ کنسول، بخش Performance، با دکمه Export خروجی CSV بگیرید و در بخش «فرصت‌های صفحه اول» بارگذاری کنید تا جایگاه هر مقاله و مقاله‌های نزدیک صفحه اول را ببینید.',
+      href: '/admin/seo?tab=opportunities',
+    });
+  } else if (!googleData) {
+    add({
+      key: 'gsc-data',
+      severity: 'info',
+      title: 'آمار گوگل قدیمی است',
+      detail: `آخرین خروجی سرچ کنسول ${Math.round(importAge ?? 0)} روز پیش بارگذاری شده است. ماهی یک بار خروجی تازه بارگذاری کنید تا فهرست فرصت‌ها درست بماند.`,
+      href: '/admin/seo?tab=opportunities',
     });
   }
   if (!settings.blogOgImage) {
@@ -360,7 +377,7 @@ export async function auditSite(): Promise<SiteSeoHealth> {
       ok: Boolean(settings.googleSiteVerification),
       hint: 'کد تأیید سرچ کنسول در تنظیمات سئو',
     },
-    { key: 'gsc', label: 'اتصال API سرچ کنسول', ok: gscConfigured(), hint: 'نمایش جایگاه واقعی در پنل' },
+    { key: 'gsc', label: 'آمار گوگل در پنل', ok: googleData, hint: 'API سرچ کنسول یا بارگذاری خروجی ماهانه' },
     { key: 'sitemap', label: 'نقشه سایت خودکار', ok: true, hint: '/sitemap.xml از مقاله‌های منتشرشده' },
     { key: 'robots', label: 'robots.txt درست', ok: true, hint: 'پنل و API بسته، وبلاگ باز' },
     { key: 'rss', label: 'خوراک RSS', ok: true, hint: '/blog/rss.xml با متن کامل' },

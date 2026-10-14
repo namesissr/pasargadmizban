@@ -59,14 +59,19 @@ export type SeoResponse = {
   };
   posts: PostSeoRow[];
   search: {
-    range: { start: string; end: string };
+    range: { start: string; end: string; label?: string | null };
     current: Totals;
-    previous: Totals;
+    previous: Totals | null;
     topQueries: SearchRow[];
     topPages: SearchRow[];
     daily: SearchRow[];
   } | null;
   perPage: Record<string, Totals>;
+  /** آمار گوگل از کجا آمده: API یا فایل خروجی بارگذاری‌شده */
+  source: 'api' | 'import' | null;
+  importInfo: ImportInfo | null;
+  opportunities: Opportunity[];
+  nearQueries: SearchRow[];
   gsc: { configured: boolean; property: string | null; error: string | null };
   site: { siteUrl: string; sitemap: string; robots: string; rss: string; indexNowKeyFile: string };
 };
@@ -75,6 +80,8 @@ export type PostSeoDetail = {
   post: { id: string; slug: string; title: string; views: number; seoScore: number; noindex: boolean };
   url: string;
   performance: { totals: Totals; queries: SearchRow[] } | null;
+  /** api: از API | page: خروجی فیلترشده همین مقاله | related: عبارت‌های هم‌خوان از خروجی کل سایت (تقریبی) */
+  querySource: 'api' | 'page' | 'related' | null;
   index: {
     coverageState: string | null;
     indexingState: string | null;
@@ -83,4 +90,27 @@ export type PostSeoDetail = {
     verdict: string | null;
   } | null;
   error: string | null;
+};
+
+export type ImportInfo = {
+  id: string;
+  scope: string;
+  fileName: string;
+  rangeLabel: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  clicks: number;
+  impressions: number;
+  postId: string | null;
+  pageUrl: string | null;
+  createdAt: string;
+  postTitle?: string | null;
+};
+
+export type Opportunity = Totals & {
+  postId: string;
+  title: string;
+  slug: string;
+  kind: 'near' | 'ctr';
+  potential: number;
 };

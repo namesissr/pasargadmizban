@@ -17,6 +17,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { Alert, Badge, Card, Stat } from '@/components/ui';
+import { faDate } from '@/lib/utils';
 import type { SeoResponse } from './types';
 
 const fa = (n: number) => new Intl.NumberFormat('fa-IR').format(n);
@@ -50,36 +51,37 @@ export function SeoDashboard({ data }: { data: SeoResponse }) {
   return (
     <div className="space-y-4">
       {/* ── آمار واقعی گوگل ── */}
+      {data.source === 'import' && data.importInfo ? <ImportSourceNote info={data.importInfo} /> : null}
       {search ? (
         <>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Stat
-              label="کلیک از گوگل (۲۸ روز)"
+              label={`کلیک از گوگل (${rangeText(data)})`}
               value={fa(search.current.clicks)}
-              hint={<TrendBadge current={search.current.clicks} previous={search.previous.clicks} />}
+              hint={search.previous ? <TrendBadge current={search.current.clicks} previous={search.previous.clicks} /> : undefined}
               icon={<MousePointerClick size={15} />}
             />
             <Stat
               label="نمایش در نتایج"
               value={fa(search.current.impressions)}
-              hint={<TrendBadge current={search.current.impressions} previous={search.previous.impressions} />}
+              hint={search.previous ? <TrendBadge current={search.current.impressions} previous={search.previous.impressions} /> : undefined}
               icon={<Eye size={15} />}
             />
             <Stat
               label="میانگین جایگاه"
               value={search.current.position ? faDec(search.current.position, 1) : '—'}
-              hint={<TrendBadge current={search.current.position} previous={search.previous.position} lowerIsBetter />}
+              hint={search.previous ? <TrendBadge current={search.current.position} previous={search.previous.position} lowerIsBetter /> : undefined}
               icon={<ArrowUpDown size={15} />}
             />
             <Stat
               label="نرخ کلیک"
               value={search.current.impressions ? pct(search.current.ctr) : '—'}
-              hint={<TrendBadge current={search.current.ctr} previous={search.previous.ctr} />}
+              hint={search.previous ? <TrendBadge current={search.current.ctr} previous={search.previous.ctr} /> : undefined}
             />
           </div>
 
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card title="عبارت‌هایی که با آن‌ها دیده می‌شوید" description="۲۸ روز گذشته، به ترتیب نمایش.">
+            <Card title="عبارت‌هایی که با آن‌ها دیده می‌شوید" description={`${rangeText(data)}، به ترتیب نمایش.`}>
               {search.topQueries.length === 0 ? (
                 <p className="text-xs muted">هنوز داده‌ای نیست. چند روز بعد از ایندکس شدن مقاله‌ها پر می‌شود.</p>
               ) : (
@@ -108,7 +110,7 @@ export function SeoDashboard({ data }: { data: SeoResponse }) {
               )}
             </Card>
 
-            <Card title="صفحه‌های پربازدید در گوگل" description="۲۸ روز گذشته.">
+            <Card title="صفحه‌های پربازدید در گوگل" description={`${rangeText(data)}.`}>
               {search.topPages.length === 0 ? (
                 <p className="text-xs muted">هنوز داده‌ای نیست.</p>
               ) : (
@@ -272,6 +274,32 @@ export function SeoDashboard({ data }: { data: SeoResponse }) {
   );
 }
 
+/** برچسب بازه آمار: API همیشه ۲۸ روز است؛ خروجی بارگذاری‌شده همان بازه‌ای که در سرچ کنسول انتخاب شده */
+export function rangeText(data: SeoResponse): string {
+  if (data.source !== 'import' || !data.search) return '۲۸ روز گذشته';
+  const { start, end, label } = data.search.range;
+  if (start && end) return `${faDate(start)} تا ${faDate(end)}`;
+  return label ? rangeLabelFa(label) : 'بازه فایل بارگذاری‌شده';
+}
+
+/** برچسب انگلیسی بازه سرچ کنسول به فارسی */
+export function rangeLabelFa(label: string): string {
+  const m = /last\s+(\d+)\s+(day|month)s?/i.exec(label);
+  if (m) return `${fa(Number(m[1]))} ${m[2].toLowerCase() === 'day' ? 'روز' : 'ماه'} گذشته`;
+  return label;
+}
+
+/** آمار از فایل خروجی آمده، نه از API؛ تاریخش مهم است چون خودبه‌خود تازه نمی‌شود */
+function ImportSourceNote({ info }: { info: NonNullable<SeoResponse['importInfo']> }) {
+  const days = Math.floor((Date.now() - new Date(info.createdAt).getTime()) / 86_400_000);
+  return (
+    <Alert tone={days > 40 ? 'warning' : 'info'} title="آمار گوگل از فایل خروجی سرچ کنسول">
+      آخرین بارگذاری: {faDate(info.createdAt)} ({days ? `${fa(days)} روز پیش` : 'امروز'}). این عددها خودبه‌خود تازه نمی‌شوند؛
+      ماهی یک بار از تب «فرصت‌های صفحه اول» خروجی تازه بارگذاری کنید.
+    </Alert>
+  );
+}
+
 const NOTE_KEY = 'pm:gsc-note-hidden';
 
 /**
@@ -313,8 +341,8 @@ function GscOptionalNote() {
         </button>
       }
     >
-      کلیک، نمایش و رتبه گوگل را در خود سرچ کنسول (بخش Performance) ببینید. ایندکس شدن به این اتصال وابسته نیست و
-      همه آمار درون‌سایتی پایین بدون آن کار می‌کند. راهنمای اتصال در مستندات، بخش «اتصال گوگل سرچ کنسول».
+      ایندکس شدن به این اتصال وابسته نیست. برای دیدن کلیک، نمایش و جایگاه هر مقاله در همین پنل، خروجی بخش Performance
+      سرچ کنسول را در تب «فرصت‌های صفحه اول» بارگذاری کنید.
     </Alert>
   );
 }

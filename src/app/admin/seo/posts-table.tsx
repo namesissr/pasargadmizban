@@ -13,11 +13,14 @@ import {
   LinkIcon,
   FileText,
   Send,
+  Sparkles,
 } from 'lucide-react';
 import { Badge, Button, Card, Input, LoadingBlock, Modal, Select } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { apiPost, errorMessage, fetcher } from '@/lib/client';
 import { faDate } from '@/lib/utils';
+import { ImproveModal, inspectUrl } from './improve-modal';
+import { rangeText } from './dashboard';
 import type { PostSeoDetail, PostSeoRow, SeoResponse } from './types';
 
 const fa = (n: number) => new Intl.NumberFormat('fa-IR').format(n);
@@ -40,12 +43,13 @@ const SORTS: { key: SortKey; label: string }[] = [
  * ایرادهای هر مقاله در یک نگاه. با کلیک روی هر ردیف، عبارت‌هایی که آن مقاله
  * با آن‌ها دیده شده و وضعیت ایندکسش از گوگل خوانده می‌شود.
  */
-export function SeoPostsTable({ data }: { data: SeoResponse }) {
+export function SeoPostsTable({ data, onRefresh }: { data: SeoResponse; onRefresh?: () => void }) {
   const toast = useToast();
   const [q, setQ] = useState('');
   const [sort, setSort] = useState<SortKey>(data.search ? 'impressions' : 'views');
   const [detailId, setDetailId] = useState<string | null>(null);
   const [pinging, setPinging] = useState<string | null>(null);
+  const [improveId, setImproveId] = useState<string | null>(null);
 
   const rows = useMemo(() => {
     const term = q.trim();
@@ -99,8 +103,8 @@ export function SeoPostsTable({ data }: { data: SeoResponse }) {
         title="سئوی هر مقاله"
         description={
           data.search
-            ? 'جایگاه و کلیک از گوگل سرچ کنسول (۲۸ روز گذشته) و بازدید از شمارنده سایت.'
-            : 'بازدید و امتیاز سئو از داده‌های سایت. برای دیدن جایگاه گوگل، سرچ کنسول را وصل کنید.'
+            ? `جایگاه و کلیک از گوگل سرچ کنسول (${rangeText(data)}) و بازدید از شمارنده سایت.`
+            : 'بازدید و امتیاز سئو از داده‌های سایت. برای دیدن جایگاه گوگل، خروجی سرچ کنسول را در تب «فرصت‌های صفحه اول» بارگذاری کنید.'
         }
       >
         <div className="mb-3 flex flex-wrap gap-2">
@@ -190,6 +194,13 @@ export function SeoPostsTable({ data }: { data: SeoResponse }) {
                         <Button
                           variant="ghost"
                           size="sm"
+                          icon={<Sparkles size={13} />}
+                          onClick={() => setImproveId(row.id)}
+                          aria-label="بهبود با هوش مصنوعی"
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
                           icon={<Send size={13} />}
                           loading={pinging === row.id}
                           onClick={() => ping(row)}
@@ -207,12 +218,28 @@ export function SeoPostsTable({ data }: { data: SeoResponse }) {
         {rows.length === 0 ? <p className="py-6 text-center text-xs muted">مقاله‌ای پیدا نشد.</p> : null}
       </Card>
 
-      <PostDetailModal id={detailId} onClose={() => setDetailId(null)} />
+      <PostDetailModal
+        id={detailId}
+        onClose={() => setDetailId(null)}
+        onImprove={(id) => {
+          setDetailId(null);
+          setImproveId(id);
+        }}
+      />
+      <ImproveModal postId={improveId} onClose={() => setImproveId(null)} onChanged={onRefresh} />
     </div>
   );
 }
 
-function PostDetailModal({ id, onClose }: { id: string | null; onClose: () => void }) {
+function PostDetailModal({
+  id,
+  onClose,
+  onImprove,
+}: {
+  id: string | null;
+  onClose: () => void;
+  onImprove: (id: string) => void;
+}) {
   const { data, isLoading } = useSWR<PostSeoDetail>(id ? `/api/admin/seo/post/${id}` : null, fetcher);
 
   return (
@@ -270,6 +297,12 @@ function PostDetailModal({ id, onClose }: { id: string | null; onClose: () => vo
           {/* عبارت‌های جستجو */}
           <div>
             <p className="text-xs font-bold">عبارت‌هایی که این مقاله با آن‌ها دیده شده</p>
+            {data.querySource === 'related' ? (
+              <p className="mt-1 text-[10px] leading-5 muted">
+                تقریبی: از آمار کل سایت، عبارت‌هایی که با عنوان این مقاله هم‌خوان‌اند. برای فهرست دقیق، خروجی فیلترشده روی همین
+                صفحه را در «فرصت‌های صفحه اول» بارگذاری کنید.
+              </p>
+            ) : null}
             {data.performance?.queries.length ? (
               <div className="scroll-x mt-2">
                 <table className="table">
@@ -301,20 +334,16 @@ function PostDetailModal({ id, onClose }: { id: string | null; onClose: () => vo
           </div>
 
           <div className="flex flex-wrap gap-2 border-t pt-3">
+            <Button size="sm" icon={<Sparkles size={14} />} onClick={() => onImprove(data.post.id)}>
+              بهبود با هوش مصنوعی
+            </Button>
             <Link href={`/admin/blog/${data.post.id}`} className="btn btn-secondary btn-sm">
               <Pencil size={14} /> ویرایش مقاله
             </Link>
             <a href={data.url} target="_blank" rel="noopener" className="btn btn-ghost btn-sm">
               <ExternalLink size={14} /> دیدن در سایت
             </a>
-            <a
-              href={`https://search.google.com/search-console/inspect?resource_id=${encodeURIComponent(
-                data.url.replace(/\/[^/]*$/, '/'),
-              )}&id=${encodeURIComponent(data.url)}`}
-              target="_blank"
-              rel="noopener"
-              className="btn btn-ghost btn-sm"
-            >
+            <a href={inspectUrl(data.url)} target="_blank" rel="noopener" className="btn btn-ghost btn-sm">
               <ArrowUpDown size={14} /> بررسی در سرچ کنسول
             </a>
           </div>

@@ -24,15 +24,18 @@ type Options = Omit<RequestInit, 'body'> & { body?: unknown };
 export async function api<T = unknown>(path: string, options: Options = {}): Promise<T> {
   const { body, headers, ...rest } = options;
 
+  // فایل با FormData می‌رود و نوع محتوا (با boundary) را خود مرورگر می‌گذارد
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
+
   let res: Response;
   try {
     res = await fetch(path, {
       ...rest,
       headers: {
-        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...(body !== undefined && !isForm ? { 'Content-Type': 'application/json' } : {}),
         ...(headers as Record<string, string>),
       },
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body === undefined ? undefined : isForm ? body : JSON.stringify(body),
       credentials: 'same-origin',
     });
   } catch {

@@ -5,6 +5,7 @@ import { getSettings } from '@/lib/settings';
 import { absoluteUrl } from '@/lib/seo';
 import { gscConfigured, pagePerformance, inspectUrl, GscError } from '@/lib/gsc';
 import { env } from '@/lib/env';
+import { importedPostTotals, postQueries } from '@/lib/gsc-import/store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -19,7 +20,7 @@ export const GET = route(async (_req: Request, ctx: Ctx) => {
 
   const post = await prisma.blogPost.findUnique({
     where: { id },
-    select: { id: true, slug: true, title: true, views: true, seoScore: true, noindex: true },
+    select: { id: true, slug: true, title: true, views: true, seoScore: true, noindex: true, focusKeyword: true },
   });
   if (!post) throw new ApiError('مقاله یافت نشد.', 404);
 
@@ -28,7 +29,29 @@ export const GET = route(async (_req: Request, ctx: Ctx) => {
   const url = absoluteUrl(siteUrl, `/blog/${post.slug}`);
 
   if (!gscConfigured()) {
-    return ok({ post, url, performance: null, index: null, error: 'سرچ کنسول وصل نیست.' });
+    // بدون API، از تازه‌ترین خروجی بارگذاری‌شده سرچ کنسول
+    const [totals, queries] = await Promise.all([importedPostTotals(post.id), postQueries(post)]);
+    const performance =
+      totals || queries
+        ? {
+            totals: totals ?? { clicks: 0, impressions: 0, ctr: 0, position: 0 },
+            queries: (queries?.queries ?? []).map((q) => ({
+              keys: [q.key],
+              clicks: q.clicks,
+              impressions: q.impressions,
+              ctr: q.ctr,
+              position: q.position,
+            })),
+          }
+        : null;
+    return ok({
+      post,
+      url,
+      performance,
+      querySource: queries?.source ?? null,
+      index: null,
+      error: 'وضعیت ایندکس فقط از خود سرچ کنسول (دکمه «بررسی در سرچ کنسول») دیده می‌شود.',
+    });
   }
 
   // بررسی وضعیت ایندکس سهمیه روزانه دارد، پس خطایش کل پاسخ را خراب نمی‌کند
@@ -39,5 +62,5 @@ export const GET = route(async (_req: Request, ctx: Ctx) => {
     inspectUrl(url).catch(() => null),
   ]);
 
-  return ok({ post, url, performance, index, error: null });
+  return ok({ post, url, performance, querySource: 'api', index, error: null });
 });

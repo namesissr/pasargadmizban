@@ -54,7 +54,7 @@ export type PipelineResult = {
  * آدرس پنل از تنظیمات می‌آید تا همه مقاله‌ها کاربر را به همان جایی ببرند
  * که ثبت‌نام و ساخت سرور انجام می‌شود.
  */
-async function internalLinkPool(cloud: { register: string; pricing: string }): Promise<InternalLink[]> {
+export async function internalLinkPool(cloud: { register: string; pricing: string }): Promise<InternalLink[]> {
   const posts = await prisma.blogPost.findMany({
     where: publishedWhere(),
     select: { slug: true, title: true },
