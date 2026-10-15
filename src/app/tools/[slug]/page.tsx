@@ -15,7 +15,8 @@ import {
   cloudLinks,
   type SiteInfo,
 } from '@/lib/seo';
-import { toolBySlug, type ToolDef } from '@/lib/tools/registry';
+import type { ToolDef } from '@/lib/tools/registry';
+import { availableTool } from '@/lib/tools/available';
 import { visitorIp } from '@/lib/tools/visitor';
 import { JsonLd } from '@/components/blog/json-ld';
 import { ToolGrid, ToolIcon } from '@/components/tools/catalog';
@@ -28,7 +29,7 @@ type Params = Promise<{ slug: string }>;
 
 export async function generateMetadata({ params }: { params: Params }): Promise<Metadata> {
   const { slug } = await params;
-  const tool = toolBySlug(slug);
+  const tool = availableTool(slug);
   if (!tool) return {};
   const site = await siteInfo();
   return buildMetadata({ site, title: tool.metaTitle, description: tool.description, path: `/tools/${tool.slug}` });
@@ -69,7 +70,7 @@ function webAppSchema(site: SiteInfo, tool: ToolDef) {
 
 export default async function ToolPage({ params }: { params: Params }) {
   const { slug } = await params;
-  const tool = toolBySlug(slug);
+  const tool = availableTool(slug);
   if (!tool) notFound();
 
   const site = await siteInfo();
@@ -133,7 +134,8 @@ export default async function ToolPage({ params }: { params: Params }) {
             <p className="mt-2 flex items-center gap-1.5 text-[11px] muted">
               {tool.runsOn === 'server' ? (
                 <>
-                  <MapPin size={12} /> از روی سروری داخل ایران اجرا می‌شود
+                  <MapPin size={12} />{' '}
+                  {tool.kind === 'tcp' ? 'اتصال از روی سروری داخل ایران گرفته می‌شود' : 'از روی سرور ما اجرا می‌شود'}
                 </>
               ) : (
                 <>

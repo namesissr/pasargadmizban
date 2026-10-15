@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Flame, Tags, FolderTree, ArrowLeft, Clock, Wrench } from 'lucide-react';
-import { TOOLS } from '@/lib/tools/registry';
+import { availableTools } from '@/lib/tools/available';
 import type { PostCard as PostCardData } from '@/lib/blog';
 import type { SiteInfo } from '@/lib/seo';
 import { cloudLinks } from '@/lib/seo';
@@ -47,7 +47,7 @@ export function BlogSidebar({
           <Wrench size={14} /> ابزارهای رایگان
         </p>
         <ul className="mt-3 space-y-1.5">
-          {TOOLS.slice(0, 5).map((tool) => (
+          {availableTools().slice(0, 5).map((tool) => (
             <li key={tool.slug}>
               <Link href={`/tools/${tool.slug}`} className="text-xs muted hover:text-[var(--color-brand-600)]">
                 {tool.name}

@@ -5,6 +5,7 @@ import http from 'node:http';
 import https from 'node:https';
 import { isIP } from 'node:net';
 import { ToolError, parseTarget, resolvePublic, assertPort } from './net';
+import { probeFromIran } from './iran-probe';
 
 /**
  * بررسی‌های شبکه ابزارهای رایگان. همه از روی همین سرور (داخل ایران) انجام
@@ -27,47 +28,28 @@ export type TcpResult = {
   stats: { min: number; avg: number; max: number } | null;
 };
 
-function tcpOnce(ip: string, port: number, timeoutMs: number): Promise<TcpAttempt> {
-  return new Promise((resolve) => {
-    const start = process.hrtime.bigint();
-    const socket = net.connect({ host: ip, port });
-    let done = false;
-    const finish = (attempt: TcpAttempt) => {
-      if (done) return;
-      done = true;
-      socket.destroy();
-      resolve(attempt);
-    };
-    socket.setTimeout(timeoutMs, () => finish({ ok: false, error: 'timeout' }));
-    socket.once('connect', () => finish({ ok: true, ms: round(ms(start)) }));
-    socket.once('error', (err: NodeJS.ErrnoException) => {
-      const code = err.code ?? '';
-      finish({
-        ok: false,
-        error:
-          code === 'ECONNREFUSED' || code === 'ECONNRESET'
-            ? 'refused'
-            : code === 'EHOSTUNREACH' || code === 'ENETUNREACH'
-              ? 'unreachable'
-              : code === 'ETIMEDOUT'
-                ? 'timeout'
-                : 'other',
-      });
-    });
-  });
-}
-
 export async function tcpCheck(rawTarget: string, rawPort?: number | null): Promise<TcpResult> {
   const target = parseTarget(rawTarget);
   const port = assertPort(rawPort ?? target.port, 443);
   const [first] = await resolvePublic(target.host);
 
-  const attempts: TcpAttempt[] = [];
-  for (let i = 0; i < 4; i++) {
-    attempts.push(await tcpOnce(first.address, port, 4000));
-    // اگر دو بار پشت سر هم پاسخی نیامد، ادامه دادن فقط کاربر را منتظر می‌گذارد
-    if (i === 1 && attempts.every((a) => !a.ok && a.error === 'timeout')) break;
-  }
+  // اتصال از داخل ایران انجام می‌شود، نه از سرور سایت (که خارج از ایران است)
+  const attempts: TcpAttempt[] = (await probeFromIran(first.address, port, 4, 4000)).map((r) =>
+    r.reachable
+      ? { ok: true, ms: round(r.latencyMs ?? 0) }
+      : {
+          ok: false,
+          error:
+            r.error === 'ECONNREFUSED' || r.error === 'ECONNRESET'
+              ? 'refused'
+              : r.error === 'EHOSTUNREACH' || r.error === 'ENETUNREACH'
+                ? 'unreachable'
+                : r.error === 'timeout' || r.error === 'ETIMEDOUT'
+                  ? 'timeout'
+                  : 'other',
+        },
+  );
+  if (!attempts.length) throw new ToolError('سرویس آزمایش در ایران نتیجه‌ای برنگرداند.', 502);
 
   const okTimes = attempts.flatMap((a) => (a.ok ? [a.ms] : []));
   const errors = attempts.flatMap((a) => (a.ok ? [] : [a.error]));

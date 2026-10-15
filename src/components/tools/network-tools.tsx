@@ -351,7 +351,7 @@ export function HttpTool() {
     <div className="space-y-4">
       <TargetForm value={target} onChange={setTarget} onSubmit={() => run({ target })} loading={loading} placeholder="https://example.com" label="نشانی سایت" />
       <ToolError message={error} />
-      {loading ? <p className="text-xs muted">در حال درخواست از ایران…</p> : null}
+      {loading ? <p className="text-xs muted">در حال درخواست…</p> : null}
 
       {result ? (
         <div className="space-y-3">

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { siteInfo, buildMetadata, breadcrumbSchema, itemListSchema, webPageSchema, jsonLdGraph } from '@/lib/seo';
-import { TOOLS } from '@/lib/tools/registry';
+import { availableTools } from '@/lib/tools/available';
 import { JsonLd } from '@/components/blog/json-ld';
 import { ToolGrid } from '@/components/tools/catalog';
 
@@ -9,7 +9,7 @@ export const dynamic = 'force-dynamic';
 
 const TITLE = 'ابزارهای رایگان شبکه و سرور';
 const DESCRIPTION =
-  'ابزارهای رایگان برای مدیران سرور و سایت: تست دسترسی آی‌پی از ایران، آی‌پی من، بررسی DNS و SSL، سرعت پاسخ سایت، محاسبه‌گر ساب‌نت و ساخت رمز قوی.';
+  'ابزارهای رایگان برای مدیران سرور و سایت: آی‌پی من، بررسی DNS و SSL، هدر و سرعت پاسخ سایت، محاسبه‌گر ساب‌نت، ساخت رمز قوی و تست دسترسی آی‌پی از ایران.';
 
 export async function generateMetadata(): Promise<Metadata> {
   const site = await siteInfo();
@@ -26,7 +26,7 @@ export default async function ToolsIndexPage() {
     ]),
     itemListSchema(
       site,
-      TOOLS.map((t) => ({ title: t.name, path: `/tools/${t.slug}` })),
+      availableTools().map((t) => ({ title: t.name, path: `/tools/${t.slug}` })),
     ),
   ]);
 
@@ -42,8 +42,8 @@ export default async function ToolsIndexPage() {
       <div className="mb-7 text-center">
         <h1 className="text-xl font-extrabold sm:text-2xl">{TITLE}</h1>
         <p className="mx-auto mt-2.5 max-w-2xl text-xs leading-7 muted">
-          ابزارهای شبکه از روی سروری داخل ایران اجرا می‌شوند؛ یعنی نتیجه همان چیزی است که کاربران ایرانی می‌بینند. رایگان و
-          بدون ثبت‌نام.
+          رایگان و بدون ثبت‌نام. ابزارهای شبکه از روی سرورهای ما اجرا می‌شوند و ابزار «تست دسترسی از ایران» از داخل خود
+          ایران اتصال می‌گیرد.
         </p>
       </div>
       <ToolGrid />

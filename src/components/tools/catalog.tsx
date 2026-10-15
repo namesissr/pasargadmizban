@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { Globe, Radar, Server, Lock, Gauge, Network, KeyRound, ArrowLeft } from 'lucide-react';
-import { TOOLS, type ToolDef } from '@/lib/tools/registry';
+import type { ToolDef } from '@/lib/tools/registry';
+import { availableTools } from '@/lib/tools/available';
 
 const ICONS = {
   globe: Globe,
@@ -19,7 +20,7 @@ export function ToolIcon({ icon, size = 18 }: { icon: ToolDef['icon']; size?: nu
 
 /** کارت‌های ابزارها؛ در فهرست ابزارها و پایین هر ابزار (به‌جز خودش) */
 export function ToolGrid({ exclude, compact }: { exclude?: string; compact?: boolean }) {
-  const tools = TOOLS.filter((t) => t.slug !== exclude);
+  const tools = availableTools().filter((t) => t.slug !== exclude);
   return (
     <ul className={`grid gap-3 ${compact ? 'sm:grid-cols-2 lg:grid-cols-3' : 'sm:grid-cols-2 lg:grid-cols-3'}`}>
       {tools.map((tool) => (
