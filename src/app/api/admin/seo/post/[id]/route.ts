@@ -28,8 +28,8 @@ export const GET = route(async (_req: Request, ctx: Ctx) => {
   const siteUrl = (settings.siteUrl || env.appUrl).replace(/\/+$/, '');
   const url = absoluteUrl(siteUrl, `/blog/${post.slug}`);
 
-  if (!gscConfigured()) {
-    // بدون API، از تازه‌ترین خروجی بارگذاری‌شده سرچ کنسول
+  /** آمار از تازه‌ترین خروجی بارگذاری‌شده سرچ کنسول */
+  const fromImport = async (error: string) => {
     const [totals, queries] = await Promise.all([importedPostTotals(post.id), postQueries(post)]);
     const performance =
       totals || queries
@@ -50,17 +50,22 @@ export const GET = route(async (_req: Request, ctx: Ctx) => {
       performance,
       querySource: queries?.source ?? null,
       index: null,
-      error: 'وضعیت ایندکس فقط از خود سرچ کنسول (دکمه «بررسی در سرچ کنسول») دیده می‌شود.',
+      error,
     });
-  }
+  };
+
+  const indexHint = 'وضعیت ایندکس فقط از خود سرچ کنسول (دکمه «بررسی در سرچ کنسول») دیده می‌شود.';
+  if (!gscConfigured()) return fromImport(indexHint);
 
   // بررسی وضعیت ایندکس سهمیه روزانه دارد، پس خطایش کل پاسخ را خراب نمی‌کند
-  const [performance, index] = await Promise.all([
-    pagePerformance(url, 28).catch((err) => {
-      throw err instanceof GscError ? new ApiError(err.message, err.status) : err;
-    }),
-    inspectUrl(url).catch(() => null),
-  ]);
+  let performance: Awaited<ReturnType<typeof pagePerformance>>;
+  try {
+    performance = await pagePerformance(url, 28);
+  } catch (err) {
+    // API تنظیم شده ولی کار نمی‌کند (مثلاً گوگل نشانی سرور را رد می‌کند): سراغ خروجی بارگذاری‌شده
+    return fromImport(err instanceof GscError ? `${err.message} — آمار از خروجی بارگذاری‌شده خوانده شد.` : indexHint);
+  }
+  const index = await inspectUrl(url).catch(() => null);
 
   return ok({ post, url, performance, querySource: 'api', index, error: null });
 });
