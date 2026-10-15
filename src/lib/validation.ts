@@ -269,6 +269,47 @@ export const adminSettingsSchema = z.object({
   telegramPolling: z.boolean().optional(),
   telegramAllowActions: z.boolean().optional(),
 
+  panelMode: z.enum(['full', 'blog']).optional(),
+
+  blogEnabled: z.boolean().optional(),
+  blogAutoCover: z.boolean().optional(),
+  blogAutoFigures: z.boolean().optional(),
+  blogTitle: z.string().trim().max(120).optional(),
+  blogDescription: z.string().trim().max(300).optional(),
+  blogPerPage: z.coerce.number().int().min(4).max(24).optional(),
+  blogOgImage: z.string().trim().max(300).optional(),
+  blogTwitter: z.string().trim().max(40).optional(),
+  googleSiteVerification: z.string().trim().max(200).optional(),
+  bingSiteVerification: z.string().trim().max(200).optional(),
+
+  mainSiteUrl: z.string().trim().max(200).optional(),
+  cloudUrl: z.string().trim().max(200).optional(),
+  cloudCtaLabel: z.string().trim().max(60).optional(),
+  brandTagline: z.string().trim().max(80).optional(),
+  /** کد رنگ هگز، مثل #0f62fe */
+  brandColor: z
+    .string()
+    .trim()
+    .regex(/^#?[0-9a-fA-F]{6}$/, 'کد رنگ باید شش‌رقمی هگز باشد، مثل #0f62fe.')
+    .optional(),
+
+  orgLogoUrl: z.string().trim().max(300).optional(),
+  orgSameAs: z.string().trim().max(1000).optional(),
+  defaultAuthorName: z.string().trim().max(120).optional(),
+  defaultAuthorTitle: z.string().trim().max(120).optional(),
+  defaultAuthorBio: z.string().trim().max(600).optional(),
+  homeSchemaEnabled: z.boolean().optional(),
+  indexNowKey: z.string().trim().max(64).optional(),
+  indexNowEnabled: z.boolean().optional(),
+
+  contentAutoEnabled: z.boolean().optional(),
+  contentPerDay: z.coerce.number().int().min(1).max(10).optional(),
+  contentAutoPublish: z.boolean().optional(),
+  contentMinSeoScore: z.coerce.number().int().min(0).max(100).optional(),
+  contentMinWords: z.coerce.number().int().min(300).max(5000).optional(),
+  contentFallbackCategory: z.string().trim().max(120).optional(),
+  contentRunHour: z.coerce.number().int().min(0).max(23).optional(),
+
   monitoringEnabled: z.boolean().optional(),
   monitorDefaultInterval: z.coerce.number().int().min(1).max(60).optional(),
   monitorMaxPerUser: z.coerce.number().int().min(0).max(1000).optional(),

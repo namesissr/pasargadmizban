@@ -1,11 +1,14 @@
 import type { Metadata } from 'next';
 import { PageHeader } from '@/components/app/shell';
+import { requireFullPanel } from '@/lib/panel-mode';
 import { HetznerAccountsClient } from './client';
 
 export const metadata: Metadata = { title: 'حساب‌های هتزنر' };
 export const dynamic = 'force-dynamic';
 
-export default function AdminHetznerPage() {
+export default async function AdminHetznerPage() {
+  // روی نصب «فقط وبلاگ» این بخش وجود ندارد
+  await requireFullPanel();
   return (
     <>
       <PageHeader

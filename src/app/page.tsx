@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import type { Metadata } from 'next';
 import {
-  Server,
   Zap,
   ShieldCheck,
   Radar,
@@ -15,22 +14,74 @@ import {
   ArrowLeft,
   Check,
   Globe,
+  BookOpen,
+  CalendarDays,
 } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
+import { latestPosts } from '@/lib/blog';
+import {
+  siteInfo,
+  buildMetadata,
+  organizationSchema,
+  websiteSchema,
+  webPageSchema,
+  faqSchema,
+  plansSchema,
+  jsonLdGraph,
+} from '@/lib/seo';
+import { JsonLd } from '@/components/blog/json-ld';
 import { getSettings } from '@/lib/settings';
 import { buildCatalogPrices } from '@/lib/pricing';
 import { locationReachability } from '@/lib/ip-prefix';
 import { formatToman, formatNumber, formatTraffic } from '@/lib/money';
-import { locationFa, cn } from '@/lib/utils';
+import { locationFa, cn, faDate } from '@/lib/utils';
+import { SiteHeader, SiteFooter } from '@/components/site/chrome';
+import { BrandStyle } from '@/components/site/brand-style';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata: Metadata = {
-  title: 'پاسارگاد میزبان — سرور ابری با پرداخت ریالی',
-  description:
-    'سرور ابری آلمان و فنلاند با پرداخت ساعتی و ماهانه به تومان. تحویل زیر یک دقیقه، آی‌پی تست‌شده از ایران و تعویض آی‌پی.',
-  robots: { index: true, follow: true },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const site = await siteInfo();
+
+  // صفحه اصلی قوی‌ترین صفحه سایت است: canonical، کارت اشتراک‌گذاری و کد
+  // تأیید سرچ کنسول همه از تنظیمات پنل خوانده می‌شوند
+  return buildMetadata({
+    site,
+    title: `${site.brandName} — سرور ابری با پرداخت ریالی`,
+    description:
+      'سرور ابری آلمان و فنلاند با پرداخت ساعتی و ماهانه به تومان. تحویل زیر یک دقیقه، آی‌پی تست‌شده از ایران و تعویض آی‌پی.',
+    path: '/',
+    keywords: [
+      'سرور ابری',
+      'خرید سرور مجازی',
+      'سرور مجازی آلمان',
+      'سرور ابری ایران',
+      'هتزنر',
+      'VPS ارزان',
+      'پرداخت ریالی سرور',
+    ],
+  });
+}
+
+/** پرسش‌های پرتکرار صفحه اصلی — هم نمایش داده می‌شوند و هم داده ساخت‌یافته می‌سازند */
+const HOME_FAQS = [
+  {
+    q: 'اگر آی‌پی سرورم فیلتر شود چه می‌شود؟',
+    a: 'آی‌پی هر سرور تازه پیش از تحویل از داخل ایران تست می‌شود و اگر باز نشود، پنل خودش رایگان عوضش می‌کند. بعداً هم هر وقت فیلتر شد، از پنل با یک کلیک آی‌پی تازه می‌گیرید؛ تا ۴۸ ساعت اول رایگان است.',
+  },
+  {
+    q: 'پرداخت ساعتی یعنی چه؟',
+    a: 'سرور را هر وقت خواستید بسازید و هر وقت خواستید حذف کنید؛ فقط برای ساعت‌هایی که سرور داشتید از کیف پولتان کسر می‌شود. سقف پرداخت هر ماه هم از قیمت ماهانه پلن بیشتر نمی‌شود.',
+  },
+  {
+    q: 'سرور چقدر طول می‌کشد آماده شود؟',
+    a: 'ساخت کاملاً خودکار است و معمولاً کمتر از یک دقیقه طول می‌کشد. مشخصات اتصال همان لحظه در پنل و ایمیل شما قرار می‌گیرد.',
+  },
+  {
+    q: 'اگر وسط ماه سرور را حذف کنم پولم چه می‌شود؟',
+    a: 'در پلن ماهانه، هزینه روزهای استفاده‌نشده به کیف پولتان برمی‌گردد. در پلن ساعتی هم فقط تا همان ساعت حساب می‌شود.',
+  },
+];
 
 const MIN_REACH_SAMPLES = 10;
 
@@ -39,9 +90,11 @@ export default async function HomePage() {
   if (user) redirect(user.role === 'USER' ? '/dashboard' : '/admin');
 
   const settings = await getSettings();
-  const [catalog, reachability] = await Promise.all([
+  const site = await siteInfo();
+  const [catalog, reachability, posts] = await Promise.all([
     buildCatalogPrices().catch(() => null),
     locationReachability().catch(() => []),
+    settings.blogEnabled ? latestPosts(3).catch(() => []) : Promise.resolve([]),
   ]);
 
   const reachMap = new Map(
@@ -81,30 +134,37 @@ export default async function HomePage() {
 
   const brand = settings.brandName;
 
+  /**
+   * داده ساخت‌یافته صفحه اصلی: سازمان و سایت (برای شناخته شدن برند)،
+   * پرسش‌های پرتکرار (شانس کارت بازشو) و پلن‌ها با قیمت (شانس نمایش قیمت).
+   */
+  const homeJsonLd = site.homeSchema
+    ? jsonLdGraph([
+        organizationSchema(site),
+        websiteSchema(site),
+        webPageSchema(site, {
+          path: '/',
+          name: `${brand} — سرور ابری با پرداخت ریالی`,
+          description:
+            'سرور ابری آلمان و فنلاند با پرداخت ساعتی و ماهانه به تومان، تحویل خودکار زیر یک دقیقه و آی‌پی تست‌شده از ایران.',
+        }),
+        faqSchema(HOME_FAQS),
+        plansSchema(
+          site,
+          plans.map((plan) => ({
+            name: plan.name,
+            monthly: plan.monthly,
+            description: `${plan.cores} هسته پردازنده، ${plan.memory} گیگابایت رم، ${plan.disk} گیگابایت فضای NVMe و ${formatTraffic(plan.traffic)} ترافیک ماهانه`,
+          })),
+        ),
+      ])
+    : null;
+
   return (
     <div className="min-h-screen">
-      {/* ── سربرگ ── */}
-      <header className="sticky top-0 z-40 border-b" style={{ background: 'color-mix(in srgb, var(--surface) 90%, transparent)', backdropFilter: 'blur(8px)' }}>
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--color-brand-600)] text-white">
-              <Server size={17} />
-            </span>
-            <span className="leading-tight">
-              <span className="block text-sm font-extrabold">{brand}</span>
-              <span className="block text-[11px] muted">سرور ابری با پرداخت ریالی</span>
-            </span>
-          </div>
-          <nav className="flex items-center gap-2">
-            <Link href="/login" className="btn btn-ghost btn-sm">
-              ورود
-            </Link>
-            <Link href="/register" className="btn btn-primary btn-sm">
-              ثبت‌نام رایگان
-            </Link>
-          </nav>
-        </div>
-      </header>
+      {homeJsonLd ? <JsonLd json={homeJsonLd} /> : null}
+      <BrandStyle color={site.brandColor} />
+      <SiteHeader site={site} />
 
       <main className="mx-auto max-w-6xl px-4">
         {/* ── قهرمان ── */}
@@ -277,24 +337,7 @@ export default async function HomePage() {
         <section className="mx-auto max-w-2xl py-10">
           <h2 className="text-center text-xl font-extrabold">پرسش‌های پرتکرار</h2>
           <div className="mt-6 space-y-2.5">
-            {[
-              {
-                q: 'اگر آی‌پی سرورم فیلتر شود چه می‌شود؟',
-                a: 'آی‌پی هر سرور تازه پیش از تحویل از داخل ایران تست می‌شود و اگر باز نشود، پنل خودش رایگان عوضش می‌کند. بعداً هم هر وقت فیلتر شد، از پنل با یک کلیک آی‌پی تازه می‌گیرید؛ تا ۴۸ ساعت اول رایگان است.',
-              },
-              {
-                q: 'پرداخت ساعتی یعنی چه؟',
-                a: 'سرور را هر وقت خواستید بسازید و هر وقت خواستید حذف کنید؛ فقط برای ساعت‌هایی که سرور داشتید از کیف پولتان کسر می‌شود. سقف پرداخت هر ماه هم از قیمت ماهانه پلن بیشتر نمی‌شود.',
-              },
-              {
-                q: 'سرور چقدر طول می‌کشد آماده شود؟',
-                a: 'ساخت کاملاً خودکار است و معمولاً کمتر از یک دقیقه طول می‌کشد. مشخصات اتصال همان لحظه در پنل و ایمیل شما قرار می‌گیرد.',
-              },
-              {
-                q: 'اگر وسط ماه سرور را حذف کنم پولم چه می‌شود؟',
-                a: 'در پلن ماهانه، هزینه روزهای استفاده‌نشده به کیف پولتان برمی‌گردد. در پلن ساعتی هم فقط تا همان ساعت حساب می‌شود.',
-              },
-            ].map((item) => (
+            {HOME_FAQS.map((item) => (
               <details key={item.q} className="card group p-4">
                 <summary className="cursor-pointer list-none text-sm font-bold">{item.q}</summary>
                 <p className="mt-2.5 text-xs leading-7 muted">{item.a}</p>
@@ -302,6 +345,49 @@ export default async function HomePage() {
             ))}
           </div>
         </section>
+
+        {/* ── آخرین مقاله‌های وبلاگ ── */}
+        {posts.length > 0 ? (
+          <section className="py-10" aria-labelledby="blog-heading">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 id="blog-heading" className="flex items-center gap-2 text-xl font-extrabold">
+                  <BookOpen size={18} /> از وبلاگ ما
+                </h2>
+                <p className="mt-2 text-xs leading-7 muted">
+                  آموزش و تجربه‌های واقعی راه‌اندازی سرور، به زبان ساده.
+                </p>
+              </div>
+              <Link href="/blog" className="btn btn-secondary btn-sm">
+                همه مقاله‌ها <ArrowLeft size={14} />
+              </Link>
+            </div>
+
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {posts.map((post) => (
+                <article key={post.id} className="card flex flex-col p-4">
+                  {post.category ? (
+                    <span className="text-[11px] font-bold text-[var(--color-brand-600)]">{post.category.name}</span>
+                  ) : null}
+                  <h3 className="mt-1.5 text-sm font-bold leading-7">
+                    <Link href={`/blog/${post.slug}`} className="hover:text-[var(--color-brand-600)]">
+                      {post.title}
+                    </Link>
+                  </h3>
+                  <p className="mt-2 line-clamp-3 flex-1 text-xs leading-6 muted">{post.excerpt}</p>
+                  <div className="mt-3 flex items-center gap-3 border-t pt-2.5 text-[11px] muted">
+                    <span className="flex items-center gap-1">
+                      <CalendarDays size={12} /> {faDate(post.publishedAt)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock size={12} /> {post.readingMinutes} دقیقه
+                    </span>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         {/* ── دعوت پایانی ── */}
         <section className="py-12 text-center">
@@ -317,10 +403,7 @@ export default async function HomePage() {
         </section>
       </main>
 
-      <footer className="border-t py-6 text-center text-[11px] muted">
-        {brand} — تمامی حقوق محفوظ است.
-        {settings.supportEmail ? <span className="ltr mx-1 inline-block">{settings.supportEmail}</span> : null}
-      </footer>
+      <SiteFooter site={site} />
     </div>
   );
 }

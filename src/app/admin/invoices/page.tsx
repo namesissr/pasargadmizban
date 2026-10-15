@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { requireStaff } from '@/lib/auth';
 import { Badge, Card, EmptyState } from '@/components/ui';
 import { PageHeader } from '@/components/app/shell';
+import { requireFullPanel } from '@/lib/panel-mode';
 import { formatToman, formatNumber } from '@/lib/money';
 import { faDate, INVOICE_STATUS_FA } from '@/lib/utils';
 import { Receipt } from 'lucide-react';
@@ -12,6 +13,8 @@ export const metadata: Metadata = { title: 'فاکتورها' };
 export const dynamic = 'force-dynamic';
 
 export default async function AdminInvoicesPage() {
+  // روی نصب «فقط وبلاگ» این بخش وجود ندارد
+  await requireFullPanel();
   await requireStaff();
 
   const [invoices, totals] = await Promise.all([

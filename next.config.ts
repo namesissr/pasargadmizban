@@ -3,7 +3,8 @@ import type { NextConfig } from 'next';
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  serverExternalPackages: ['bcryptjs', '@prisma/client'],
+  // ماژول‌های بومی (native) باید بیرون از باندل بمانند
+  serverExternalPackages: ['bcryptjs', '@prisma/client', '@resvg/resvg-js', 'sharp'],
   experimental: {
     optimizePackageImports: ['lucide-react', 'recharts'],
   },

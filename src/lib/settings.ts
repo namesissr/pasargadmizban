@@ -160,6 +160,88 @@ export type SettingsShape = {
   /** هر چند ساعت یک بار کاتالوگ و موجودی پلن‌ها از هتزنر تازه شود */
   catalogSyncIntervalHours: number;
 
+  // ─── حالت پنل ───
+  /**
+   * full = پنل کامل فروش سرور · blog = نصب فقط وبلاگ.
+   * در حالت blog همه بخش‌های سرور، هتزنر و مالی از پنل مدیریت برداشته
+   * می‌شوند و جایشان پنل وبلاگ می‌نشیند. متغیر محیطی APP_MODE بر این
+   * تنظیم اولویت دارد.
+   */
+  panelMode: string;
+
+  // ─── وبلاگ و سئو ───
+  /** نمایش وبلاگ روی سایت عمومی */
+  blogEnabled: boolean;
+  /** عنوان صفحه فهرست وبلاگ؛ خالی یعنی «وبلاگ + نام برند» */
+  blogTitle: string;
+  /** توضیح متای صفحه فهرست وبلاگ */
+  blogDescription: string;
+  /** تعداد مقاله در هر صفحه فهرست */
+  blogPerPage: number;
+  /** تصویر پیش‌فرض اشتراک‌گذاری (OG) برای صفحه‌هایی که تصویر شاخص ندارند */
+  blogOgImage: string;
+  /** شناسه شبکه اجتماعی برای کارت اشتراک‌گذاری، مثل @pasargadmizban */
+  blogTwitter: string;
+  /** مقاله بی‌تصویر، خودکار کاور طراحی‌شده با عنوان و رنگ برند بگیرد */
+  blogAutoCover: boolean;
+  /** مقاله‌ای که نمودار ندارد، یک نمودار خودکار از ساختار خودش بگیرد */
+  blogAutoFigures: boolean;
+  /** کد تأیید مالکیت گوگل سرچ کنسول (مقدار محتوای متاتگ) */
+  googleSiteVerification: string;
+  /** کد تأیید مالکیت بینگ وبمستر */
+  bingSiteVerification: string;
+
+  /**
+   * نشانی سایت اصلی برند (مثل https://pasargadmizban.com).
+   * لوگوی سربرگ و لینک «صفحه اصلی» به اینجا می‌رود. خالی یعنی همین سایت.
+   */
+  mainSiteUrl: string;
+  /**
+   * نشانی پنل ابری که کاربر در آن ثبت‌نام و سرور می‌سازد
+   * (مثل https://cloud.pasargadmizban.com). همه دکمه‌های فروش وبلاگ و
+   * لینک‌های داخلی مقاله‌ها به این آدرس می‌روند.
+   */
+  cloudUrl: string;
+  /** متن دکمه اصلی فروش در وبلاگ */
+  cloudCtaLabel: string;
+  /** یک خط توضیح زیر نام برند در سربرگ */
+  brandTagline: string;
+  /** رنگ اصلی برند به هگز؛ طیف کامل رنگ از همین ساخته می‌شود */
+  brandColor: string;
+
+  /** نشانی لوگوی سازمان برای داده ساخت‌یافته (۱۱۲×۱۱۲ یا بزرگ‌تر) */
+  orgLogoUrl: string;
+  /** نشانی شبکه‌های اجتماعی، هر خط یکی — به گوگل کمک می‌کند برند را یک موجودیت بشناسد */
+  orgSameAs: string;
+  /** نویسنده پیش‌فرض مقاله‌ها (اعتبار نویسنده در ارزیابی کیفیت گوگل) */
+  defaultAuthorName: string;
+  defaultAuthorTitle: string;
+  defaultAuthorBio: string;
+  /** داده ساخت‌یافته پرسش‌های پرتکرار و پلن‌ها روی صفحه اصلی */
+  homeSchemaEnabled: boolean;
+  /** کلید IndexNow — اعلام فوری آدرس تازه به بینگ و یاندکس */
+  indexNowKey: string;
+  indexNowEnabled: boolean;
+
+  // ─── تولید خودکار محتوا ───
+  /** خط تولید روزانه مقاله فعال باشد */
+  contentAutoEnabled: boolean;
+  /** چند مقاله در هر اجرای روزانه ساخته شود */
+  contentPerDay: number;
+  /** مقاله‌های ساخته‌شده خودکار منتشر شوند یا پیش‌نویس بمانند تا تأیید کنید */
+  contentAutoPublish: boolean;
+  /** مقاله با امتیاز سئوی کمتر از این عدد منتشر نمی‌شود */
+  contentMinSeoScore: number;
+  /**
+   * حداقل شمار کلمه مقاله. شمارش روی متن خالی انجام می‌شود و بلوک کد و
+   * جدول در آن حساب نمی‌شوند، پس عدد واقعی مقاله معمولاً بیشتر است.
+   */
+  contentMinWords: number;
+  /** اگر موضوع به هیچ دسته‌ای نخورد، در این دسته می‌رود (نشانی دسته) */
+  contentFallbackCategory: string;
+  /** ساعت اجرای روزانه به وقت تهران (۰ تا ۲۳) */
+  contentRunHour: number;
+
   // ─── سرور ایمیل (SMTP) ───
   // اگر میزبان خالی باشد، مقادیر فایل .env استفاده می‌شوند (سازگاری با نسخه قدیمی)
   smtpHost: string;
@@ -270,6 +352,43 @@ export const DEFAULT_SETTINGS: SettingsShape = {
   catalogAutoSyncEnabled: true,
   catalogSyncIntervalHours: 1,
 
+  panelMode: 'full',
+
+  blogEnabled: true,
+  blogAutoCover: true,
+  blogAutoFigures: true,
+  blogTitle: '',
+  blogDescription: '',
+  blogPerPage: 9,
+  blogOgImage: '',
+  blogTwitter: '',
+  googleSiteVerification: '',
+  bingSiteVerification: '',
+
+  mainSiteUrl: '',
+  cloudUrl: '',
+  cloudCtaLabel: 'ساخت سرور ساعتی',
+  brandTagline: 'سرور ساعتی ایران و خارج',
+  brandColor: '#17b19a',
+
+  orgLogoUrl: '',
+  orgSameAs: '',
+  defaultAuthorName: '',
+  defaultAuthorTitle: 'مهندسی زیرساخت',
+  defaultAuthorBio: '',
+  homeSchemaEnabled: true,
+  indexNowKey: '',
+  indexNowEnabled: true,
+
+  // تولید خودکار روزانه روشن است؛ مدیر سایت صریحاً خواسته است
+  contentAutoEnabled: true,
+  contentPerDay: 3,
+  contentAutoPublish: true,
+  contentMinSeoScore: 80,
+  contentMinWords: 700,
+  contentFallbackCategory: '',
+  contentRunHour: 4,
+
   smtpHost: '',
   smtpPort: 587,
   smtpSecure: false,
@@ -329,6 +448,7 @@ export function invalidateSettingsCache() {
 }
 
 function groupOf(key: string): string {
+  if (key === 'panelMode') return 'panel';
   if (['eurRate', 'markupPercent', 'markupFixed', 'vatPercent', 'roundMonthly', 'roundHourly', 'trafficOveragePerTb'].includes(key))
     return 'pricing';
   if (['minTopup', 'maxTopup', 'hourlyPrepayHours'].includes(key)) return 'billing';
@@ -349,6 +469,11 @@ function groupOf(key: string): string {
   if (key.startsWith('weeklyReport')) return 'reports';
   if (key.startsWith('catalog')) return 'catalog';
   if (key.startsWith('smtp')) return 'smtp';
+  if (key.startsWith('blog') || key.endsWith('SiteVerification')) return 'blog';
+  if (key.startsWith('content')) return 'content';
+  if (key.startsWith('org') || key.startsWith('defaultAuthor') || key.startsWith('indexNow') || key === 'homeSchemaEnabled')
+    return 'seo';
+  if (['mainSiteUrl', 'cloudUrl', 'cloudCtaLabel', 'brandTagline', 'brandColor'].includes(key)) return 'brand';
   if (key.startsWith('channel') || key.startsWith('default')) return 'notifications';
   return 'general';
 }

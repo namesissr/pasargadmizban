@@ -49,14 +49,14 @@ model User {
   twoFactorSecret   String?
   twoFactorRecovery Json    @default("[]")
 
-  maxServers  Int     @default(20)
-  discountPct Int     @default(0)
+  maxServers  Int @default(20)
+  discountPct Int @default(0)
 
   // باشگاه مشتریان: از مجموع مصرف واقعی محاسبه و روزانه تازه می‌شود
-  loyaltySpend BigInt @default(0)
-  loyaltyTier  String @default("BRONZE")
-  loyaltyPct   Int    @default(0)
-  notes       String?
+  loyaltySpend BigInt  @default(0)
+  loyaltyTier  String  @default("BRONZE")
+  loyaltyPct   Int     @default(0)
+  notes        String?
 
   referralCode String? @unique
   referredById String?
@@ -90,10 +90,11 @@ model User {
   telegramLink           TelegramLink?
   telegramCodes          TelegramLinkCode[]
   monitors               ServerMonitor[]
-  commissionsEarned      ReferralCommission[] @relation("CommissionEarned")
-  commissionsGenerated   ReferralCommission[] @relation("CommissionGenerated")
-  transfersSent          ServerTransfer[]     @relation("TransfersSent")
-  transfersReceived      ServerTransfer[]     @relation("TransfersReceived")
+  commissionsEarned      ReferralCommission[]    @relation("CommissionEarned")
+  commissionsGenerated   ReferralCommission[]    @relation("CommissionGenerated")
+  transfersSent          ServerTransfer[]        @relation("TransfersSent")
+  transfersReceived      ServerTransfer[]        @relation("TransfersReceived")
+  blogPosts              BlogPost[]
 
   @@index([status])
   @@index([createdAt])
@@ -295,7 +296,9 @@ model Server {
   ipv6        String?
   ipv6Network String?
   privateNet  Json    @default("[]")
-  /** شناسه Primary IP در هتزنر — برای تعویض آدرس لازم است */
+  /**
+   * شناسه Primary IP در هتزنر — برای تعویض آدرس لازم است
+   */
   primaryIpId BigInt?
 
   rootPasswordEnc String?
@@ -333,12 +336,16 @@ model Server {
   meta           Json    @default("{}")
 
   // نتیجه بررسی در دسترس بودن آدرس از داخل ایران
-  ipReachState    IpReachState @default(UNKNOWN)
-  ipCheckedAt     DateTime?
-  /** چند دور بررسی پیاپی ناموفق بوده — برای تصمیم‌گیری درباره تعویض خودکار */
-  ipCheckRounds   Int          @default(0)
-  /** چند بار پنل خودش آدرس این سرور را رایگان عوض کرده */
-  ipAutoSwaps     Int          @default(0)
+  ipReachState  IpReachState @default(UNKNOWN)
+  ipCheckedAt   DateTime?
+  /**
+   * چند دور بررسی پیاپی ناموفق بوده — برای تصمیم‌گیری درباره تعویض خودکار
+   */
+  ipCheckRounds Int          @default(0)
+  /**
+   * چند بار پنل خودش آدرس این سرور را رایگان عوض کرده
+   */
+  ipAutoSwaps   Int          @default(0)
 
   actions      ServerAction[]
   traffic      TrafficUsage[]
@@ -373,20 +380,22 @@ enum TransferStatus {
   EXPIRED
 }
 
-/** انتقال مالکیت سرور بین کاربران — با تأیید گیرنده */
+/**
+ * انتقال مالکیت سرور بین کاربران — با تأیید گیرنده
+ */
 model ServerTransfer {
-  id         String         @id @default(cuid())
-  serverId   String
-  server     Server         @relation(fields: [serverId], references: [id], onDelete: Cascade)
-  fromUserId String
-  fromUser   User           @relation("TransfersSent", fields: [fromUserId], references: [id], onDelete: Cascade)
-  toUserId   String
-  toUser     User           @relation("TransfersReceived", fields: [toUserId], references: [id], onDelete: Cascade)
-  status     TransferStatus @default(PENDING)
-  note       String?
-  createdAt  DateTime       @default(now())
+  id          String         @id @default(cuid())
+  serverId    String
+  server      Server         @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  fromUserId  String
+  fromUser    User           @relation("TransfersSent", fields: [fromUserId], references: [id], onDelete: Cascade)
+  toUserId    String
+  toUser      User           @relation("TransfersReceived", fields: [toUserId], references: [id], onDelete: Cascade)
+  status      TransferStatus @default(PENDING)
+  note        String?
+  createdAt   DateTime       @default(now())
   respondedAt DateTime?
-  expiresAt  DateTime
+  expiresAt   DateTime
 
   @@index([toUserId, status])
   @@index([fromUserId, status])
@@ -463,19 +472,19 @@ model SshKeyRemote {
 }
 
 model Snapshot {
-  id             String    @id @default(cuid())
+  id             String          @id @default(cuid())
   userId         String
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   serverId       String?
-  server         Server?   @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  server         Server?         @relation(fields: [serverId], references: [id], onDelete: SetNull)
   hetznerImageId BigInt
   accountId      String?
   account        HetznerAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   description    String
-  sizeGb         Float     @default(0)
-  priceMonthly   BigInt    @default(0)
+  sizeGb         Float           @default(0)
+  priceMonthly   BigInt          @default(0)
   lastBilledAt   DateTime?
-  createdAt      DateTime  @default(now())
+  createdAt      DateTime        @default(now())
 
   @@unique([accountId, hetznerImageId])
   @@index([userId])
@@ -483,21 +492,21 @@ model Snapshot {
 }
 
 model FloatingIp {
-  id           String    @id @default(cuid())
+  id           String          @id @default(cuid())
   userId       String
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   hetznerId    BigInt
   accountId    String?
   account      HetznerAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  type         String    @default("ipv4")
+  type         String          @default("ipv4")
   ip           String
   locationName String
   description  String?
   serverId     String?
-  server       Server?   @relation(fields: [serverId], references: [id], onDelete: SetNull)
-  priceMonthly BigInt    @default(0)
+  server       Server?         @relation(fields: [serverId], references: [id], onDelete: SetNull)
+  priceMonthly BigInt          @default(0)
   lastBilledAt DateTime?
-  createdAt    DateTime  @default(now())
+  createdAt    DateTime        @default(now())
 
   @@unique([accountId, hetznerId])
   @@index([userId])
@@ -505,17 +514,17 @@ model FloatingIp {
 }
 
 model Firewall {
-  id        String   @id @default(cuid())
+  id        String          @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
   hetznerId BigInt
   accountId String?
   account   HetznerAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   name      String
-  rules     Json     @default("[]")
-  appliedTo Json     @default("[]")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  rules     Json            @default("[]")
+  appliedTo Json            @default("[]")
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
 
   @@unique([accountId, hetznerId])
   @@index([userId])
@@ -831,7 +840,9 @@ model NotificationPreference {
   monitorEvents Boolean @default(true)
   newsEvents    Boolean @default(true)
 
-  /** گزارش هفتگی مصرف و هزینه با ایمیل */
+  /**
+   * گزارش هفتگی مصرف و هزینه با ایمیل
+   */
   weeklyReport Boolean @default(true)
 
   // ساعات سکوت (اعلان داخل پنل ثبت می‌شود ولی پیام بیرونی ارسال نمی‌شود)
@@ -977,22 +988,34 @@ enum AccountStatus {
 model HetznerAccount {
   id        String @id @default(cuid())
   name      String
-  /** توکن API با AES-256-GCM رمزنگاری می‌شود */
+  /**
+   * توکن API با AES-256-GCM رمزنگاری می‌شود
+   */
   tokenEnc  String
-  /** چند حرف آخر توکن برای شناسایی در پنل */
+  /**
+   * چند حرف آخر توکن برای شناسایی در پنل
+   */
   tokenHint String
 
-  enabled  Boolean @default(true)
-  /** عدد کوچک‌تر یعنی اولویت بالاتر برای ساخت سرور */
-  priority Int     @default(0)
-  /** سقف تعداد سرور این پروژه در هتزنر */
-  maxServers Int   @default(10)
-  note     String?
+  enabled    Boolean @default(true)
+  /**
+   * عدد کوچک‌تر یعنی اولویت بالاتر برای ساخت سرور
+   */
+  priority   Int     @default(0)
+  /**
+   * سقف تعداد سرور این پروژه در هتزنر
+   */
+  maxServers Int     @default(10)
+  note       String?
 
   status        AccountStatus @default(UNKNOWN)
-  /** تعداد سروری که هتزنر برای این پروژه گزارش می‌کند */
+  /**
+   * تعداد سروری که هتزنر برای این پروژه گزارش می‌کند
+   */
   serverCount   Int           @default(0)
-  /** تعداد سرورهایی که از طریق همین پنل ساخته شده‌اند */
+  /**
+   * تعداد سرورهایی که از طریق همین پنل ساخته شده‌اند
+   */
   panelCount    Int           @default(0)
   rateRemaining Int?
   lastCheckedAt DateTime?
@@ -1022,30 +1045,45 @@ enum IpChangeStatus {
   FAILED
 }
 
-/** نتیجه بررسی اینکه آدرس سرور از داخل ایران باز می‌شود یا نه */
+/**
+ * نتیجه بررسی اینکه آدرس سرور از داخل ایران باز می‌شود یا نه
+ */
 enum IpReachState {
-  /** هنوز بررسی نشده */
+  /**
+   * هنوز بررسی نشده
+   */
   UNKNOWN
-  /** از ایران در دسترس است */
+  /**
+   * از ایران در دسترس است
+   */
   OK
-  /** از ایران در دسترس نیست */
+  /**
+   * از ایران در دسترس نیست
+   */
   BLOCKED
-  /** بررسی به نتیجه قطعی نرسید (سرویس آزمایش در دسترس نبود) */
+  /**
+   * بررسی به نتیجه قطعی نرسید (سرویس آزمایش در دسترس نبود)
+   */
   INCONCLUSIVE
-  /** بررسی غیرفعال است */
+  /**
+   * بررسی غیرفعال است
+   */
   SKIPPED
 }
 
 enum PromoKind {
-  /** اعتبار هدیه: با وارد کردن کد، مبلغ مستقیم به کیف پول می‌رود */
+  /**
+   * اعتبار هدیه: با وارد کردن کد، مبلغ مستقیم به کیف پول می‌رود
+   */
   GIFT
-  /** درصد شارژ بیشتر: هنگام شارژ موفق، درصدی اضافه هدیه می‌گیرد */
+  /**
+   * درصد شارژ بیشتر: هنگام شارژ موفق، درصدی اضافه هدیه می‌گیرد
+   */
   TOPUP_BONUS
 }
 
 /**
  * کد هدیه و تخفیف — ابزار بازاریابی.
- *
  * مدیر کد می‌سازد و در کانال تلگرام یا کمپین پخش می‌کند؛ کاربر یا آن را در کیف
  * پول وارد می‌کند (هدیه مستقیم) یا هنگام شارژ می‌زند (درصد شارژ بیشتر). سقف
  * استفاده کل و هر کاربر، حداقل مبلغ شارژ و بازه اعتبار قابل تنظیم است.
@@ -1055,21 +1093,35 @@ model PromoCode {
   code String    @unique
   kind PromoKind
 
-  /** مبلغ هدیه (تومان) برای GIFT */
-  amount BigInt @default(0)
-  /** درصد شارژ بیشتر برای TOPUP_BONUS */
-  percent Float @default(0)
-  /** سقف مبلغ هدیه در هر استفاده برای TOPUP_BONUS — صفر یعنی بدون سقف */
+  /**
+   * مبلغ هدیه (تومان) برای GIFT
+   */
+  amount   BigInt @default(0)
+  /**
+   * درصد شارژ بیشتر برای TOPUP_BONUS
+   */
+  percent  Float  @default(0)
+  /**
+   * سقف مبلغ هدیه در هر استفاده برای TOPUP_BONUS — صفر یعنی بدون سقف
+   */
   maxBonus BigInt @default(0)
-  /** حداقل مبلغ شارژ برای TOPUP_BONUS */
+  /**
+   * حداقل مبلغ شارژ برای TOPUP_BONUS
+   */
   minTopup BigInt @default(0)
 
-  /** سقف کل استفاده — صفر یعنی نامحدود */
-  maxUses   Int @default(0)
-  usedCount Int @default(0)
-  /** هر کاربر چند بار می‌تواند استفاده کند */
-  perUser   Int @default(1)
-  /** فقط برای نخستین شارژ کاربر */
+  /**
+   * سقف کل استفاده — صفر یعنی نامحدود
+   */
+  maxUses        Int     @default(0)
+  usedCount      Int     @default(0)
+  /**
+   * هر کاربر چند بار می‌تواند استفاده کند
+   */
+  perUser        Int     @default(1)
+  /**
+   * فقط برای نخستین شارژ کاربر
+   */
   firstTopupOnly Boolean @default(false)
 
   active    Boolean   @default(true)
@@ -1090,9 +1142,13 @@ model PromoRedemption {
   code   PromoCode @relation(fields: [codeId], references: [id], onDelete: Cascade)
   userId String
 
-  /** مبلغی که به کیف پول کاربر اضافه شد */
+  /**
+   * مبلغی که به کیف پول کاربر اضافه شد
+   */
   amount        BigInt
-  /** تراکنش شارژی که این پاداش به آن تعلق گرفت (برای TOPUP_BONUS) */
+  /**
+   * تراکنش شارژی که این پاداش به آن تعلق گرفت (برای TOPUP_BONUS)
+   */
   transactionId String?
 
   createdAt DateTime @default(now())
@@ -1104,7 +1160,6 @@ model PromoRedemption {
 
 /**
  * تاریخچه دریافت خودکار نرخ یورو.
- *
  * هر بار که سیستم نرخ را از منبع بیرونی می‌گیرد، اینجا ثبت می‌شود: چه عددی
  * خوانده شد، پس از اعمال حاشیه چه عددی اعمال شد، و اگر رد شد چرا. این تاریخچه
  * هم برای عیب‌یابی است و هم برای اینکه مدیر ببیند قیمت‌ها کی و چطور عوض شده‌اند.
@@ -1112,16 +1167,24 @@ model PromoRedemption {
 model EurRateLog {
   id String @id @default(cuid())
 
-  /** نرخ خامی که از منبع خوانده شد (تومان) */
-  fetchedRate Int
-  /** نرخی که پس از حاشیه و گرد کردن اعمال شد — تهی یعنی اعمال نشد */
-  appliedRate Int?
-  /** نرخ قبلی پنل در لحظه دریافت */
+  /**
+   * نرخ خامی که از منبع خوانده شد (تومان)
+   */
+  fetchedRate  Int
+  /**
+   * نرخی که پس از حاشیه و گرد کردن اعمال شد — تهی یعنی اعمال نشد
+   */
+  appliedRate  Int?
+  /**
+   * نرخ قبلی پنل در لحظه دریافت
+   */
   previousRate Int
 
   source  String
   applied Boolean @default(false)
-  /** علت رد شدن یا خطا */
+  /**
+   * علت رد شدن یا خطا
+   */
   error   String?
 
   createdAt DateTime @default(now())
@@ -1132,7 +1195,6 @@ model EurRateLog {
 
 /**
  * حافظه سلامت رنج‌های آدرس.
- *
  * فیلترینگ ایران معمولاً کل یک بلوک /24 را می‌بندد، نه یک آدرس تنها. پس هر بار که
  * آدرسی باز یا بسته دیده می‌شود، نتیجه روی همان بلوک ثبت می‌شود. با گذشت زمان پنل
  * می‌فهمد کدام رنج‌های هتزنر برای ایران مرده‌اند و دیگر سراغشان نمی‌رود.
@@ -1140,7 +1202,9 @@ model EurRateLog {
 enum EmailStatus {
   SENT
   FAILED
-  /** تنظیمات SMTP موجود نبود و ارسال انجام نشد */
+  /**
+   * تنظیمات SMTP موجود نبود و ارسال انجام نشد
+   */
   SKIPPED
 }
 
@@ -1149,12 +1213,14 @@ enum EmailStatus {
  * محتوای ایمیل ذخیره نمی‌شود؛ فقط گیرنده، موضوع و نتیجه.
  */
 model EmailLog {
-  id      String      @id @default(cuid())
-  to      String
-  subject String
-  status  EmailStatus
-  error   String?
-  /** کدام سرور SMTP استفاده شد (میزبان، بدون رمز) */
+  id       String      @id @default(cuid())
+  to       String
+  subject  String
+  status   EmailStatus
+  error    String?
+  /**
+   * کدام سرور SMTP استفاده شد (میزبان، بدون رمز)
+   */
   smtpHost String?
 
   createdAt DateTime @default(now())
@@ -1166,7 +1232,9 @@ model EmailLog {
 
 model IpPrefixHealth {
   id     String @id @default(cuid())
-  /** سه بخش نخست آدرس، مثل «95.216.181» */
+  /**
+   * سه بخش نخست آدرس، مثل «95.216.181»
+   */
   prefix String @unique
 
   locationName String?
@@ -1178,11 +1246,15 @@ model IpPrefixHealth {
   lastOkAt  DateTime?
   lastBadAt DateTime?
 
-  /** نتیجه‌گیری نهایی: این رنج برای ایران سوخته است */
+  /**
+   * نتیجه‌گیری نهایی: این رنج برای ایران سوخته است
+   */
   blocked Boolean @default(false)
-  /** مدیر دستی تعیین کرده و آمار خودکار نباید تغییرش بدهد */
-  pinned Boolean @default(false)
-  note   String?
+  /**
+   * مدیر دستی تعیین کرده و آمار خودکار نباید تغییرش بدهد
+   */
+  pinned  Boolean @default(false)
+  note    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1197,27 +1269,31 @@ model IpPrefixHealth {
  * برای کاربران ایرانی که آدرس سرورشان مسدود می‌شود کاربرد دارد.
  */
 model ServerIpChange {
-  id        String @id @default(cuid())
+  id        String          @id @default(cuid())
   serverId  String
-  server    Server @relation(fields: [serverId], references: [id], onDelete: Cascade)
+  server    Server          @relation(fields: [serverId], references: [id], onDelete: Cascade)
   userId    String
   accountId String?
   account   HetznerAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
-  oldIp     String?
-  newIp     String?
-  oldIpId   BigInt?
-  newIpId   BigInt?
+  oldIp   String?
+  newIp   String?
+  oldIpId BigInt?
+  newIpId BigInt?
 
-  status    IpChangeStatus @default(PENDING)
-  fee       BigInt         @default(0)
-  refunded  Boolean        @default(false)
-  error     String?
-  reason    String?
+  status   IpChangeStatus @default(PENDING)
+  fee      BigInt         @default(0)
+  refunded Boolean        @default(false)
+  error    String?
+  reason   String?
 
-  /** پنل خودش این تعویض را انجام داده، نه کاربر */
-  automatic Boolean @default(false)
-  /** آیا از سهمیه ماهانه کاربر کم می‌شود (تعویض رایگان و خودکار کم نمی‌کند) */
+  /**
+   * پنل خودش این تعویض را انجام داده، نه کاربر
+   */
+  automatic     Boolean @default(false)
+  /**
+   * آیا از سهمیه ماهانه کاربر کم می‌شود (تعویض رایگان و خودکار کم نمی‌کند)
+   */
   countsToQuota Boolean @default(true)
 
   startedAt  DateTime  @default(now())
@@ -1226,4 +1302,306 @@ model ServerIpChange {
   @@index([serverId, startedAt])
   @@index([userId, startedAt])
   @@map("server_ip_changes")
+}
+
+// ═══════════════════  وبلاگ و سئو  ═══════════════════
+
+enum PostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+}
+
+/**
+ * دسته‌بندی مقالات — هر دسته یک صفحه مستقل و قابل ایندکس دارد
+ */
+model BlogCategory {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  name        String
+  description String?
+
+  // سئو
+  metaTitle       String?
+  metaDescription String?
+  coverImage      String?
+
+  order     Int      @default(0)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  posts BlogPost[]
+
+  @@index([active, order])
+  @@map("blog_categories")
+}
+
+/**
+ * برچسب — برای خوشه‌بندی موضوعی و لینک‌دهی داخلی
+ */
+model BlogTag {
+  id          String   @id @default(cuid())
+  slug        String   @unique
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  posts BlogPostTag[]
+
+  @@map("blog_tags")
+}
+
+model BlogPost {
+  id          String  @id @default(cuid())
+  slug        String  @unique
+  title       String
+  /**
+   * خلاصه کوتاه؛ در فهرست و کارت‌های اشتراک‌گذاری استفاده می‌شود
+   */
+  excerpt     String
+  /**
+   * متن اصلی به مارک‌داون
+   */
+  content     String
+  /**
+   * HTML آماده‌شده از مارک‌داون (کش، تا هر بازدید دوباره تبدیل نشود)
+   */
+  contentHtml String?
+
+  coverImage String?
+  coverAlt   String?
+
+  // ─── سئو ───
+  /// عنوان سئو؛ اگر خالی باشد از title استفاده می‌شود
+  metaTitle       String?
+  metaDescription String?
+  /**
+   * کلیدواژه هدف مقاله — مبنای امتیاز سئو
+   */
+  focusKeyword    String?
+  /**
+   * کلیدواژه‌های فرعی، جدا شده با کاما
+   */
+  keywords        String?
+  canonicalUrl    String?
+  ogImage         String?
+  noindex         Boolean @default(false)
+  /**
+   * پرسش‌های پرتکرار مقاله: [{ q, a }] — برای ساختار FAQPage گوگل
+   */
+  faqs            Json    @default("[]")
+  seoScore        Int     @default(0)
+
+  // ─── انتشار ───
+  status         PostStatus @default(DRAFT)
+  publishedAt    DateTime?
+  featured       Boolean    @default(false)
+  readingMinutes Int        @default(1)
+  wordCount      Int        @default(0)
+  views          Int        @default(0)
+
+  // ─── نویسنده (برای اعتبار نویسنده و ساختار Article) ───
+  authorId    String?
+  author      User?   @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorName  String?
+  authorTitle String?
+  authorBio   String?
+
+  categoryId String?
+  category   BlogCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  tags        BlogPostTag[]
+  slugHistory BlogSlugHistory[]
+  contentJob  ContentJob?
+  revisions   BlogPostRevision[]
+
+  @@index([status, publishedAt])
+  @@index([categoryId, status, publishedAt])
+  @@index([featured, status])
+  @@index([views])
+  @@map("blog_posts")
+}
+
+model BlogPostTag {
+  postId String
+  tagId  String
+  post   BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    BlogTag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+  @@index([tagId])
+  @@map("blog_post_tags")
+}
+
+/**
+ * نشانی‌های قدیمی مقاله. اگر اسلاگ عوض شود، آدرس قبلی با ریدایرکت ۳۰۱ به
+ * آدرس تازه می‌رود تا رتبه و لینک‌های بیرونی از دست نرود.
+ */
+model BlogSlugHistory {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  postId    String
+  post      BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([postId])
+  @@map("blog_slug_history")
+}
+
+/**
+ * نسخه‌های دیگر یک مقاله.
+ * suggestion: نسخه بهترشده‌ای که هوش مصنوعی پیشنهاد داده و مدیر هنوز
+ * اعمالش نکرده (برای هر مقاله حداکثر یکی)
+ * backup:     متن مقاله درست پیش از اعمال یک پیشنهاد، برای بازگشت
+ */
+model BlogPostRevision {
+  id     String   @id @default(cuid())
+  postId String
+  post   BlogPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  kind   String
+
+  title           String
+  excerpt         String
+  content         String
+  metaTitle       String?
+  metaDescription String?
+  faqs            Json    @default("[]")
+
+  /**
+   * فهرست کوتاه تغییرها (برای پیشنهاد) — به فارسی، برای نمایش به مدیر
+   */
+  changes   Json @default("[]")
+  /**
+   * هشدارهای دروازه کیفیت برای نسخه پیشنهادی
+   */
+  issues    Json @default("[]")
+  seoScore  Int?
+  wordCount Int?
+
+  model        String?
+  inputTokens  Int?
+  outputTokens Int?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([postId, kind, createdAt])
+  @@map("blog_post_revisions")
+}
+
+/**
+ * خروجی بارگذاری‌شده از بخش Performance سرچ کنسول.
+ * وقتی API سرچ کنسول از سرور در دسترس نیست، مدیر فایل خروجی (CSV/Excel) را
+ * از خود سرچ کنسول دانلود و اینجا بارگذاری می‌کند.
+ * scope=site: کل پراپرتی | scope=page: خروجی فیلترشده روی نشانی یک مقاله
+ */
+model GscImport {
+  id         String  @id @default(cuid())
+  scope      String  @default("site")
+  pageUrl    String?
+  postId     String?
+  fileName   String
+  /**
+   * بازه انتخاب‌شده در سرچ کنسول، همان‌طور که در فایل آمده (مثل Last 3 months)
+   */
+  rangeLabel String?
+  startDate  String?
+  endDate    String?
+
+  clicks      Int   @default(0)
+  impressions Int   @default(0)
+  ctr         Float @default(0)
+  position    Float @default(0)
+  /**
+   * اگر خروجی در حالت «مقایسه» گرفته شده باشد، عددهای بازه قبل
+   */
+  previous    Json?
+
+  /**
+   * [{ key, clicks, impressions, ctr, position }]
+   */
+  queries Json @default("[]")
+  pages   Json @default("[]")
+  daily   Json @default("[]")
+
+  createdById String?
+  createdAt   DateTime @default(now())
+
+  @@index([scope, createdAt])
+  @@index([postId, createdAt])
+  @@map("gsc_imports")
+}
+
+// ═══════════════════  تولید خودکار محتوا  ═══════════════════
+
+enum ContentJobStatus {
+  PENDING
+  RESEARCHING
+  DRAFTED
+  PUBLISHED
+  REJECTED
+  FAILED
+}
+
+/**
+ * هر ردیف، یک مقاله در خط تولید است: از کلیدواژه کشف‌شده تا مقاله منتشرشده.
+ * کلیدواژه نرمال‌شده یکتاست تا دو روز پشت سر هم روی یک موضوع مقاله نسازیم.
+ */
+model ContentJob {
+  id          String @id @default(cuid())
+  keyword     String
+  /**
+   * شکل یکدست‌شده کلیدواژه — کلید جلوگیری از تکرار موضوع
+   */
+  keywordNorm String @unique
+  /**
+   * از کجا کشف شد: suggest | related | seed | manual
+   */
+  source      String @default("suggest")
+  /**
+   * امتیاز اولویت در صف تولید
+   */
+  score       Int    @default(0)
+
+  status ContentJobStatus @default(PENDING)
+
+  /**
+   * نتایج بالای گوگل برای این عبارت: [{ title, url, snippet }] — فقط برای خلاصه تحقیق
+   */
+  sources Json  @default("[]")
+  /**
+   * خلاصه تحقیق: پرسش‌های کاربران، سرفصل‌های پیشنهادی، زاویه مقاله
+   */
+  brief   Json?
+
+  postId String?   @unique
+  post   BlogPost? @relation(fields: [postId], references: [id], onDelete: SetNull)
+
+  seoScore  Int?
+  wordCount Int?
+
+  /**
+   * مدل و مصرف توکن، برای رصد هزینه
+   */
+  model        String?
+  inputTokens  Int?
+  outputTokens Int?
+
+  /**
+   * دلیل شکست یا رد شدن، به فارسی
+   */
+  error String?
+
+  startedAt  DateTime?
+  finishedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([status, createdAt])
+  @@index([createdAt])
+  @@map("content_jobs")
 }

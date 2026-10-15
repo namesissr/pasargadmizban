@@ -1,0 +1,78 @@
+import Link from 'next/link';
+import { Search, Wrench } from 'lucide-react';
+import type { SiteInfo } from '@/lib/seo';
+import { SiteHeader, SiteFooter } from '@/components/site/chrome';
+
+/**
+ * پوسته صفحه‌های وبلاگ.
+ *
+ * عیناً همان سربرگ و پابرگ صفحه اصلی سایت است؛ وبلاگ فقط دو چیز به آن
+ * اضافه می‌کند: کادر جستجو کنار منو و نوار دسته‌ها زیر سربرگ. پابرگ هم
+ * همان پابرگ سایت است با چند لینک دسته، که برای لینک‌دهی داخلی ارزش دارد.
+ */
+
+export type NavCategory = { slug: string; name: string; count: number };
+
+export function BlogHeader({
+  site,
+  categories,
+  query,
+}: {
+  site: SiteInfo;
+  categories: NavCategory[];
+  query?: string;
+}) {
+  return (
+    <SiteHeader
+      site={site}
+      extraNav={
+        <form action="/blog" className="hidden items-center sm:flex">
+          <label className="relative">
+            <span className="sr-only">جستجو در وبلاگ</span>
+            <Search size={14} className="absolute top-1/2 right-3 -translate-y-1/2 opacity-50" />
+            <input
+              type="search"
+              name="q"
+              defaultValue={query ?? ''}
+              placeholder="جستجو در مقاله‌ها…"
+              className="input h-9 w-44 pr-9 text-xs"
+            />
+          </label>
+        </form>
+      }
+      below={
+        categories.length > 0 ? (
+          <nav aria-label="دسته‌های وبلاگ" className="border-t">
+            <div className="mx-auto flex max-w-6xl gap-2 overflow-x-auto px-4 py-2 snap-x-scroll">
+              <Link
+                href="/tools"
+                className="flex shrink-0 items-center gap-1 rounded-full border border-[var(--color-brand-300)] bg-[var(--color-brand-50)] px-3 py-1 text-[11px] font-semibold text-[var(--color-brand-700)] transition hover:border-[var(--color-brand-500)]"
+              >
+                <Wrench size={11} /> ابزارهای رایگان
+              </Link>
+              {categories.map((c) => (
+                <Link
+                  key={c.slug}
+                  href={`/blog/category/${c.slug}`}
+                  className="shrink-0 rounded-full border px-3 py-1 text-[11px] font-semibold transition hover:border-[var(--color-brand-500)]"
+                >
+                  {c.name}
+                  <span className="tabular mr-1 opacity-60">{c.count}</span>
+                </Link>
+              ))}
+            </div>
+          </nav>
+        ) : null
+      }
+    />
+  );
+}
+
+export function BlogFooter({ site, categories }: { site: SiteInfo; categories: NavCategory[] }) {
+  return (
+    <SiteFooter
+      site={site}
+      links={categories.slice(0, 4).map((c) => ({ href: `/blog/category/${c.slug}`, label: c.name }))}
+    />
+  );
+}

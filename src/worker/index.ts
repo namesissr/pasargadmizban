@@ -26,6 +26,7 @@ import { runEurRateUpdate } from '../lib/eur-rate';
 import { refreshAllLoyalty } from '../lib/loyalty';
 import { runWeeklyReports } from '../lib/weekly-report';
 import { runCatalogAutoSync } from '../lib/catalog';
+import { runContentPipeline } from '../lib/content/pipeline';
 
 /**
  * ورکر پس‌زمینه — باید در کنار اپلیکیشن و به صورت دائمی اجرا شود:
@@ -181,6 +182,34 @@ export const jobs = {
       return { processed: res.checked, meta: { checked: res.checked, upgraded: res.upgraded } };
     }),
 
+  /**
+   * روزانه: تولید مقاله‌های تازه وبلاگ.
+   * ساعت اجرا در تنظیمات است و خود تابع، خاموش بودن سیستم را بررسی می‌کند.
+   */
+  contentPipeline: () =>
+    runJob('content-pipeline', async () => {
+      const settings = await getSettings();
+      const nowHour = Number(
+        new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: 'Asia/Tehran' }).format(new Date()),
+      );
+      // کرون هر ساعت بیدار می‌شود؛ فقط در ساعت تعیین‌شده کار می‌کند
+      if (nowHour !== settings.contentRunHour) return { processed: 0, meta: { skipped: 'ساعت اجرا نرسیده است.' } };
+
+      const res = await runContentPipeline();
+      if (res.skipped) return { processed: 0, meta: { skipped: res.skipped } };
+
+      log(`📝 تولید محتوا: ${res.published} منتشرشده، ${res.drafted} پیش‌نویس، ${res.failed} ناموفق`);
+      return {
+        processed: res.produced,
+        meta: {
+          published: res.published,
+          drafted: res.drafted,
+          failed: res.failed,
+          keywords: res.outcomes.map((o) => `${o.keyword} → ${o.status}`),
+        },
+      };
+    }),
+
   /** هفتگی: گزارش ایمیلی مصرف و هزینه */
   weeklyReports: () =>
     runJob('weekly-reports', async () => {
@@ -333,6 +362,8 @@ function schedule() {
   cron.schedule('40 * * * *', jobs.catalogAutoSync, { timezone: tz });
   // باشگاه مشتریان، روزانه ساعت ۴:۳۰ بامداد
   cron.schedule('30 4 * * *', jobs.refreshLoyalty, { timezone: tz });
+  // تولید محتوای وبلاگ: هر ساعت بیدار می‌شود، در ساعت تعیین‌شده در تنظیمات کار می‌کند
+  cron.schedule('50 * * * *', jobs.contentPipeline, { timezone: tz });
   // گزارش هفتگی، جمعه‌ها ساعت ۱۰ صبح
   cron.schedule('0 10 * * 5', jobs.weeklyReports, { timezone: tz });
   // هر ۱۰ دقیقه
@@ -356,6 +387,7 @@ function schedule() {
   cron.schedule('10 10 * * *', jobs.budgetAlerts, { timezone: tz });
 
   log('🚀 ورکر پاسارگاد میزبان راه‌اندازی شد.');
+  log('   • تولید محتوای وبلاگ: روزانه، ساعت تعیین‌شده در تنظیمات');
   log('   • صورتحساب ساعتی: هر ساعت، دقیقه ۵');
   log('   • صورتحساب ماهانه: هر ساعت، دقیقه ۱۰');
   log('   • تکمیل ساخت سرور: هر ۲ دقیقه');
