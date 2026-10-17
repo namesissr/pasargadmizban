@@ -242,7 +242,7 @@ export function NumberInput({
   );
 }
 
-export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { invalid?: boolean }) {
+export function Textarea(props: React.ComponentProps<'textarea'> & { invalid?: boolean }) {
   const { invalid, className, ...rest } = props;
   return <textarea className={cn('input min-h-28 resize-y leading-7', invalid && 'border-red-400', className)} {...rest} />;
 }

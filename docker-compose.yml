@@ -30,7 +30,8 @@ services:
       # میزبان دیتابیس داخل شبکه داکر «db» است؛ این مقدار روی .env اولویت دارد
       DATABASE_URL: postgresql://pasargad:${POSTGRES_PASSWORD}@db:5432/pasargad_cloud?schema=public
     ports:
-      - '127.0.0.1:3000:3000'
+      # اگر روی همین سرور نسخه دیگری از پنل بالاست، در .env مقدار APP_PORT را عوض کنید (مثلاً 3100)
+      - '127.0.0.1:${APP_PORT:-3000}:3000'
     depends_on:
       db:
         condition: service_healthy

@@ -31,6 +31,8 @@ export type PrefsShape = {
   quietHoursEnabled: boolean;
   quietHoursStart: number;
   quietHoursEnd: number;
+
+  taskSms: boolean;
 };
 
 /** دسته‌بندی رویداد — تعیین می‌کند کدام ترجیح کاربر بررسی شود */

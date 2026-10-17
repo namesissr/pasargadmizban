@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/auth';
+import { env } from '@/lib/env';
 import { getSettings } from '@/lib/settings';
 import prisma from '@/lib/prisma';
 import { Alert } from '@/components/ui';
@@ -12,7 +13,11 @@ export const dynamic = 'force-dynamic';
 
 export default async function RegisterPage() {
   const user = await getCurrentUser();
-  if (user) redirect(user.role === 'USER' ? '/dashboard' : '/admin');
+  if (user) {
+    if (user.role === 'DEVELOPER') redirect('/dev');
+    if (env.tasksOnly) redirect('/tasks');
+    redirect(user.role === 'USER' ? '/dashboard' : user.role === 'EMPLOYER' ? '/tasks' : '/admin');
+  }
 
   const settings = await getSettings();
   const userCount = await prisma.user.count().catch(() => 1);
@@ -43,7 +48,9 @@ export default async function RegisterPage() {
       <p className="mt-2 text-xs leading-6 muted">
         {isFirstUser
           ? 'این اولین حساب سیستم است و به صورت خودکار دسترسی مدیر کل دریافت می‌کند.'
-          : 'در کمتر از یک دقیقه ثبت‌نام کنید و اولین سرور خود را بسازید.'}
+          : env.tasksOnly
+            ? 'ثبت‌نام کنید؛ پس از اینکه مدیر نقش شما را تعیین کند به میز کار تسک‌ها دسترسی دارید.'
+            : 'در کمتر از یک دقیقه ثبت‌نام کنید و اولین سرور خود را بسازید.'}
       </p>
 
       {isFirstUser ? (
@@ -55,7 +62,7 @@ export default async function RegisterPage() {
       ) : null}
 
       <div className="mt-6">
-        <RegisterForm requireEmailVerify={settings.requireEmailVerify} />
+        <RegisterForm requireEmailVerify={settings.requireEmailVerify} tasksOnly={env.tasksOnly} />
       </div>
 
       <p className="mt-6 text-center text-xs muted">

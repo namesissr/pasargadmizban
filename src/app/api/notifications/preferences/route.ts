@@ -32,6 +32,8 @@ const schema = z.object({
   newsEvents: z.boolean().optional(),
   weeklyReport: z.boolean().optional(),
 
+  taskSms: z.boolean().optional(),
+
   quietHoursEnabled: z.boolean().optional(),
   quietHoursStart: z.coerce.number().int().min(0).max(23).optional(),
   quietHoursEnd: z.coerce.number().int().min(0).max(23).optional(),

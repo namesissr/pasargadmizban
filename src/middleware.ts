@@ -9,7 +9,7 @@ import { jwtVerify } from 'jose';
  * ابطال دستی نشست را هم می‌بیند — در لایه سرور (getCurrentUser) انجام می‌شود.
  */
 
-const PROTECTED = ['/dashboard', '/admin'];
+const PROTECTED = ['/dashboard', '/admin', '/tasks', '/dev', '/t'];
 const AUTH_PAGES = ['/login', '/register'];
 
 const secret = new TextEncoder().encode(process.env.SESSION_SECRET ?? '');
@@ -35,7 +35,27 @@ async function tokenIsValid(value: string): Promise<boolean> {
   }
 }
 
+/**
+ * در حالت «فقط سیستم تسک» (APP_MODE=tasks) فقط این مسیرها باز است؛ بقیه به میز کار
+ * تسک‌ها هدایت می‌شوند تا هیچ بخشی از فروش سرور و پنل مدیریت سایت دیده نشود.
+ */
+const TASKS_ONLY_PAGES = ['/tasks', '/dev', '/t', '/login', '/register', '/forgot-password', '/reset-password', '/verify-email'];
+
+function tasksOnlyRedirect(req: NextRequest): NextResponse | null {
+  if (process.env.APP_MODE !== 'tasks') return null;
+  const { pathname } = req.nextUrl;
+  if (pathname === '/manifest.webmanifest') return null;
+  if (TASKS_ONLY_PAGES.some((p) => pathname === p || pathname.startsWith(p + '/'))) return null;
+  const url = req.nextUrl.clone();
+  url.pathname = '/tasks';
+  url.search = '';
+  return NextResponse.redirect(url);
+}
+
 export async function middleware(req: NextRequest) {
+  const blocked = tasksOnlyRedirect(req);
+  if (blocked) return blocked;
+
   const { pathname, searchParams } = req.nextUrl;
   const cookieName = process.env.SESSION_COOKIE || 'pm_session';
   const raw = req.cookies.get(cookieName)?.value ?? '';
@@ -62,7 +82,7 @@ export async function middleware(req: NextRequest) {
     const bouncedFromServer = searchParams.has('next');
     if (hasSession && !bouncedFromServer) {
       const url = req.nextUrl.clone();
-      url.pathname = '/dashboard';
+      url.pathname = process.env.APP_MODE === 'tasks' ? '/tasks' : '/dashboard';
       url.search = '';
       return NextResponse.redirect(url);
     }

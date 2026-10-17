@@ -319,7 +319,7 @@ export const adminSettingsSchema = z.object({
 });
 
 export const adminUserUpdateSchema = z.object({
-  role: z.enum(['USER', 'SUPPORT', 'ADMIN']).optional(),
+  role: z.enum(['USER', 'SUPPORT', 'ADMIN', 'DEVELOPER', 'EMPLOYER']).optional(),
   status: z.enum(['PENDING', 'ACTIVE', 'SUSPENDED', 'BANNED']).optional(),
   discountPct: z.coerce.number().int().min(0).max(90).optional(),
   maxServers: z.coerce.number().int().min(0).max(1000).optional(),
@@ -374,4 +374,91 @@ export const announcementSchema = z.object({
   level: z.enum(['info', 'success', 'warning', 'error']).default('info'),
   pinned: z.boolean().default(false),
   active: z.boolean().default(true),
+});
+
+// ───────────────  میز کار تسک‌ها  ───────────────
+
+const taskDate = z
+  .union([z.literal(''), z.null(), z.string().datetime({ offset: true, message: 'تاریخ معتبر نیست.' })])
+  .optional()
+  .transform((v) => (v ? new Date(v) : v === undefined ? undefined : null));
+
+const taskLabels = z
+  .array(z.string().trim().min(1).max(30))
+  .max(10, 'حداکثر ۱۰ برچسب.')
+  .optional()
+  .transform((v) => (v ? [...new Set(v)] : v));
+
+export const devTaskCreateSchema = z.object({
+  title: z.string().trim().min(4, 'عنوان را کامل‌تر بنویسید (حداقل ۴ حرف).').max(200, 'عنوان بیش از حد طولانی است.'),
+  description: z.string().trim().min(10, 'جزئیات کار را کامل بنویسید (حداقل ۱۰ حرف).').max(20_000),
+  type: z.enum(['BUG', 'FEATURE', 'IMPROVEMENT', 'TASK']).default('BUG'),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).default('MEDIUM'),
+  necessity: z.enum(['OPTIONAL', 'NEEDED', 'ESSENTIAL', 'CRITICAL']).default('NEEDED'),
+  area: z.string().trim().max(60).optional().transform((v) => v || null),
+  pageUrl: z.string().trim().max(500).optional().transform((v) => v || null),
+  labels: taskLabels,
+  assigneeId: z.string().max(40).nullable().optional(),
+  dueAt: taskDate,
+  estimateHours: z.coerce.number().min(0).max(1000).nullable().optional(),
+  checklist: z.array(z.string().trim().min(1).max(300)).max(50).optional(),
+  /** افراد دیگری که از همان ابتدا دنبال‌کننده تسک باشند (مثلاً کارفرمای دوم) */
+  watcherIds: z.array(z.string().max(40)).max(20).optional(),
+});
+
+export const devTaskUpdateSchema = z.object({
+  title: z.string().trim().min(4, 'عنوان را کامل‌تر بنویسید (حداقل ۴ حرف).').max(200).optional(),
+  description: z.string().trim().min(10, 'جزئیات کار را کامل بنویسید.').max(20_000).optional(),
+  type: z.enum(['BUG', 'FEATURE', 'IMPROVEMENT', 'TASK']).optional(),
+  priority: z.enum(['LOW', 'MEDIUM', 'HIGH', 'URGENT']).optional(),
+  necessity: z.enum(['OPTIONAL', 'NEEDED', 'ESSENTIAL', 'CRITICAL']).optional(),
+  area: z.string().trim().max(60).nullable().optional().transform((v) => (v === undefined ? undefined : v || null)),
+  pageUrl: z.string().trim().max(500).nullable().optional().transform((v) => (v === undefined ? undefined : v || null)),
+  labels: taskLabels,
+  assigneeId: z.string().max(40).nullable().optional(),
+  dueAt: taskDate,
+  estimateHours: z.coerce.number().min(0).max(1000).nullable().optional(),
+  archived: z.boolean().optional(),
+});
+
+export const devTaskStatusSchema = z.object({
+  status: z.enum(['TODO', 'IN_PROGRESS', 'BLOCKED', 'REVIEW', 'DONE', 'CANCELED']),
+  comment: z.string().trim().max(5000).optional(),
+  /** امتیاز کیفیت هنگام تأیید نهایی */
+  rating: z.coerce.number().int().min(1).max(5).optional(),
+});
+
+export const devTaskCommentSchema = z.object({
+  body: z.string().trim().max(10_000).default(''),
+  attachmentIds: z.array(z.string().max(40)).max(20).optional(),
+  /** افرادی که در این نظر صدا زده شده‌اند و اعلان ویژه می‌گیرند */
+  mentionIds: z.array(z.string().max(40)).max(20).optional(),
+});
+
+export const devTaskTimerSchema = z.object({
+  action: z.enum(['start', 'stop']),
+  note: z.string().trim().max(500).optional(),
+});
+
+export const devTaskManualTimeSchema = z.object({
+  minutes: z.coerce.number().int().min(1, 'حداقل یک دقیقه.').max(16 * 60, 'حداکثر ۱۶ ساعت در یک ثبت.'),
+  date: z.string().datetime({ offset: true }).optional(),
+  note: z.string().trim().max(500).optional(),
+});
+
+export const devTaskWatchSchema = z.object({
+  watch: z.boolean(),
+});
+
+export const devTaskChecklistSchema = z.object({
+  text: z.string().trim().min(1, 'متن مورد را بنویسید.').max(300),
+});
+
+export const devTaskChecklistUpdateSchema = z.object({
+  text: z.string().trim().min(1).max(300).optional(),
+  done: z.boolean().optional(),
+});
+
+export const devTaskReorderSchema = z.object({
+  ids: z.array(z.string().max(40)).min(1).max(500),
 });

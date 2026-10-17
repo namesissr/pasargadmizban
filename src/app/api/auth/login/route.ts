@@ -8,6 +8,7 @@ import { enforceRateLimit, clearRateLimit, LIMITS } from '@/lib/rate-limit';
 import { verifyToken, verifyRecoveryCode } from '@/lib/totp';
 import { audit } from '@/lib/audit';
 import { notify } from '@/lib/notify';
+import { env } from '@/lib/env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -105,9 +106,18 @@ export const POST = route(async (req: Request) => {
     id: user.id,
     role: user.role,
     status: user.status,
-    redirect: user.role === 'ADMIN' || user.role === 'SUPPORT' ? '/admin' : '/dashboard',
+    redirect: homeFor(user.role),
   });
 });
+
+function homeFor(role: string): string {
+  if (role === 'DEVELOPER') return '/dev';
+  if (env.tasksOnly) return '/tasks';
+  if (role === 'ADMIN' || role === 'SUPPORT') return '/admin';
+  if (role === 'DEVELOPER') return '/dev';
+  if (role === 'EMPLOYER') return '/tasks';
+  return '/dashboard';
+}
 
 async function completeTwoFactor(raw: unknown, ip: string, userAgent: string) {
   const parsed = challengeSchema.safeParse(raw);
@@ -192,7 +202,7 @@ async function completeTwoFactor(raw: unknown, ip: string, userAgent: string) {
     role: user.role,
     status: user.status,
     usedRecovery,
-    redirect: user.role === 'ADMIN' || user.role === 'SUPPORT' ? '/admin' : '/dashboard',
+    redirect: homeFor(user.role),
   });
 }
 
