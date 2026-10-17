@@ -7,7 +7,9 @@ export const dynamic = 'force-dynamic';
 export default async function TasksLayout({ children }: { children: React.ReactNode }) {
   const user = await getCurrentUser();
   if (!user) redirect('/login?next=/tasks');
-  if (user.role !== 'ADMIN' && user.role !== 'SUPPORT' && user.role !== 'DEVELOPER') redirect('/dashboard');
+  // پنل کارفرما جداست؛ برنامه‌نویس به پنل خودش می‌رود
+  if (user.role === 'DEVELOPER') redirect('/dev');
+  if (user.role !== 'ADMIN' && user.role !== 'EMPLOYER' && user.role !== 'SUPPORT') redirect('/dashboard');
 
   return (
     <Shell

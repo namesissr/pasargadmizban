@@ -27,6 +27,7 @@ import { refreshAllLoyalty } from '../lib/loyalty';
 import { runWeeklyReports } from '../lib/weekly-report';
 import { runCatalogAutoSync } from '../lib/catalog';
 import { runTaskReminders, runTaskDigest } from '../lib/dev-tasks';
+import { closeStaleTimers } from '../lib/dev-tasks-time';
 
 /**
  * ورکر پس‌زمینه — باید در کنار اپلیکیشن و به صورت دائمی اجرا شود:
@@ -193,7 +194,9 @@ export const jobs = {
   taskReminders: () =>
     runJob('task-reminders', async () => {
       const res = await runTaskReminders();
-      return { processed: res.sent, meta: res };
+      // زمان‌سنج‌های فراموش‌شده بیش از ۱۰ ساعت، خودکار بسته می‌شوند
+      const staleTimers = await closeStaleTimers();
+      return { processed: res.sent, meta: { ...res, staleTimers } };
     }),
 
   /** روزانه: خلاصه کارهای باز برای برنامه‌نویس و گزارش وضعیت برای مدیر */

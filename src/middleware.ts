@@ -9,7 +9,7 @@ import { jwtVerify } from 'jose';
  * ابطال دستی نشست را هم می‌بیند — در لایه سرور (getCurrentUser) انجام می‌شود.
  */
 
-const PROTECTED = ['/dashboard', '/admin', '/tasks'];
+const PROTECTED = ['/dashboard', '/admin', '/tasks', '/dev', '/t'];
 const AUTH_PAGES = ['/login', '/register'];
 
 const secret = new TextEncoder().encode(process.env.SESSION_SECRET ?? '');

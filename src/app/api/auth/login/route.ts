@@ -111,7 +111,8 @@ export const POST = route(async (req: Request) => {
 
 function homeFor(role: string): string {
   if (role === 'ADMIN' || role === 'SUPPORT') return '/admin';
-  if (role === 'DEVELOPER') return '/tasks';
+  if (role === 'DEVELOPER') return '/dev';
+  if (role === 'EMPLOYER') return '/tasks';
   return '/dashboard';
 }
 

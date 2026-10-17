@@ -12,13 +12,48 @@ import {
   TASK_NECESSITY_FA,
   TASK_PRIORITY_FA,
   TASK_TYPE_FA,
+  TASK_ROLE_FA,
   type TaskNecessity,
   type TaskPriority,
   type TaskType,
 } from '@/lib/dev-tasks-shared';
 import { useTaskMeta } from './filters';
+import { usePanel } from './panel';
 import { checkFiles, FileDrop, filesFromClipboard, PendingFiles, uploadFiles } from './files';
-import { personName, type TaskDetail } from './types';
+import { personName, type Person, type TaskDetail } from './types';
+
+/** دنبال‌کننده‌های اولیه: معمولاً کارفرمای دیگر که می‌خواهد در جریان این کار باشد */
+function OtherEmployers({
+  meId,
+  people,
+  value,
+  onChange,
+}: {
+  meId: string;
+  people: Person[];
+  value: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const others = people.filter((p) => p.id !== meId && (p.role === 'ADMIN' || p.role === 'EMPLOYER'));
+  if (!others.length) return null;
+  return (
+    <Field label="در جریان قرار دادن" hint="این افراد دنبال‌کننده تسک می‌شوند و از همه گفتگوها و تغییراتش باخبر می‌شوند.">
+      <div className="space-y-1.5">
+        {others.map((p) => (
+          <label key={p.id} className="flex cursor-pointer items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={value.includes(p.id)}
+              onChange={(e) => onChange(e.target.checked ? [...value, p.id] : value.filter((x) => x !== p.id))}
+              className="h-4 w-4 accent-[var(--color-brand-600)]"
+            />
+            {personName(p)} <span className="muted">({TASK_ROLE_FA[p.role ?? ''] ?? ''})</span>
+          </label>
+        ))}
+      </div>
+    </Field>
+  );
+}
 
 type FormState = {
   type: TaskType;
@@ -113,6 +148,8 @@ export function TaskForm({
   const [newItem, setNewItem] = useState('');
   const [labelInput, setLabelInput] = useState('');
   const [files, setFiles] = useState<File[]>([]);
+  const [watcherIds, setWatcherIds] = useState<string[]>([]);
+  const panel = usePanel();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
@@ -236,6 +273,7 @@ export function TaskForm({
       const created = await apiPost<{ id: string; number: number }>('/api/tasks', {
         ...payload,
         checklist: pendingItem ? [...checklist, pendingItem] : checklist,
+        watcherIds,
       });
       clearDraft();
       if (files.length) {
@@ -246,7 +284,7 @@ export function TaskForm({
         }
       }
       toast.success('تسک ثبت شد و به مسئول اطلاع داده شد.');
-      router.push(`/tasks/${created.number}`);
+      router.push(panel.detail(created.number));
     } catch (err) {
       setErrors(errorFields(err));
       toast.error(errorMessage(err));
@@ -426,7 +464,7 @@ export function TaskForm({
         </div>
 
         <div className="space-y-5">
-          <Card title="اولویت و ضرورت" description={!canManage ? 'فقط مدیر می‌تواند این بخش را تغییر دهد.' : undefined}>
+          <Card title="اولویت و ضرورت" description={!canManage ? 'فقط کارفرما می‌تواند این بخش را تغییر دهد.' : undefined}>
             <div className="space-y-4">
               <Field label="اولویت — چقدر زود باید انجام شود؟">
                 <div className="grid grid-cols-4 gap-1.5">
@@ -502,17 +540,22 @@ export function TaskForm({
                   <option value="">بدون مسئول</option>
                   {meta?.members.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {personName(m)} {m.role === 'DEVELOPER' ? '(برنامه‌نویس)' : '(مدیر)'}
+                      {personName(m)} ({TASK_ROLE_FA[m.role ?? ''] ?? ''}
+                      {m.role === 'DEVELOPER' ? ` — ${new Intl.NumberFormat('fa-IR').format(m.openCount ?? 0)} کار باز` : ''})
                       {m.id === meta.me.id ? ' — خودم' : ''}
                     </option>
                   ))}
                 </Select>
-                {meta && !meta.members.some((m) => m.role === 'DEVELOPER') && role === 'ADMIN' ? (
+                {meta && !meta.members.some((m) => m.role === 'DEVELOPER') && (role === 'ADMIN' || role === 'EMPLOYER') ? (
                   <p className="mt-1.5 text-[11px] leading-5 text-amber-600">
                     هنوز هیچ کاربری نقش «برنامه‌نویس» ندارد. از پنل مدیریت ← کاربران، نقش حساب برنامه‌نویس را «برنامه‌نویس» کنید.
                   </p>
                 ) : null}
               </Field>
+
+              {!editing && meta ? (
+                <OtherEmployers meId={meta.me.id} people={meta.people} value={watcherIds} onChange={setWatcherIds} />
+              ) : null}
 
               <Field label="زمان تخمینی (ساعت)" hint="اختیاری — برنامه‌نویس هم می‌تواند تعیین کند.">
                 <NumberInput

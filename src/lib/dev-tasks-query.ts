@@ -6,6 +6,7 @@ import {
   TASK_PRIORITIES,
   TASK_STATUSES,
   TASK_TYPES,
+  isOverdue,
   urgencyScore,
   type TaskStatus,
 } from './dev-tasks-shared';
@@ -129,6 +130,8 @@ export const taskListSelect = {
   activityAt: true,
   completedAt: true,
   archivedAt: true,
+  spentMinutes: true,
+  rating: true,
   assignee: { select: { id: true, email: true, firstName: true, lastName: true } },
   reporter: { select: { id: true, email: true, firstName: true, lastName: true } },
   checklist: { select: { done: true } },
@@ -184,4 +187,22 @@ export async function seenMap(userId: string, taskIds: string[]): Promise<Map<st
     select: { taskId: true, seenAt: true },
   });
   return new Map(views.map((v) => [v.taskId, v.seenAt]));
+}
+
+/** ردیف خام پایگاه داده به ردیف فهرست با شمارنده‌ها و نشان «جدید» برای کاربر جاری */
+export async function toListItems<T extends TaskListRow>(rows: T[], userId: string) {
+  const seen = await seenMap(userId, rows.map((t) => t.id));
+  return rows.map(({ checklist, _count, ...t }) => {
+    const seenAt = seen.get(t.id);
+    return {
+      ...t,
+      checklistTotal: checklist.length,
+      checklistDone: checklist.filter((c) => c.done).length,
+      comments: _count.activities,
+      attachments: _count.attachments,
+      overdue: isOverdue(t),
+      // تسکی که هرگز باز نشده یا بعد از آخرین بازدید تغییر کرده
+      unread: !seenAt || t.activityAt > seenAt,
+    };
+  });
 }

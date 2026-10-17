@@ -93,20 +93,53 @@ export const BUG_TEMPLATE = `مراحل ایجاد مشکل:
 اطلاعات تکمیلی (مرورگر، گوشی/کامپیوتر، حساب کاربری تست):
 `;
 
-export type TaskRole = 'ADMIN' | 'SUPPORT' | 'DEVELOPER';
+export type TaskRole = 'ADMIN' | 'EMPLOYER' | 'SUPPORT' | 'DEVELOPER';
+
+/** نقش‌هایی که کارفرما حساب می‌شوند: مدیر سایت و کارفرمای بدون دسترسی به پنل مدیریت */
+export const EMPLOYER_ROLES = ['ADMIN', 'EMPLOYER'] as const;
 
 export function isTaskRole(role: string | null | undefined): role is TaskRole {
-  return role === 'ADMIN' || role === 'SUPPORT' || role === 'DEVELOPER';
+  return role === 'ADMIN' || role === 'EMPLOYER' || role === 'SUPPORT' || role === 'DEVELOPER';
 }
 
-/** فقط مدیر سیستم می‌تواند اولویت، مهلت و مسئول را تعیین کند و کار را تأیید کند */
+/** کارفرما (مدیر یا کارفرما) اولویت، مهلت و مسئول را تعیین و کار را تأیید می‌کند */
 export function isTaskManager(role: string | null | undefined): boolean {
-  return role === 'ADMIN';
+  return role === 'ADMIN' || role === 'EMPLOYER';
 }
+
+/** هر نقش در کدام پنل کار می‌کند: برنامه‌نویس در /dev، بقیه در پنل کارفرما /tasks */
+export function taskHome(role: string | null | undefined): string {
+  return role === 'DEVELOPER' ? '/dev' : '/tasks';
+}
+
+/** مسیر صفحه تسک در پنل هر نقش */
+export function taskPath(role: string | null | undefined, number: number): string {
+  return role === 'DEVELOPER' ? `/dev/tasks/${number}` : `/tasks/${number}`;
+}
+
+export const TASK_ROLE_FA: Record<string, string> = {
+  ADMIN: 'کارفرما',
+  EMPLOYER: 'کارفرما',
+  SUPPORT: 'پشتیبان',
+  DEVELOPER: 'برنامه‌نویس',
+};
+
+/** دقیقه به «۲ ساعت و ۱۵ دقیقه» */
+export function formatMinutes(minutes: number): string {
+  const fa = (n: number) => new Intl.NumberFormat('fa-IR').format(n);
+  if (!minutes) return '۰ دقیقه';
+  const h = Math.floor(minutes / 60);
+  const m = Math.round(minutes % 60);
+  if (!h) return `${fa(m)} دقیقه`;
+  return m ? `${fa(h)} ساعت و ${fa(m)} دقیقه` : `${fa(h)} ساعت`;
+}
+
+/** یک جلسه زمان‌سنج بیش از این طول نمی‌کشد؛ زمان‌سنج فراموش‌شده کارکرد را بی‌جهت بالا نمی‌برد */
+export const TIMER_MAX_MINUTES = 10 * 60;
 
 /**
  * گذارهای مجاز وضعیت برای برنامه‌نویس.
- * مدیر محدودیتی ندارد؛ پشتیبان فقط گزارش می‌دهد و وضعیت را عوض نمی‌کند.
+ * کارفرما محدودیتی ندارد؛ پشتیبان فقط گزارش می‌دهد و وضعیت را عوض نمی‌کند.
  */
 const DEVELOPER_TRANSITIONS: Record<TaskStatus, TaskStatus[]> = {
   TODO: ['IN_PROGRESS', 'BLOCKED', 'REVIEW'],

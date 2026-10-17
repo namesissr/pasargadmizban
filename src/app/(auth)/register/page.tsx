@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function RegisterPage() {
   const user = await getCurrentUser();
-  if (user) redirect(user.role === 'USER' ? '/dashboard' : user.role === 'DEVELOPER' ? '/tasks' : '/admin');
+  if (user) redirect(user.role === 'USER' ? '/dashboard' : user.role === 'DEVELOPER' ? '/dev' : user.role === 'EMPLOYER' ? '/tasks' : '/admin');
 
   const settings = await getSettings();
   const userCount = await prisma.user.count().catch(() => 1);

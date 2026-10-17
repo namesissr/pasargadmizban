@@ -16,7 +16,7 @@ export const POST = route(async (req: Request, ctx: Ctx) => {
   const { id } = await ctx.params;
   const task = await findTask(id);
   if (user.role === 'SUPPORT' && task.reporterId !== user.id) {
-    throw new ApiError('فقط ثبت‌کننده تسک، مدیر یا برنامه‌نویس می‌تواند چک‌لیست را تغییر دهد.', 403);
+    throw new ApiError('فقط ثبت‌کننده تسک، کارفرما یا برنامه‌نویس می‌تواند چک‌لیست را تغییر دهد.', 403);
   }
 
   const input = await parseBody(req, devTaskChecklistSchema);

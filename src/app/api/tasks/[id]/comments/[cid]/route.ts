@@ -3,6 +3,7 @@ import { ok, parseBody, route, ApiError } from '@/lib/api';
 import { requireTaskMember, assertSameOrigin } from '@/lib/auth';
 import { devTaskCommentSchema } from '@/lib/validation';
 import { findTask } from '@/lib/dev-tasks';
+import { isTaskManager } from '@/lib/dev-tasks-shared';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -39,8 +40,8 @@ export const DELETE = route(async (_req: Request, ctx: Ctx) => {
   await assertSameOrigin();
   const user = await requireTaskMember();
   const comment = await loadComment(ctx);
-  if (comment.userId !== user.id && user.role !== 'ADMIN') {
-    throw new ApiError('فقط نویسنده یا مدیر می‌تواند نظر را حذف کند.', 403);
+  if (comment.userId !== user.id && !isTaskManager(user.role)) {
+    throw new ApiError('فقط نویسنده یا کارفرما می‌تواند نظر را حذف کند.', 403);
   }
 
   // پیوست‌های نظر حذف‌شده هم پاک می‌شوند تا فایل یتیم نماند

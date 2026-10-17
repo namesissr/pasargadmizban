@@ -1,6 +1,6 @@
 import prisma from '@/lib/prisma';
 import { ok, parseBody, route, ApiError } from '@/lib/api';
-import { requireTaskMember, requireAdmin, assertSameOrigin, clientIp } from '@/lib/auth';
+import { requireTaskMember, requireTaskManager, assertSameOrigin, clientIp } from '@/lib/auth';
 import { devTaskUpdateSchema } from '@/lib/validation';
 import { audit } from '@/lib/audit';
 import {
@@ -13,7 +13,14 @@ import {
   notifyPriorityRaised,
   userBrief,
 } from '@/lib/dev-tasks';
-import { TASK_NECESSITIES, TASK_PRIORITIES, allowedTransitions, type TaskStatus } from '@/lib/dev-tasks-shared';
+import {
+  OPEN_STATUSES,
+  TASK_NECESSITIES,
+  TASK_PRIORITIES,
+  allowedTransitions,
+  isTaskManager,
+  type TaskStatus,
+} from '@/lib/dev-tasks-shared';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,6 +39,13 @@ export const GET = route(async (_req: Request, ctx: Ctx) => {
       include: {
         reporter: { select: userBrief },
         assignee: { select: userBrief },
+        ratedBy: { select: userBrief },
+        watchers: { include: { user: { select: userBrief } }, orderBy: { createdAt: 'asc' } },
+        timeLogs: {
+          orderBy: { startedAt: 'desc' },
+          take: 100,
+          include: { user: { select: userBrief } },
+        },
         checklist: { orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }] },
         activities: {
           orderBy: { createdAt: 'asc' },
@@ -48,16 +62,21 @@ export const GET = route(async (_req: Request, ctx: Ctx) => {
 
   await markSeen(task.id, user.id);
 
-  const isAdmin = user.role === 'ADMIN';
+  const isAdmin = isTaskManager(user.role);
   const isReporter = task.reporterId === user.id;
   const isDeveloper = user.role === 'DEVELOPER';
   const ownsOrFree = !task.assigneeId || task.assigneeId === user.id;
+  const open = OPEN_STATUSES.includes(task.status as TaskStatus);
 
   return ok({
     task,
     lastSeenAt: previousView?.seenAt ?? null,
+    watching: task.watchers.some((w) => w.userId === user.id),
+    runningTimer: task.timeLogs.find((l) => l.userId === user.id && !l.endedAt) ?? null,
     permissions: {
       manage: isAdmin,
+      // زمان‌سنج و ثبت کارکرد: مسئول تسک، یا هر کارفرما
+      track: open && (task.assigneeId === user.id || isAdmin),
       editContent: isAdmin || isReporter,
       comment: true,
       checklist: isAdmin || isDeveloper || isReporter,
@@ -91,7 +110,7 @@ export const PATCH = route(async (req: Request, ctx: Ctx) => {
   const task = await findTask(id);
   const input = await parseBody(req, devTaskUpdateSchema);
 
-  const isAdmin = user.role === 'ADMIN';
+  const isAdmin = isTaskManager(user.role);
   const isReporter = task.reporterId === user.id;
   const isDeveloper = user.role === 'DEVELOPER';
 
@@ -207,10 +226,10 @@ export const PATCH = route(async (req: Request, ctx: Ctx) => {
   return ok({ id: task.id, changed: true });
 });
 
-/** حذف کامل تسک — فقط مدیر. برای کنار گذاشتن معمولاً بایگانی بهتر است */
+/** حذف کامل تسک — فقط کارفرما. برای کنار گذاشتن معمولاً بایگانی بهتر است */
 export const DELETE = route(async (_req: Request, ctx: Ctx) => {
   await assertSameOrigin();
-  const admin = await requireAdmin();
+  const admin = await requireTaskManager();
   const { id } = await ctx.params;
   const task = await findTask(id);
 

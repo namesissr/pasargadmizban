@@ -2,15 +2,16 @@
 
 import Link from 'next/link';
 import useSWR from 'swr';
-import { CheckSquare, Download, MessageSquare, Paperclip, RotateCcw, ClipboardList } from 'lucide-react';
+import { CheckSquare, Download, MessageSquare, Paperclip, RotateCcw, ClipboardList, Star, Timer } from 'lucide-react';
 import { Card, EmptyState, LoadingBlock, Pagination, Select } from '@/components/ui';
 import { fetcher } from '@/lib/client';
 import { formatNumber } from '@/lib/money';
 import { cn, faRelative } from '@/lib/utils';
-import { TASK_PRIORITY_FA, type TaskPriority } from '@/lib/dev-tasks-shared';
-import { FilterBar, toQuery, useTaskMeta, useUrlFilters, type Filters } from './_components/filters';
-import { Avatar, DueLabel, NecessityBadge, PriorityBadge, StatusBadge, TaskNumber, TypeTag } from './_components/ui';
-import { personName, type TaskListResponse, type TaskRow } from './_components/types';
+import { TASK_PRIORITY_FA, formatMinutes, type TaskPriority } from '@/lib/dev-tasks-shared';
+import { FilterBar, toQuery, useUrlFilters, type Filters } from './filters';
+import { usePanel } from './panel';
+import { Avatar, DueLabel, NecessityBadge, PriorityBadge, StatusBadge, TaskNumber, TypeTag } from './ui';
+import { personName, type TaskListResponse, type TaskRow } from './types';
 
 type ViewChip = { id: string; label: string; set: Filters; count?: (d: TaskListResponse) => number | undefined };
 
@@ -25,19 +26,28 @@ const SORTS = [
 
 export function TaskList() {
   const [filters, setFilters, reset] = useUrlFilters();
-  const { data: meta } = useTaskMeta();
-  const view = filters.view ?? 'open';
-  const status = filters.status ?? '';
+  const panel = usePanel();
+  const dev = panel.kind === 'developer';
+  // برنامه‌نویس به‌طور پیش‌فرض کارهای خودش را می‌بیند؛ کارفرما همه کارهای باز را
+  const view = filters.view ?? (dev ? 'mine' : 'open');
   const query = toQuery(filters, { view, perPage: '30' });
   const { data, isLoading, mutate } = useSWR<TaskListResponse>(`/api/tasks?${query}`, fetcher, {
     refreshInterval: 30_000,
     keepPreviousData: true,
   });
 
-  const isAdmin = meta?.me.role === 'ADMIN';
   const sum = (d: TaskListResponse, keys: string[]) => keys.reduce((a, k) => a + (d.counts[k] ?? 0), 0);
 
-  const chips: ViewChip[] = [
+  const devChips: ViewChip[] = [
+    { id: 'mine', label: 'سپرده به من', set: { view: 'mine', status: '', assignee: '' }, count: (d) => d.mine },
+    { id: 'free', label: 'تسک‌های آزاد (بی‌مسئول)', set: { view: 'open', status: '', assignee: 'none' } },
+    { id: 'review', label: 'منتظر تأیید کارفرما', set: { view: 'all', status: 'REVIEW', assignee: 'me' } },
+    { id: 'blocked', label: 'منتظر پاسخ کارفرما', set: { view: 'all', status: 'BLOCKED', assignee: 'me' } },
+    { id: 'done', label: 'انجام‌شده‌های من', set: { view: 'closed', status: '', assignee: 'me' } },
+    { id: 'open', label: 'همه کارهای باز تیم', set: { view: 'open', status: '', assignee: '' } },
+  ];
+
+  const employerChips: ViewChip[] = [
     {
       id: 'open',
       label: 'همه کارهای باز',
@@ -47,7 +57,7 @@ export function TaskList() {
     { id: 'mine', label: 'سپرده به من', set: { view: 'mine', status: '' }, count: (d) => d.mine },
     {
       id: 'REVIEW',
-      label: isAdmin ? 'منتظر تأیید من' : 'منتظر تأیید مدیر',
+      label: 'منتظر تأیید',
       set: { view: 'all', status: 'REVIEW' },
       count: (d) => d.counts.REVIEW ?? 0,
     },
@@ -65,7 +75,9 @@ export function TaskList() {
     { id: 'all', label: 'همه', set: { view: 'all', status: '' } },
     { id: 'archived', label: 'بایگانی', set: { view: 'archived', status: '' } },
   ];
-  const activeChip = status || view;
+  const chips = dev ? devChips : employerChips;
+  const current: Filters = { ...filters, view };
+  const isActiveChip = (c: ViewChip) => Object.entries(c.set).every(([k, v]) => (current[k as keyof Filters] ?? '') === v);
 
   return (
     <div className="space-y-4">
@@ -73,14 +85,14 @@ export function TaskList() {
         <div className="flex min-w-max gap-2 pb-1">
           {chips.map((c) => {
             const n = data && c.count ? c.count(data) : undefined;
-            const alert = (c.id === 'REVIEW' && isAdmin) || c.id === 'BLOCKED' || c.id === 'overdue';
+            const alert = (!dev && c.id === 'REVIEW') || c.id === 'BLOCKED' || c.id === 'overdue';
             return (
               <button
                 key={c.id}
                 onClick={() => setFilters(c.set)}
                 className={cn(
                   'flex items-center gap-2 rounded-xl border px-3 py-2 text-xs transition',
-                  activeChip === c.id
+                  isActiveChip(c)
                     ? 'border-[var(--color-brand-500)] bg-[color-mix(in_srgb,var(--color-brand-500)_10%,transparent)] font-semibold'
                     : 'hover:bg-[var(--surface-2)]',
                 )}
@@ -138,13 +150,15 @@ export function TaskList() {
             icon={<ClipboardList size={34} />}
             title="تسکی با این شرایط پیدا نشد"
             description={
-              view === 'open' && !Object.values(filters).some(Boolean)
-                ? 'هنوز کار بازی ثبت نشده است. اولین تسک را ثبت کنید تا برنامه‌نویس باخبر شود.'
-                : 'فیلترها یا نمای دیگری را امتحان کنید.'
+              dev && view === 'mine'
+                ? 'فعلاً کار بازی به شما سپرده نشده است. «تسک‌های آزاد» را ببینید؛ شاید کاری منتظر برداشتن باشد.'
+                : view === 'open' && !Object.values(filters).some(Boolean)
+                  ? 'هنوز کار بازی ثبت نشده است. اولین تسک را ثبت کنید تا برنامه‌نویس باخبر شود.'
+                  : 'فیلترها یا نمای دیگری را امتحان کنید.'
             }
             action={
-              <Link href="/tasks/new" className="btn btn-primary">
-                ثبت تسک جدید
+              <Link href={panel.newTask} className="btn btn-primary">
+                {dev ? 'گزارش باگ یا پیشنهاد' : 'ثبت تسک جدید'}
               </Link>
             }
           />
@@ -159,7 +173,7 @@ export function TaskList() {
           </div>
           <ul className="space-y-2">
             {data.items.map((t) => (
-              <TaskCard key={t.id} task={t} />
+              <TaskCard key={t.id} task={t} href={panel.detail(t.number)} />
             ))}
           </ul>
           <Pagination
@@ -173,12 +187,12 @@ export function TaskList() {
   );
 }
 
-function TaskCard({ task: t }: { task: TaskRow }) {
+export function TaskCard({ task: t, href }: { task: TaskRow; href: string }) {
   const closed = t.status === 'DONE' || t.status === 'CANCELED';
   return (
     <li>
       <Link
-        href={`/tasks/${t.number}`}
+        href={href}
         className={cn(
           'card relative block overflow-hidden p-3.5 pr-5 transition hover:border-[var(--color-brand-500)] sm:p-4 sm:pr-6',
           closed && 'opacity-70',
@@ -241,6 +255,16 @@ function TaskCard({ task: t }: { task: TaskRow }) {
           {t.attachments ? (
             <span className="inline-flex items-center gap-1">
               <Paperclip size={12} /> {formatNumber(t.attachments)}
+            </span>
+          ) : null}
+          {t.spentMinutes ? (
+            <span className="inline-flex items-center gap-1" title="کارکرد ثبت‌شده">
+              <Timer size={12} /> {formatMinutes(t.spentMinutes)}
+            </span>
+          ) : null}
+          {t.rating ? (
+            <span className="inline-flex items-center gap-0.5 text-amber-500" title="امتیاز کیفیت">
+              <Star size={12} fill="currentColor" /> {formatNumber(t.rating)}
             </span>
           ) : null}
           <span className="mr-auto">آخرین فعالیت {faRelative(t.activityAt)}</span>

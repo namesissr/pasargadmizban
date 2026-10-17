@@ -4,16 +4,16 @@ import { requireTaskMember, assertSameOrigin, clientIp } from '@/lib/auth';
 import { devTaskCreateSchema } from '@/lib/validation';
 import { enforceRateLimit } from '@/lib/rate-limit';
 import { audit } from '@/lib/audit';
-import { assertAssignable, logActivity, markSeen, notifyTaskCreated } from '@/lib/dev-tasks';
+import { addWatchers, assertAssignable, logActivity, markSeen, notifyTaskCreated } from '@/lib/dev-tasks';
 import {
   baseWhere,
   readTaskParams,
-  seenMap,
   sortTasks,
   statusWhere,
   taskListSelect,
+  toListItems,
 } from '@/lib/dev-tasks-query';
-import { OPEN_STATUSES, isOverdue } from '@/lib/dev-tasks-shared';
+import { OPEN_STATUSES, isTaskManager } from '@/lib/dev-tasks-shared';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,21 +38,7 @@ export const GET = route(async (req: Request) => {
 
   const sorted = sortTasks(rows, params.sort);
   const slice = params.view === 'board' ? sorted : sorted.slice((page - 1) * perPage, page * perPage);
-  const seen = await seenMap(user.id, slice.map((t) => t.id));
-
-  const items = slice.map(({ checklist, _count, ...t }) => {
-    const seenAt = seen.get(t.id);
-    return {
-      ...t,
-      checklistTotal: checklist.length,
-      checklistDone: checklist.filter((c) => c.done).length,
-      comments: _count.activities,
-      attachments: _count.attachments,
-      overdue: isOverdue(t),
-      // تسکی که هرگز باز نشده یا بعد از آخرین بازدید تغییر کرده
-      unread: !seenAt || t.activityAt > seenAt,
-    };
-  });
+  const items = await toListItems(slice, user.id);
 
   const counts: Record<string, number> = {};
   for (const c of statusCounts) counts[c.status] = c._count._all;
@@ -110,9 +96,11 @@ export const POST = route(async (req: Request) => {
   });
 
   await markSeen(task.id, user.id);
+  // ثبت‌کننده خودکار دنبال‌کننده تسک است؛ کارفرمای دیگر را هم می‌توان همان لحظه اضافه کرد
+  await addWatchers(task.id, [user.id, ...(input.watcherIds ?? [])]);
   await audit({
     userId: user.id,
-    actorType: user.role === 'ADMIN' ? 'admin' : 'user',
+    actorType: isTaskManager(user.role) ? 'admin' : 'user',
     action: 'task.create',
     entity: 'dev_task',
     entityId: task.id,

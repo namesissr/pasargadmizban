@@ -31,7 +31,7 @@ export const GET = route(async () => {
         reopenCount: true,
       },
     }),
-    prisma.user.findMany({ where: { role: { in: ['ADMIN', 'DEVELOPER'] }, deletedAt: null }, select: userBrief }),
+    prisma.user.findMany({ where: { role: { in: ['ADMIN', 'EMPLOYER', 'DEVELOPER'] }, deletedAt: null }, select: userBrief }),
   ]);
 
   const open = tasks.filter((t) => OPEN_STATUSES.includes(t.status as TaskStatus));

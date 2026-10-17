@@ -4,6 +4,8 @@ export type Person = {
   firstName: string | null;
   lastName: string | null;
   role?: string;
+  /** تعداد کار باز — فقط در فهرست مسئول‌ها */
+  openCount?: number;
 };
 
 export type TaskRow = {
@@ -24,6 +26,8 @@ export type TaskRow = {
   activityAt: string;
   completedAt: string | null;
   archivedAt: string | null;
+  spentMinutes: number;
+  rating: number | null;
   assignee: Person | null;
   reporter: Person | null;
   checklistTotal: number;
@@ -45,6 +49,8 @@ export type TaskListResponse = {
 export type TaskMeta = {
   me: { id: string; role: string };
   members: Person[];
+  /** همه اعضای میز کار — برای صدا زدن در گفتگو */
+  people: Person[];
   areas: string[];
   labels: string[];
 };
@@ -103,16 +109,36 @@ export type TaskDetail = {
   assigneeId: string | null;
   reporter: Person | null;
   assignee: Person | null;
+  spentMinutes: number;
+  rating: number | null;
+  ratingNote: string | null;
+  ratedBy: Person | null;
+  watchers: { userId: string; user: Person }[];
+  timeLogs: TimeLog[];
   checklist: ChecklistItem[];
   activities: Activity[];
   attachments: Attachment[];
 };
 
+export type TimeLog = {
+  id: string;
+  userId: string;
+  startedAt: string;
+  endedAt: string | null;
+  minutes: number;
+  note: string | null;
+  manual: boolean;
+  user: Person;
+};
+
 export type TaskDetailResponse = {
   task: TaskDetail;
   lastSeenAt: string | null;
+  watching: boolean;
+  runningTimer: TimeLog | null;
   permissions: {
     manage: boolean;
+    track: boolean;
     editContent: boolean;
     comment: boolean;
     checklist: boolean;

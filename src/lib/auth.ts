@@ -174,11 +174,20 @@ export async function requireAdmin(): Promise<SessionUser> {
   return user;
 }
 
-/** مدیر، پشتیبان یا برنامه‌نویس — اعضای میز کار تسک‌ها */
+/** کارفرما (مدیر یا کارفرما)، پشتیبان یا برنامه‌نویس — اعضای میز کار تسک‌ها */
 export async function requireTaskMember(): Promise<SessionUser> {
   const user = await requireUser();
-  if (user.role !== 'ADMIN' && user.role !== 'SUPPORT' && user.role !== 'DEVELOPER') {
-    throw new AuthError('دسترسی به میز کار تسک‌ها فقط برای مدیر، پشتیبان و برنامه‌نویس مجاز است.', 403);
+  if (!['ADMIN', 'EMPLOYER', 'SUPPORT', 'DEVELOPER'].includes(user.role)) {
+    throw new AuthError('دسترسی به میز کار تسک‌ها فقط برای کارفرما، پشتیبان و برنامه‌نویس مجاز است.', 403);
+  }
+  return user;
+}
+
+/** کارفرما: مدیر سایت یا نقش کارفرما */
+export async function requireTaskManager(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.role !== 'ADMIN' && user.role !== 'EMPLOYER') {
+    throw new AuthError('این عملیات فقط برای کارفرما مجاز است.', 403);
   }
   return user;
 }

@@ -5,6 +5,9 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import useSWR from 'swr';
 import {
+  Bell,
+  BellOff,
+  Star,
   Archive,
   ArchiveRestore,
   ArrowRightLeft,
@@ -47,6 +50,7 @@ import {
   TASK_PRIORITY_FA,
   TASK_STATUS_FA,
   TASK_TYPE_FA,
+  TASK_ROLE_FA,
   isOverdue,
   transitionLabel,
   transitionNeedsComment,
@@ -55,9 +59,11 @@ import {
   type TaskStatus,
   type TaskType,
 } from '@/lib/dev-tasks-shared';
-import { TaskForm } from '../_components/task-form';
-import { useTaskMeta } from '../_components/filters';
-import { AttachmentGrid, checkFiles, FileDrop, filesFromClipboard, PendingFiles, uploadFiles } from '../_components/files';
+import { TaskForm } from './task-form';
+import { useTaskMeta } from './filters';
+import { usePanel } from './panel';
+import { TimeTracker } from './time-tracker';
+import { AttachmentGrid, checkFiles, FileDrop, filesFromClipboard, PendingFiles, uploadFiles } from './files';
 import {
   Avatar,
   DueLabel,
@@ -68,8 +74,8 @@ import {
   StatusBadge,
   TaskNumber,
   TypeTag,
-} from '../_components/ui';
-import { personName, type Activity, type Attachment, type TaskDetailResponse } from '../_components/types';
+} from './ui';
+import { personName, type Activity, type Attachment, type Person, type TaskDetailResponse } from './types';
 
 /** گذارهای اصلی هر وضعیت که به‌صورت دکمه برجسته نشان داده می‌شوند؛ بقیه در فهرست کشویی */
 const PRIMARY: Record<TaskStatus, TaskStatus[]> = {
@@ -90,6 +96,7 @@ export function TaskDetailView({ number }: { number: number }) {
   const { data: meta } = useTaskMeta();
   const toast = useToast();
   const router = useRouter();
+  const panel = usePanel();
 
   const [editing, setEditing] = useState(false);
   const [transition, setTransition] = useState<TaskStatus | null>(null);
@@ -111,10 +118,10 @@ export function TaskDetailView({ number }: { number: number }) {
   const meId = meta?.me.id;
   const overdue = isOverdue(task);
 
-  async function changeStatus(to: TaskStatus, comment?: string) {
+  async function changeStatus(to: TaskStatus, comment?: string, rating?: number) {
     setBusy(`status-${to}`);
     try {
-      await apiPost(`/api/tasks/${task.id}/status`, { status: to, comment });
+      await apiPost(`/api/tasks/${task.id}/status`, { status: to, comment, rating });
       toast.success(`وضعیت به «${TASK_STATUS_FA[to].label}» تغییر کرد.`);
       setTransition(null);
       await mutate();
@@ -143,12 +150,25 @@ export function TaskDetailView({ number }: { number: number }) {
     }
   }
 
+  async function toggleWatch() {
+    setBusy('watch');
+    try {
+      await apiPost(`/api/tasks/${task.id}/watch`, { watch: !data!.watching });
+      toast.success(data!.watching ? 'دیگر این تسک را دنبال نمی‌کنید.' : 'از همه تغییرات این تسک باخبر می‌شوید.');
+      await mutate();
+    } catch (err) {
+      toast.error(errorMessage(err));
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function remove() {
     setBusy('delete');
     try {
       await apiDelete(`/api/tasks/${task.id}`);
       toast.success('تسک حذف شد.');
-      router.push('/tasks');
+      router.push(panel.list);
     } catch (err) {
       toast.error(errorMessage(err));
       setBusy(null);
@@ -241,8 +261,19 @@ export function TaskDetailView({ number }: { number: number }) {
             حذف
           </Button>
         ) : null}
+        <Button
+          variant={data.watching ? 'secondary' : 'ghost'}
+          size="sm"
+          loading={busy === 'watch'}
+          icon={data.watching ? <BellOff size={14} /> : <Bell size={14} />}
+          onClick={toggleWatch}
+          title="دنبال‌کننده‌ها از همه تغییرات این تسک باخبر می‌شوند"
+        >
+          {data.watching ? 'دنبال می‌کنید' : 'دنبال کردن'}
+        </Button>
         <CopyButton
-          value={typeof window !== 'undefined' ? `${window.location.origin}/tasks/${task.number}` : `/tasks/${task.number}`}
+          // پیوند کوتاه: هر نفر را به صفحه تسک در پنل خودش می‌برد
+          value={typeof window !== 'undefined' ? `${window.location.origin}/t/${task.number}` : `/t/${task.number}`}
           label="کپی لینک"
           className="px-2 py-1.5"
         />
@@ -270,7 +301,7 @@ export function TaskDetailView({ number }: { number: number }) {
             </Button>
           }
         >
-          اگر انجامش با شماست، آن را بردارید تا مدیر بداند چه کسی پیگیر است.
+          اگر انجامش با شماست، آن را بردارید تا کارفرما بداند چه کسی پیگیر است.
         </Alert>
       ) : null}
 
@@ -280,7 +311,7 @@ export function TaskDetailView({ number }: { number: number }) {
           title={
             permissions.manage
               ? 'برنامه‌نویس اعلام کرده این کار انجام شده — لطفاً بررسی کنید'
-              : 'انجام شد؛ منتظر بررسی و تأیید مدیر'
+              : 'انجام شد؛ منتظر بررسی و تأیید کارفرما'
           }
         >
           {lastStatus?.body ? <RichText text={lastStatus.body} className="text-xs" /> : null}
@@ -311,7 +342,7 @@ export function TaskDetailView({ number }: { number: number }) {
       {overdue ? (
         <Alert tone="error" title="مهلت این تسک گذشته است">
           مهلت {faDateLong(task.dueAt)} بوده است.{' '}
-          {permissions.manage ? 'در صورت نیاز مهلت را تمدید کنید.' : 'لطفاً وضعیت را به‌روز کنید یا با مدیر هماهنگ کنید.'}
+          {permissions.manage ? 'در صورت نیاز مهلت را تمدید کنید.' : 'لطفاً وضعیت را به‌روز کنید یا با کارفرما هماهنگ کنید.'}
         </Alert>
       ) : null}
 
@@ -339,7 +370,10 @@ export function TaskDetailView({ number }: { number: number }) {
           <Timeline data={data} meId={meId} lastSeenAt={lastSeenAt} onChange={() => mutate()} commentRef={commentRef} />
         </div>
 
-        <Sidebar data={data} busy={busy === 'patch'} onPatch={patch} />
+        <div className="space-y-4">
+          <TimeTracker data={data} meId={meId} onChange={() => mutate()} />
+          <Sidebar data={data} busy={busy === 'patch'} onPatch={patch} />
+        </div>
       </div>
 
       <TransitionModal
@@ -349,7 +383,8 @@ export function TaskDetailView({ number }: { number: number }) {
         unchecked={uncheckedItems}
         loading={Boolean(busy?.startsWith('status-'))}
         onClose={() => setTransition(null)}
-        onConfirm={(comment) => transition && changeStatus(transition, comment)}
+        canRate={permissions.manage}
+        onConfirm={(comment, rating) => transition && changeStatus(transition, comment, rating)}
       />
 
       <ConfirmModal
@@ -366,11 +401,12 @@ export function TaskDetailView({ number }: { number: number }) {
 }
 
 function Header({ task }: { task: TaskDetailResponse['task'] }) {
+  const panel = usePanel();
   return (
     <div>
       <nav className="mb-1.5 flex items-center gap-1 text-[11px] muted">
-        <Link href="/tasks" className="hover:underline">
-          میز کار تسک‌ها
+        <Link href={panel.list} className="hover:underline">
+          {panel.kind === 'developer' ? 'تسک‌ها' : 'همه تسک‌ها'}
         </Link>
         <span className="opacity-50">/</span>
         <TaskNumber number={task.number} />
@@ -406,6 +442,7 @@ function TransitionModal({
   to,
   unchecked,
   loading,
+  canRate,
   onClose,
   onConfirm,
 }: {
@@ -414,19 +451,21 @@ function TransitionModal({
   to: TaskStatus | null;
   unchecked: number;
   loading: boolean;
+  canRate: boolean;
   onClose: () => void;
-  onConfirm: (comment: string) => void;
+  onConfirm: (comment: string, rating?: number) => void;
 }) {
   const [comment, setComment] = useState('');
+  const [rating, setRating] = useState(0);
   const required = to ? transitionNeedsComment(from, to) : false;
 
   const guide: Partial<Record<TaskStatus, { text: string; placeholder: string }>> = {
     REVIEW: {
-      text: 'تسک به «انجام شد — منتظر تأیید» می‌رود و مدیر برای بررسی باخبر می‌شود.',
+      text: 'تسک به «انجام شد — منتظر تأیید» می‌رود و کارفرماها برای بررسی باخبر می‌شوند. اگر زمان‌سنج روشن است، فراموش نکنید آن را متوقف کنید.',
       placeholder: 'چه کاری انجام شد؟ چطور می‌شود تست کرد؟ (اختیاری ولی بسیار کمک می‌کند)',
     },
     BLOCKED: {
-      text: 'کار متوقف می‌شود و مدیر فوراً باخبر می‌شود. دقیق بنویسید چه چیزی لازم دارید.',
+      text: 'کار متوقف می‌شود و کارفرماها فوراً باخبر می‌شوند. دقیق بنویسید چه چیزی لازم دارید.',
       placeholder: 'مثلاً: کد مرچنت درگاه را ندارم / باید مشخص شود این دکمه برای کاربران تعلیق‌شده هم نمایش داده شود یا نه',
     },
     DONE: { text: 'تسک بسته می‌شود و به برنامه‌نویس اطلاع داده می‌شود.', placeholder: 'یادداشت تأیید (اختیاری)' },
@@ -447,6 +486,7 @@ function TransitionModal({
       open={open}
       onClose={() => {
         setComment('');
+        setRating(0);
         onClose();
       }}
       title={to ? transitionLabel(from, to) : ''}
@@ -461,8 +501,9 @@ function TransitionModal({
             loading={loading}
             disabled={required && !comment.trim()}
             onClick={() => {
-              onConfirm(comment.trim());
+              onConfirm(comment.trim(), rating || undefined);
               setComment('');
+              setRating(0);
             }}
           >
             {to ? transitionLabel(from, to) : 'تأیید'}
@@ -475,11 +516,50 @@ function TransitionModal({
           <Alert tone="warning">{formatNumber(unchecked)} مورد از چک‌لیست هنوز تیک نخورده است. مطمئنید همه انجام شده؟</Alert>
         </div>
       ) : null}
+      {to === 'DONE' && canRate ? (
+        <div className="mb-4">
+          <label className="label">
+            کیفیت کار <span className="font-normal muted">(اختیاری — در گزارش عملکرد برنامه‌نویس دیده می‌شود)</span>
+          </label>
+          <StarPicker value={rating} onChange={setRating} />
+        </div>
+      ) : null}
       <label className="label">
         توضیح {required ? <span className="text-red-500">*</span> : <span className="font-normal muted">(اختیاری)</span>}
       </label>
       <Textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder={g?.placeholder} rows={5} autoFocus />
     </Modal>
+  );
+}
+
+const RATING_FA = ['', 'ضعیف', 'نیاز به بهبود', 'قابل قبول', 'خوب', 'عالی'];
+
+function StarPicker({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <div className="flex items-center gap-1" dir="ltr">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <button
+          key={n}
+          type="button"
+          onClick={() => onChange(value === n ? 0 : n)}
+          className={cn('rounded p-0.5 transition', n <= value ? 'text-amber-500' : 'text-[var(--border)] hover:text-amber-300')}
+          aria-label={`${n} ستاره`}
+        >
+          <Star size={24} fill="currentColor" />
+        </button>
+      ))}
+      {value ? <span className="mr-2 text-xs font-semibold text-amber-600">{RATING_FA[value]}</span> : null}
+    </div>
+  );
+}
+
+export function Stars({ value, size = 13 }: { value: number; size?: number }) {
+  return (
+    <span className="inline-flex items-center gap-0.5 text-amber-500" dir="ltr" title={`${value} از ۵ — ${RATING_FA[value]}`}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star key={n} size={size} fill={n <= value ? 'currentColor' : 'none'} className={n <= value ? '' : 'opacity-40'} />
+      ))}
+    </span>
   );
 }
 
@@ -637,6 +717,33 @@ function Sidebar({
         {task.completedAt ? <Row label="تأیید نهایی">{faDateTime(task.completedAt)}</Row> : null}
         <Row label="آخرین فعالیت">{faRelative(task.activityAt)}</Row>
         <Row label="دفعات برگشت">{formatNumber(task.reopenCount)}</Row>
+        {task.rating ? (
+          <Row label="کیفیت کار">
+            <div className="flex flex-col items-end gap-0.5">
+              <Stars value={task.rating} />
+              {task.ratedBy ? <span className="text-[10px] muted">از {personName(task.ratedBy)}</span> : null}
+            </div>
+          </Row>
+        ) : null}
+      </Card>
+
+      <Card title="دنبال‌کننده‌ها" bodyClassName="px-4 py-3">
+        {task.watchers.length ? (
+          <ul className="space-y-2">
+            {task.watchers.map((w) => (
+              <li key={w.userId} className="flex items-center gap-2 text-xs">
+                <Avatar person={w.user} size={22} />
+                <span>{personName(w.user)}</span>
+                <span className="text-[10px] muted">{TASK_ROLE_FA[w.user.role ?? ''] ?? ''}</span>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-xs muted">هنوز کسی این تسک را دنبال نمی‌کند.</p>
+        )}
+        <p className="mt-2 text-[10px] leading-5 muted">
+          ثبت‌کننده و هر کسی که در گفتگو صدا زده شود خودکار دنبال‌کننده می‌شود. مسئول و کارفرماها همیشه باخبر می‌شوند.
+        </p>
       </Card>
     </div>
   );
@@ -852,6 +959,12 @@ function describe(a: Activity, actor: string): React.ReactNode {
         return (
           <>
             <b>{actor}</b> کار را <b className="text-emerald-600">تأیید کرد و بست</b>.
+            {typeof m.rating === 'number' ? (
+              <>
+                {' '}
+                <Stars value={m.rating} size={11} />
+              </>
+            ) : null}
           </>
         );
       if (to === 'BLOCKED')
@@ -947,6 +1060,19 @@ function describe(a: Activity, actor: string): React.ReactNode {
           <b>{actor}</b> فایل «{String(m.name)}» را حذف کرد.
         </>
       );
+    case 'TIME':
+      return (
+        <>
+          <b>{actor}</b> {m.manual ? 'دستی ' : ''}
+          <b className="text-emerald-600">{String(m.label)}</b> کارکرد ثبت کرد.
+        </>
+      );
+    case 'TIME_REMOVED':
+      return (
+        <>
+          <b>{actor}</b> کارکرد {String(m.label)} را حذف کرد.
+        </>
+      );
     case 'ARCHIVED':
       return `${actor} تسک را بایگانی کرد.`;
     case 'UNARCHIVED':
@@ -977,6 +1103,9 @@ function Timeline({
   const [sending, setSending] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editText, setEditText] = useState('');
+  const [mentions, setMentions] = useState<string[]>([]);
+  const { data: meta } = useTaskMeta();
+  const people: Person[] = meta?.people ?? [];
 
   const attachmentsByActivity = useMemo(() => {
     const map = new Map<string, Attachment[]>();
@@ -1003,9 +1132,14 @@ function Timeline({
     setSending(true);
     try {
       const uploaded = await uploadFiles(task.id, files, true);
-      await apiPost(`/api/tasks/${task.id}/comments`, { body: body.trim(), attachmentIds: uploaded.map((u) => u.id) });
+      await apiPost(`/api/tasks/${task.id}/comments`, {
+        body: body.trim(),
+        attachmentIds: uploaded.map((u) => u.id),
+        mentionIds: mentions,
+      });
       setBody('');
       setFiles([]);
+      setMentions([]);
       onChange();
     } catch (err) {
       toast.error(errorMessage(err));
@@ -1077,11 +1211,7 @@ function Timeline({
                   <div className="mb-1.5 flex flex-wrap items-center gap-2 text-[11px]">
                     <Avatar person={a.user} size={22} />
                     <b className="text-xs">{actor}</b>
-                    {a.user?.role === 'DEVELOPER' ? (
-                      <span className="muted">برنامه‌نویس</span>
-                    ) : a.user?.role === 'ADMIN' ? (
-                      <span className="muted">مدیر</span>
-                    ) : null}
+                    {a.user?.role ? <span className="muted">{TASK_ROLE_FA[a.user.role] ?? ''}</span> : null}
                     <span className="muted" title={faDateTime(a.createdAt)}>
                       {faRelative(a.createdAt)}
                     </span>
@@ -1130,6 +1260,14 @@ function Timeline({
                     </div>
                   ) : a.body ? (
                     <RichText text={a.body} />
+                  ) : null}
+                  {Array.isArray((a.meta as { mentions?: string[] }).mentions) ? (
+                    <div className="mt-1.5 text-[11px] text-[var(--color-brand-600)]">
+                      📣 صدا زد:{' '}
+                      {((a.meta as { mentions: string[] }).mentions)
+                        .map((id) => personName(people.find((p) => p.id === id)))
+                        .join('، ')}
+                    </div>
                   ) : null}
                   {files.length ? (
                     <div className="mt-2">
@@ -1192,6 +1330,30 @@ function Timeline({
             placeholder="نظر، سؤال یا گزارش پیشرفت… (اسکرین‌شات را با Ctrl+V بچسبانید؛ Ctrl+Enter برای ارسال)"
           />
           <PendingFiles files={files} onRemove={(i) => setFiles((f) => f.filter((_, j) => j !== i))} />
+          {people.length > 1 ? (
+            <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="muted">📣 صدا زدن (اعلان ویژه با ایمیل):</span>
+              {people
+                .filter((p) => p.id !== meId)
+                .map((p) => {
+                  const on = mentions.includes(p.id);
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setMentions((m) => (on ? m.filter((x) => x !== p.id) : [...m, p.id]))}
+                      className={cn(
+                        'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition',
+                        on ? 'border-[var(--color-brand-500)] bg-[var(--color-brand-600)] text-white' : 'hover:bg-[var(--surface-2)]',
+                      )}
+                    >
+                      @{personName(p)}
+                      <span className={on ? 'opacity-80' : 'muted'}>{TASK_ROLE_FA[p.role ?? ''] ?? ''}</span>
+                    </button>
+                  );
+                })}
+            </div>
+          ) : null}
           <div className="flex items-center justify-between gap-2">
             <FileDrop compact onFiles={addFiles} />
             <Button onClick={send} loading={sending} disabled={!body.trim() && !files.length} icon={<Send size={15} />}>

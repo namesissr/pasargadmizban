@@ -1,20 +1,18 @@
 import type { Metadata } from 'next';
-import { Suspense } from 'react';
 import Link from 'next/link';
 import { Columns3, Plus } from 'lucide-react';
 import { PageHeader } from '@/components/app/shell';
-import { LoadingBlock } from '@/components/ui';
-import { TaskList } from './task-list';
+import { EmployerHome } from './_components/employer-home';
 
-export const metadata: Metadata = { title: 'میز کار تسک‌ها' };
+export const metadata: Metadata = { title: 'داشبورد کارفرما' };
 export const dynamic = 'force-dynamic';
 
-export default function TasksPage() {
+export default function EmployerHomePage() {
   return (
     <>
       <PageHeader
-        title="میز کار تسک‌ها"
-        description="کارها، باگ‌ها و درخواست‌های توسعه سایت — از ثبت تا تأیید نهایی، با یادآوری خودکار تا هیچ کاری فراموش نشود."
+        title="داشبورد کارفرما"
+        description="کارهایی که منتظر شماست، وضعیت تیم برنامه‌نویسان و آخرین اتفاق‌ها — یک نگاه تا هیچ کاری معطل نماند."
         action={
           <>
             <Link href="/tasks/board" className="btn btn-secondary btn-sm">
@@ -26,9 +24,7 @@ export default function TasksPage() {
           </>
         }
       />
-      <Suspense fallback={<LoadingBlock />}>
-        <TaskList />
-      </Suspense>
+      <EmployerHome />
     </>
   );
 }

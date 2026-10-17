@@ -37,7 +37,19 @@ export const POST = route(async (req: Request, ctx: Ctx) => {
   });
 
   await markSeen(task.id, user.id);
-  await notifyComment(task, user, input.body || `${attachmentIds.length} فایل پیوست کرد.`);
+  // فقط اعضای میز کار را می‌توان صدا زد
+  const mentions = input.mentionIds?.length
+    ? (
+        await prisma.user.findMany({
+          where: { id: { in: input.mentionIds }, role: { in: ['ADMIN', 'EMPLOYER', 'SUPPORT', 'DEVELOPER'] }, deletedAt: null },
+          select: { id: true },
+        })
+      ).map((u) => u.id)
+    : [];
+  if (mentions.length) {
+    await prisma.devTaskActivity.update({ where: { id: activity.id }, data: { meta: { mentions } } });
+  }
+  await notifyComment(task, user, input.body || `${attachmentIds.length} فایل پیوست کرد.`, mentions);
 
   return ok({ id: activity.id });
 });

@@ -15,15 +15,17 @@ import {
   TASK_STATUS_COLOR,
   TASK_STATUS_FA,
   allowedTransitions,
+  isTaskManager,
   transitionLabel,
   transitionNeedsComment,
   type TaskNecessity,
   type TaskPriority,
   type TaskStatus,
 } from '@/lib/dev-tasks-shared';
-import { FilterBar, toQuery, useTaskMeta, useUrlFilters } from '../_components/filters';
-import { Avatar, DueLabel, TaskNumber } from '../_components/ui';
-import type { TaskListResponse, TaskRow } from '../_components/types';
+import { FilterBar, toQuery, useTaskMeta, useUrlFilters } from './filters';
+import { usePanel } from './panel';
+import { Avatar, DueLabel, TaskNumber } from './ui';
+import type { TaskListResponse, TaskRow } from './types';
 
 const COLUMNS: TaskStatus[] = ['TODO', 'IN_PROGRESS', 'BLOCKED', 'REVIEW', 'DONE'];
 
@@ -47,7 +49,8 @@ export function TaskBoard() {
 
   const role = meta?.me.role;
   const meId = meta?.me.id;
-  const isAdmin = role === 'ADMIN';
+  const isAdmin = isTaskManager(role);
+  const panel = usePanel();
   const items = data?.items ?? [];
   const byStatus = (s: TaskStatus) => items.filter((t) => t.status === s);
 
@@ -185,6 +188,7 @@ export function TaskBoard() {
                       <BoardCard
                         key={t.id}
                         task={t}
+                        href={panel.detail(t.number)}
                         dragging={dragId === t.id}
                         dropBefore={overCard === t.id && dragId !== t.id}
                         onDragStart={() => {
@@ -267,6 +271,7 @@ export function TaskBoard() {
 
 function BoardCard({
   task: t,
+  href,
   dragging,
   dropBefore,
   onDragStart,
@@ -274,6 +279,7 @@ function BoardCard({
   onDragOverCard,
 }: {
   task: TaskRow;
+  href: string;
   dragging: boolean;
   dropBefore: boolean;
   onDragStart: () => void;
@@ -283,7 +289,7 @@ function BoardCard({
   const hot = t.priority === 'URGENT' || t.necessity === 'CRITICAL';
   return (
     <Link
-      href={`/tasks/${t.number}`}
+      href={href}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.effectAllowed = 'move';

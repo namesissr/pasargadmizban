@@ -40,6 +40,8 @@ import {
   BarChart3,
   BookOpen,
   ClipboardList,
+  Timer,
+  Code2,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatToman } from '@/lib/money';
@@ -52,11 +54,12 @@ export type ShellUser = {
   email: string;
   firstName: string | null;
   lastName: string | null;
-  role: 'USER' | 'SUPPORT' | 'ADMIN' | 'DEVELOPER';
+  role: 'USER' | 'SUPPORT' | 'ADMIN' | 'DEVELOPER' | 'EMPLOYER';
   balance: number;
 };
 
-type Area = 'user' | 'admin' | 'tasks';
+/** tasks: پنل کارفرما — dev: پنل برنامه‌نویس */
+type Area = 'user' | 'admin' | 'tasks' | 'dev';
 
 type NavItem = {
   href: string;
@@ -65,6 +68,8 @@ type NavItem = {
   exact?: boolean;
   /** شمارنده تسک‌های دارای به‌روزرسانی دیده‌نشده کنار این گزینه نشان داده شود */
   taskBadge?: boolean;
+  /** فقط برای کارفرما (مدیر یا کارفرما)، نه پشتیبان */
+  managerOnly?: boolean;
 };
 
 const USER_NAV: NavItem[] = [
@@ -102,10 +107,22 @@ const ADMIN_NAV: NavItem[] = [
 ];
 
 const TASKS_NAV: NavItem[] = [
-  { href: '/tasks', label: 'فهرست تسک‌ها', icon: ListChecks, exact: true, taskBadge: true },
+  { href: '/tasks', label: 'داشبورد کارفرما', icon: LayoutDashboard, exact: true, taskBadge: true },
+  { href: '/tasks/list', label: 'همه تسک‌ها', icon: ListChecks },
   { href: '/tasks/board', label: 'تخته کانبان', icon: Columns3 },
+  { href: '/tasks/team', label: 'تیم برنامه‌نویسان', icon: Users, managerOnly: true },
+  { href: '/tasks/worklog', label: 'کارکرد و ساعت‌ها', icon: Timer, managerOnly: true },
   { href: '/tasks/reports', label: 'گزارش عملکرد', icon: BarChart3 },
   { href: '/tasks/guide', label: 'راهنمای گردش کار', icon: BookOpen },
+];
+
+const DEV_NAV: NavItem[] = [
+  { href: '/dev', label: 'میز کار من', icon: LayoutDashboard, exact: true, taskBadge: true },
+  { href: '/dev/tasks', label: 'تسک‌ها', icon: ListChecks },
+  { href: '/dev/board', label: 'تخته کانبان', icon: Columns3 },
+  { href: '/dev/worklog', label: 'کارکرد من', icon: Timer },
+  { href: '/dev/new', label: 'گزارش باگ یا پیشنهاد', icon: Plus },
+  { href: '/dev/guide', label: 'راهنمای گردش کار', icon: BookOpen },
 ];
 
 /** چهار میان‌بر پرکاربرد که روی گوشی در نوار پایین می‌نشینند */
@@ -124,18 +141,31 @@ const ADMIN_TABS: NavItem[] = [
 ];
 
 const TASKS_TABS: NavItem[] = [
-  { href: '/tasks', label: 'تسک‌ها', icon: ListChecks, exact: true, taskBadge: true },
-  { href: '/tasks/board', label: 'تخته', icon: Columns3 },
+  { href: '/tasks', label: 'داشبورد', icon: LayoutDashboard, exact: true, taskBadge: true },
+  { href: '/tasks/list', label: 'تسک‌ها', icon: ListChecks },
   { href: '/tasks/new', label: 'تسک جدید', icon: Plus },
-  { href: '/tasks/reports', label: 'گزارش', icon: BarChart3 },
+  { href: '/tasks/team', label: 'تیم', icon: Users, managerOnly: true },
 ];
 
-const NAVS: Record<Area, NavItem[]> = { user: USER_NAV, admin: ADMIN_NAV, tasks: TASKS_NAV };
-const TABS: Record<Area, NavItem[]> = { user: USER_TABS, admin: ADMIN_TABS, tasks: TASKS_TABS };
-const HOME: Record<Area, string> = { user: '/dashboard', admin: '/admin', tasks: '/tasks' };
-const AREA_TITLE: Record<Area, string> = { user: 'سرور ابری', admin: 'پنل مدیریت', tasks: 'میز کار تسک‌ها' };
+const DEV_TABS: NavItem[] = [
+  { href: '/dev', label: 'میز کار', icon: LayoutDashboard, exact: true, taskBadge: true },
+  { href: '/dev/tasks', label: 'تسک‌ها', icon: ListChecks },
+  { href: '/dev/board', label: 'تخته', icon: Columns3 },
+  { href: '/dev/worklog', label: 'کارکرد', icon: Timer },
+];
 
-const isTaskMember = (role: ShellUser['role']) => role === 'ADMIN' || role === 'SUPPORT' || role === 'DEVELOPER';
+const NAVS: Record<Area, NavItem[]> = { user: USER_NAV, admin: ADMIN_NAV, tasks: TASKS_NAV, dev: DEV_NAV };
+const TABS: Record<Area, NavItem[]> = { user: USER_TABS, admin: ADMIN_TABS, tasks: TASKS_TABS, dev: DEV_TABS };
+const HOME: Record<Area, string> = { user: '/dashboard', admin: '/admin', tasks: '/tasks', dev: '/dev' };
+const AREA_TITLE: Record<Area, string> = {
+  user: 'سرور ابری',
+  admin: 'پنل مدیریت',
+  tasks: 'پنل کارفرما',
+  dev: 'پنل برنامه‌نویس',
+};
+
+const isTaskMember = (role: ShellUser['role']) =>
+  role === 'ADMIN' || role === 'EMPLOYER' || role === 'SUPPORT' || role === 'DEVELOPER';
 
 /** تعداد تسک‌های بازی که از آخرین بازدید کاربر تغییر کرده‌اند */
 function useTaskBadge(enabled: boolean): number {
@@ -143,6 +173,36 @@ function useTaskBadge(enabled: boolean): number {
     refreshInterval: 60_000,
   });
   return data?.unread ?? 0;
+}
+
+/** زمان‌سنج کارکردی که الان روشن است — در نوار بالا نشان داده می‌شود تا فراموش نشود */
+function RunningTimer() {
+  const { data } = useSWR<{ running: { startedAt: string; task: { number: number; title: string } } | null }>(
+    '/api/tasks/timer',
+    fetcher,
+    { refreshInterval: 60_000 },
+  );
+  const [, tick] = useState(0);
+  useEffect(() => {
+    if (!data?.running) return;
+    const t = setInterval(() => tick((n) => n + 1), 30_000);
+    return () => clearInterval(t);
+  }, [data?.running]);
+
+  if (!data?.running) return null;
+  const minutes = Math.max(0, Math.floor((Date.now() - new Date(data.running.startedAt).getTime()) / 60_000));
+  const fa = (n: number) => new Intl.NumberFormat('fa-IR', { minimumIntegerDigits: 2, useGrouping: false }).format(n);
+  return (
+    <Link
+      href={`/t/${data.running.task.number}`}
+      title={`زمان‌سنج روشن: ${data.running.task.title}`}
+      className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/12 px-2.5 py-1.5 text-xs font-bold text-emerald-700 transition hover:opacity-80"
+    >
+      <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+      <span className="tabular ltr">{fa(Math.floor(minutes / 60))}:{fa(minutes % 60)}</span>
+      <span className="hidden sm:inline">#{new Intl.NumberFormat('fa-IR', { useGrouping: false }).format(data.running.task.number)}</span>
+    </Link>
+  );
 }
 
 function isActive(pathname: string, item: NavItem) {
@@ -160,7 +220,8 @@ export function Shell({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const nav = NAVS[area];
+  const manager = user.role === 'ADMIN' || user.role === 'EMPLOYER';
+  const nav = NAVS[area].filter((item) => manager || !item.managerOnly);
   const taskBadge = useTaskBadge(area !== 'user' && isTaskMember(user.role));
 
   useEffect(() => {
@@ -230,6 +291,10 @@ export function Shell({
             <Link href="/tasks/new" className="btn btn-primary mb-3 w-full">
               <Plus size={16} /> ثبت تسک جدید
             </Link>
+          ) : area === 'dev' ? (
+            <div className="mb-3 flex items-center gap-2 rounded-xl px-3 py-2.5 text-xs font-semibold surface-2">
+              <Code2 size={16} /> پنل برنامه‌نویس
+            </div>
           ) : null}
 
           <ul className="space-y-1">
@@ -285,7 +350,7 @@ export function Shell({
         </footer>
       </div>
 
-      <BottomNav area={area} taskBadge={taskBadge} onMenu={() => setOpen(true)} />
+      <BottomNav area={area} manager={manager} taskBadge={taskBadge} onMenu={() => setOpen(true)} />
     </div>
   );
 }
@@ -295,7 +360,13 @@ function AreaLinks({ role, area }: { role: ShellUser['role']; area: Area }) {
   const links: { href: string; label: string; icon: React.ComponentType<{ size?: number }> }[] = [];
   const staff = role === 'ADMIN' || role === 'SUPPORT';
   if (staff && area !== 'admin') links.push({ href: '/admin', label: 'ورود به پنل مدیریت', icon: ShieldCheck });
-  if (isTaskMember(role) && area === 'user') links.push({ href: '/tasks', label: 'میز کار تسک‌ها', icon: ClipboardList });
+  if (isTaskMember(role) && area === 'user') {
+    links.push(
+      role === 'DEVELOPER'
+        ? { href: '/dev', label: 'پنل برنامه‌نویس', icon: Code2 }
+        : { href: '/tasks', label: 'پنل کارفرما (تسک‌ها)', icon: ClipboardList },
+    );
+  }
   if (area !== 'user') links.push({ href: '/dashboard', label: 'پنل کاربری', icon: LayoutDashboard });
   if (!links.length) return null;
 
@@ -316,9 +387,19 @@ function AreaLinks({ role, area }: { role: ShellUser['role']; area: Area }) {
 }
 
 /** نوار پیمایش پایین صفحه — فقط روی گوشی و تبلت کوچک دیده می‌شود */
-function BottomNav({ area, taskBadge, onMenu }: { area: Area; taskBadge: number; onMenu: () => void }) {
+function BottomNav({
+  area,
+  manager,
+  taskBadge,
+  onMenu,
+}: {
+  area: Area;
+  manager: boolean;
+  taskBadge: number;
+  onMenu: () => void;
+}) {
   const pathname = usePathname();
-  const tabs = TABS[area];
+  const tabs = TABS[area].filter((item) => manager || !item.managerOnly);
 
   return (
     <nav
@@ -453,6 +534,8 @@ function Topbar({ user, area, onMenu }: { user: ShellUser; area: Area; onMenu: (
           <Plus size={15} /> تسک جدید
         </Link>
       ) : null}
+
+      {area === 'tasks' || area === 'dev' ? <RunningTimer /> : null}
 
       <NotificationBell />
       <ThemeToggle />

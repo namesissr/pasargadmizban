@@ -4,12 +4,15 @@ import { ApiError } from './errors';
 import { notify } from './notify';
 import { formatNumber } from './money';
 import {
+  EMPLOYER_ROLES,
   OPEN_STATUSES,
   TASK_NECESSITY_FA,
   TASK_PRIORITY_FA,
   TASK_STATUS_FA,
   TASK_TYPE_FA,
+  formatMinutes,
   isOverdue,
+  isTaskManager,
   urgencyScore,
   type TaskNecessity,
   type TaskPriority,
@@ -47,10 +50,12 @@ export async function findTask(idOrNumber: string): Promise<DevTask> {
   return task;
 }
 
-/** کاربرانی که می‌توان تسک را به آن‌ها سپرد */
+const ASSIGNABLE_ROLES = ['DEVELOPER', ...EMPLOYER_ROLES] as const;
+
+/** کاربرانی که می‌توان تسک را به آن‌ها سپرد: برنامه‌نویس‌ها و کارفرماها */
 export async function assignableUsers() {
   return prisma.user.findMany({
-    where: { role: { in: ['ADMIN', 'DEVELOPER'] }, deletedAt: null, status: { not: 'BANNED' } },
+    where: { role: { in: [...ASSIGNABLE_ROLES] }, deletedAt: null, status: { not: 'BANNED' } },
     select: userBrief,
     orderBy: [{ role: 'desc' }, { createdAt: 'asc' }],
   });
@@ -59,11 +64,11 @@ export async function assignableUsers() {
 export async function assertAssignable(userId: string | null | undefined) {
   if (!userId) return;
   const target = await prisma.user.findFirst({
-    where: { id: userId, role: { in: ['ADMIN', 'DEVELOPER'] }, deletedAt: null },
+    where: { id: userId, role: { in: [...ASSIGNABLE_ROLES] }, deletedAt: null },
     select: { id: true },
   });
   if (!target) {
-    throw new ApiError('مسئول انتخاب‌شده معتبر نیست؛ فقط مدیر یا برنامه‌نویس را می‌توان انتخاب کرد.', 422, {
+    throw new ApiError('مسئول انتخاب‌شده معتبر نیست؛ فقط کارفرما یا برنامه‌نویس را می‌توان انتخاب کرد.', 422, {
       fields: { assigneeId: 'مسئول معتبر نیست.' },
     });
   }
@@ -85,6 +90,21 @@ export async function logActivity(
   return activity;
 }
 
+/** دنبال کردن تسک — تکراری بودن مشکلی ایجاد نمی‌کند */
+export async function addWatchers(taskId: string, userIds: (string | null | undefined)[]) {
+  const ids = [...new Set(userIds.filter((id): id is string => Boolean(id)))];
+  if (!ids.length) return;
+  await prisma.devTaskWatcher.createMany({
+    data: ids.map((userId) => ({ taskId, userId })),
+    skipDuplicates: true,
+  });
+}
+
+async function watcherIds(taskId: string): Promise<string[]> {
+  const rows = await prisma.devTaskWatcher.findMany({ where: { taskId }, select: { userId: true } });
+  return rows.map((r) => r.userId);
+}
+
 /** کسی که الان کاری انجام داده، طبیعتاً آخرین نسخه را دیده است */
 export async function markSeen(taskId: string, userId: string) {
   await prisma.devTaskView.upsert({
@@ -98,8 +118,9 @@ export async function markSeen(taskId: string, userId: string) {
 
 type TaskLite = Pick<DevTask, 'id' | 'number' | 'title' | 'priority' | 'necessity' | 'type' | 'assigneeId' | 'reporterId' | 'dueAt'>;
 
+/** پیوند کوتاه که هر نفر را به صفحه تسک در پنل خودش (کارفرما یا برنامه‌نویس) می‌برد */
 function taskLink(task: { number: number }) {
-  return `/tasks/${task.number}`;
+  return `/t/${task.number}`;
 }
 
 function taskHeadline(task: { number: number; title: string }) {
@@ -110,9 +131,10 @@ function isHot(task: { priority: string; necessity: string }) {
   return task.priority === 'URGENT' || task.necessity === 'CRITICAL';
 }
 
+/** همه کارفرماها (مدیر سایت و کارفرما) */
 async function managerIds(): Promise<string[]> {
   const rows = await prisma.user.findMany({
-    where: { role: 'ADMIN', deletedAt: null },
+    where: { role: { in: [...EMPLOYER_ROLES] }, deletedAt: null, status: { not: 'BANNED' } },
     select: { id: true },
   });
   return rows.map((r) => r.id);
@@ -162,13 +184,14 @@ export async function notifyTaskCreated(task: TaskLite, actor: TaskActor) {
     email: true,
     urgent: hot,
   });
-  // اگر پشتیبان یا برنامه‌نویس تسک ثبت کرده، مدیر هم باید ببیند
-  if (actor.role !== 'ADMIN') {
+  // کارفرمای دیگر هم باید بداند چه کاری به تیم سپرده شده
+  {
     await sendTo(await managerIds(), actor.id, {
       type: 'info',
       title: `تسک جدید ثبت شد ${taskHeadline(task)}`,
       body: `${actorName(actor)} ثبت کرد. ${taskSummaryLine(task)}`,
       link: taskLink(task),
+      telegram: !isTaskManager(actor.role),
     });
   }
 }
@@ -205,9 +228,10 @@ export async function notifyStatusChanged(
 ) {
   const who = actorName(actor);
   const note = comment ? `\n«${comment.slice(0, 400)}»` : '';
+  const watchers = await watcherIds(task.id);
 
   if (to === 'REVIEW') {
-    await sendTo([...(await managerIds()), task.reporterId], actor.id, {
+    await sendTo([...(await managerIds()), task.reporterId, ...watchers], actor.id, {
       type: 'success',
       title: `✅ انجام شد: ${taskHeadline(task)}`,
       body: `${who} اعلام کرد این تسک انجام شده و منتظر بررسی و تأیید شماست.${note}`,
@@ -217,7 +241,7 @@ export async function notifyStatusChanged(
     return;
   }
   if (to === 'BLOCKED') {
-    await sendTo([...(await managerIds()), task.reporterId], actor.id, {
+    await sendTo([...(await managerIds()), task.reporterId, ...watchers], actor.id, {
       type: 'warning',
       title: `⛔ نیاز به اطلاعات: ${taskHeadline(task)}`,
       body: `${who} برای ادامه کار به پاسخ شما نیاز دارد.${note}`,
@@ -228,7 +252,7 @@ export async function notifyStatusChanged(
     return;
   }
   if (to === 'DONE') {
-    await sendTo([task.assigneeId, task.reporterId], actor.id, {
+    await sendTo([task.assigneeId, task.reporterId, ...watchers], actor.id, {
       type: 'success',
       title: `🎉 تأیید شد: ${taskHeadline(task)}`,
       body: `${who} نتیجه کار را تأیید کرد و تسک بسته شد.${note}`,
@@ -237,7 +261,7 @@ export async function notifyStatusChanged(
     return;
   }
   if ((from === 'REVIEW' || from === 'DONE') && (to === 'IN_PROGRESS' || to === 'TODO')) {
-    await sendTo([task.assigneeId], actor.id, {
+    await sendTo([task.assigneeId, ...watchers], actor.id, {
       type: 'error',
       title: `↩️ برگشت داده شد: ${taskHeadline(task)}`,
       body: `${who} این کار را برای اصلاح برگرداند.${note}`,
@@ -248,7 +272,7 @@ export async function notifyStatusChanged(
     return;
   }
   if (to === 'CANCELED') {
-    await sendTo([task.assigneeId, task.reporterId], actor.id, {
+    await sendTo([task.assigneeId, task.reporterId, ...watchers], actor.id, {
       type: 'info',
       title: `لغو شد: ${taskHeadline(task)}`,
       body: `${who} این تسک را لغو کرد؛ دیگر لازم نیست روی آن کار کنید.${note}`,
@@ -258,7 +282,7 @@ export async function notifyStatusChanged(
   }
   // شروع کار یا ادامه کار: مدیر در جریان باشد ولی بدون ایمیل
   if (to === 'IN_PROGRESS' && actor.role === 'DEVELOPER') {
-    await sendTo([...(await managerIds()), task.reporterId], actor.id, {
+    await sendTo([...(await managerIds()), task.reporterId, ...watchers], actor.id, {
       type: 'info',
       title: `شروع شد: ${taskHeadline(task)}`,
       body: `${who} کار روی این تسک را شروع کرد.`,
@@ -268,11 +292,26 @@ export async function notifyStatusChanged(
   }
 }
 
-/** نظر جدید: همه طرف‌های درگیر به‌جز نویسنده باخبر می‌شوند */
-export async function notifyComment(task: TaskLite, actor: TaskActor, body: string) {
-  const recipients: (string | null)[] = [task.assigneeId, task.reporterId];
-  // پاسخ برنامه‌نویس یا پشتیبان باید حتماً به دست مدیر برسد
-  if (actor.role !== 'ADMIN') recipients.push(...(await managerIds()));
+/**
+ * نظر جدید: همه طرف‌های درگیر به‌جز نویسنده باخبر می‌شوند. کسانی که در نظر
+ * نامشان برده شده (mention) اعلان جداگانه و برجسته می‌گیرند و دنبال‌کننده تسک می‌شوند.
+ */
+export async function notifyComment(task: TaskLite, actor: TaskActor, body: string, mentionIds: string[] = []) {
+  const mentioned = new Set(mentionIds.filter((id) => id !== actor.id));
+  if (mentioned.size) {
+    await addWatchers(task.id, [...mentioned]);
+    await sendTo(mentioned, actor.id, {
+      type: 'warning',
+      title: `📣 ${actorName(actor)} شما را در ${taskHeadline(task)} صدا زد`,
+      body: body.slice(0, 500),
+      link: taskLink(task),
+      email: true,
+    });
+  }
+
+  const recipients: (string | null)[] = [task.assigneeId, task.reporterId, ...(await watcherIds(task.id))];
+  // پاسخ برنامه‌نویس یا پشتیبان باید حتماً به دست کارفرماها برسد
+  if (!isTaskManager(actor.role)) recipients.push(...(await managerIds()));
   // کسانی که پیش‌تر در گفتگو نظر داده‌اند هم در جریان می‌مانند
   const commenters = await prisma.devTaskActivity.findMany({
     where: { taskId: task.id, kind: 'COMMENT', userId: { not: null } },
@@ -281,7 +320,7 @@ export async function notifyComment(task: TaskLite, actor: TaskActor, body: stri
   });
   recipients.push(...commenters.map((c) => c.userId));
 
-  await sendTo(recipients, actor.id, {
+  await sendTo(recipients.filter((id) => !id || !mentioned.has(id)), actor.id, {
     type: 'info',
     title: `💬 نظر جدید در ${taskHeadline(task)}`,
     body: `${actorName(actor)}: ${body.slice(0, 500)}`,
@@ -423,7 +462,7 @@ export async function runTaskDigest(now = new Date()) {
       type: overdue ? 'warning' : 'info',
       title: `📋 کارهای امروز شما: ${formatNumber(mine.length)} تسک باز${overdue ? `، ${formatNumber(overdue)} عقب‌افتاده` : ''}`,
       body: mine.slice(0, 8).map(line).join('\n') + (mine.length > 8 ? `\n… و ${formatNumber(mine.length - 8)} مورد دیگر` : ''),
-      link: '/tasks?view=mine',
+      link: '/dev',
       email: true,
       wait: true,
     });
@@ -442,6 +481,28 @@ export async function runTaskDigest(now = new Date()) {
   if (blocked.length) sections.push(`منتظر پاسخ شما:\n${blocked.slice(0, 6).map(line).join('\n')}`);
   if (overdue.length) sections.push(`عقب‌افتاده:\n${overdue.slice(0, 6).map(line).join('\n')}`);
   if (stale.length) sections.push(`بیش از ۳ روز بدون فعالیت:\n${stale.slice(0, 6).map(line).join('\n')}`);
+
+  // کارکرد دیروز هر برنامه‌نویس: چه چیزی تحویل داد و چقدر وقت ثبت کرد
+  const since = new Date(now.getTime() - 24 * HOUR);
+  const report: string[] = [];
+  for (const dev of developers) {
+    const [user, submitted, minutes] = await Promise.all([
+      prisma.user.findUnique({ where: { id: dev.id }, select: { firstName: true, lastName: true, email: true } }),
+      prisma.devTaskActivity.count({
+        where: { userId: dev.id, kind: 'STATUS', createdAt: { gte: since }, meta: { path: ['to'], equals: 'REVIEW' } },
+      }),
+      prisma.devTaskTimeLog.aggregate({
+        where: { userId: dev.id, endedAt: { gte: since } },
+        _sum: { minutes: true },
+      }),
+    ]);
+    const openCount = open.filter((t) => t.assigneeId === dev.id).length;
+    const spent = minutes._sum.minutes ?? 0;
+    report.push(
+      `• ${actorName(user)}: ${formatNumber(submitted)} کار تحویل داد، ${formatMinutes(spent)} کارکرد، ${formatNumber(openCount)} کار باز`,
+    );
+  }
+  if (report.length) sections.push(`کارکرد ۲۴ ساعت گذشته تیم:\n${report.join('\n')}`);
 
   for (const id of await managerIds()) {
     await notify(id, {

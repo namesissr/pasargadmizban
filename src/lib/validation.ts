@@ -319,7 +319,7 @@ export const adminSettingsSchema = z.object({
 });
 
 export const adminUserUpdateSchema = z.object({
-  role: z.enum(['USER', 'SUPPORT', 'ADMIN', 'DEVELOPER']).optional(),
+  role: z.enum(['USER', 'SUPPORT', 'ADMIN', 'DEVELOPER', 'EMPLOYER']).optional(),
   status: z.enum(['PENDING', 'ACTIVE', 'SUSPENDED', 'BANNED']).optional(),
   discountPct: z.coerce.number().int().min(0).max(90).optional(),
   maxServers: z.coerce.number().int().min(0).max(1000).optional(),
@@ -402,6 +402,8 @@ export const devTaskCreateSchema = z.object({
   dueAt: taskDate,
   estimateHours: z.coerce.number().min(0).max(1000).nullable().optional(),
   checklist: z.array(z.string().trim().min(1).max(300)).max(50).optional(),
+  /** افراد دیگری که از همان ابتدا دنبال‌کننده تسک باشند (مثلاً کارفرمای دوم) */
+  watcherIds: z.array(z.string().max(40)).max(20).optional(),
 });
 
 export const devTaskUpdateSchema = z.object({
@@ -422,11 +424,30 @@ export const devTaskUpdateSchema = z.object({
 export const devTaskStatusSchema = z.object({
   status: z.enum(['TODO', 'IN_PROGRESS', 'BLOCKED', 'REVIEW', 'DONE', 'CANCELED']),
   comment: z.string().trim().max(5000).optional(),
+  /** امتیاز کیفیت هنگام تأیید نهایی */
+  rating: z.coerce.number().int().min(1).max(5).optional(),
 });
 
 export const devTaskCommentSchema = z.object({
   body: z.string().trim().max(10_000).default(''),
   attachmentIds: z.array(z.string().max(40)).max(20).optional(),
+  /** افرادی که در این نظر صدا زده شده‌اند و اعلان ویژه می‌گیرند */
+  mentionIds: z.array(z.string().max(40)).max(20).optional(),
+});
+
+export const devTaskTimerSchema = z.object({
+  action: z.enum(['start', 'stop']),
+  note: z.string().trim().max(500).optional(),
+});
+
+export const devTaskManualTimeSchema = z.object({
+  minutes: z.coerce.number().int().min(1, 'حداقل یک دقیقه.').max(16 * 60, 'حداکثر ۱۶ ساعت در یک ثبت.'),
+  date: z.string().datetime({ offset: true }).optional(),
+  note: z.string().trim().max(500).optional(),
+});
+
+export const devTaskWatchSchema = z.object({
+  watch: z.boolean(),
 });
 
 export const devTaskChecklistSchema = z.object({

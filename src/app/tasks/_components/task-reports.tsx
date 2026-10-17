@@ -78,20 +78,20 @@ export function TaskReports() {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Link href="/tasks">
+        <Link href="/tasks/list">
           <Stat label="کارهای باز" value={formatNumber(t.open)} icon={<Inbox size={16} />} />
         </Link>
-        <Link href="/tasks?view=overdue">
+        <Link href="/tasks/list?view=overdue">
           <Stat label="مهلت گذشته" value={formatNumber(t.overdue)} tone={t.overdue ? 'bad' : 'ok'} icon={<AlertTriangle size={16} />} />
         </Link>
-        <Link href="/tasks?view=all&status=REVIEW">
+        <Link href="/tasks/list?view=all&status=REVIEW">
           <Stat label="منتظر تأیید" value={formatNumber(t.review)} tone={t.review ? 'warn' : undefined} icon={<CheckCircle2 size={16} />} />
         </Link>
-        <Link href="/tasks?view=all&status=BLOCKED">
+        <Link href="/tasks/list?view=all&status=BLOCKED">
           <Stat label="نیاز به اطلاعات" value={formatNumber(t.blocked)} tone={t.blocked ? 'bad' : undefined} icon={<Clock size={16} />} />
         </Link>
         <Stat label="فوری یا حیاتی (باز)" value={formatNumber(t.hot)} tone={t.hot ? 'bad' : undefined} icon={<Flame size={16} />} />
-        <Link href="/tasks?assignee=none">
+        <Link href="/tasks/list?assignee=none">
           <Stat label="بدون مسئول" value={formatNumber(t.unassigned)} tone={t.unassigned ? 'warn' : undefined} icon={<UserX size={16} />} />
         </Link>
         <Stat label="ثبت‌شده در ۳۰ روز" value={formatNumber(t.created30)} />
@@ -136,10 +136,10 @@ export function TaskReports() {
               {data.people.map((p) => (
                 <tr key={p.id}>
                   <td data-label="نام" className="text-xs font-semibold">
-                    <Link href={`/tasks?assignee=${p.id}`} className="hover:text-[var(--color-brand-600)]">
+                    <Link href={`/tasks/list?view=all&assignee=${p.id}`} className="hover:text-[var(--color-brand-600)]">
                       {p.name}
                     </Link>
-                    <span className="mr-1 text-[10px] font-normal muted">{p.role === 'DEVELOPER' ? 'برنامه‌نویس' : 'مدیر'}</span>
+                    <span className="mr-1 text-[10px] font-normal muted">{p.role === 'DEVELOPER' ? 'برنامه‌نویس' : 'کارفرما'}</span>
                   </td>
                   <td data-label="کار باز" className="tabular text-xs">{formatNumber(p.open)}</td>
                   <td data-label="در حال انجام" className="tabular text-xs">{formatNumber(p.inProgress)}</td>

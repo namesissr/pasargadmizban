@@ -3,6 +3,7 @@ import prisma from '@/lib/prisma';
 import { ok, route, ApiError } from '@/lib/api';
 import { requireTaskMember, assertSameOrigin } from '@/lib/auth';
 import { logActivity } from '@/lib/dev-tasks';
+import { isTaskManager } from '@/lib/dev-tasks-shared';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -45,8 +46,8 @@ export const DELETE = route(async (_req: Request, ctx: Ctx) => {
     select: { id: true, taskId: true, userId: true, name: true },
   });
   if (!file) throw new ApiError('فایل پیدا نشد.', 404);
-  if (file.userId !== user.id && user.role !== 'ADMIN') {
-    throw new ApiError('فقط آپلودکننده یا مدیر می‌تواند فایل را حذف کند.', 403);
+  if (file.userId !== user.id && !isTaskManager(user.role)) {
+    throw new ApiError('فقط آپلودکننده یا کارفرما می‌تواند فایل را حذف کند.', 403);
   }
 
   await prisma.devTaskAttachment.delete({ where: { id: file.id } });

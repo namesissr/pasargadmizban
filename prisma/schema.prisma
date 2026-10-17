@@ -16,6 +16,8 @@ enum Role {
   ADMIN
   /** برنامه‌نویس: فقط به میز کار تسک‌ها دسترسی دارد، نه به داده‌های مالی و مشتریان */
   DEVELOPER
+  /** کارفرما: تسک تعریف و کار برنامه‌نویس‌ها را تأیید می‌کند، بی‌آنکه به پنل مدیریت سایت دسترسی داشته باشد */
+  EMPLOYER
 }
 
 enum UserStatus {
@@ -102,6 +104,9 @@ model User {
   taskActivities  DevTaskActivity[]
   taskAttachments DevTaskAttachment[]
   taskViews       DevTaskView[]
+  taskTimeLogs    DevTaskTimeLog[]
+  taskWatches     DevTaskWatcher[]
+  tasksRated      DevTask[]           @relation("TaskRater")
 
   @@index([status])
   @@index([createdAt])
@@ -1307,6 +1312,14 @@ model DevTask {
   reopenCount   Int       @default(0)
   /** ترتیب دستی داخل هر ستون تخته — عدد کوچک‌تر بالاتر */
   sortOrder     Int       @default(0)
+  /** جمع دقیقه‌های کارکرد ثبت‌شده — برای نمایش سریع در فهرست */
+  spentMinutes  Int       @default(0)
+
+  /** امتیاز کیفیت کار (۱ تا ۵) که کارفرما هنگام تأیید نهایی می‌دهد */
+  rating     Int?
+  ratingNote String?
+  ratedById  String?
+  ratedBy    User?   @relation("TaskRater", fields: [ratedById], references: [id], onDelete: SetNull)
 
   startedAt   DateTime?
   submittedAt DateTime?
@@ -1324,6 +1337,8 @@ model DevTask {
   activities  DevTaskActivity[]
   attachments DevTaskAttachment[]
   views       DevTaskView[]
+  timeLogs    DevTaskTimeLog[]
+  watchers    DevTaskWatcher[]
 
   @@index([status, priority])
   @@index([assigneeId, status])
@@ -1401,4 +1416,41 @@ model DevTaskView {
   @@id([taskId, userId])
   @@index([userId])
   @@map("dev_task_views")
+}
+
+/**
+ * کارکرد ثبت‌شده روی تسک: یا با زمان‌سنج (شروع/توقف) یا دستی.
+ * زمان‌سنج در حال اجرا endedAt خالی دارد و هر نفر در هر لحظه فقط یکی دارد.
+ */
+model DevTaskTimeLog {
+  id        String    @id @default(cuid())
+  taskId    String
+  task      DevTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt DateTime
+  endedAt   DateTime?
+  minutes   Int       @default(0)
+  note      String?
+  /** دستی ثبت شده، نه با زمان‌سنج */
+  manual    Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  @@index([taskId])
+  @@index([userId, startedAt])
+  @@index([userId, endedAt])
+  @@map("dev_task_time_logs")
+}
+
+/** دنبال‌کنندگان تسک — همه تغییرات را مثل مسئول و ثبت‌کننده دریافت می‌کنند */
+model DevTaskWatcher {
+  taskId    String
+  task      DevTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("dev_task_watchers")
 }

@@ -14,7 +14,7 @@ async function load(ctx: Ctx) {
   const { id, itemId } = await ctx.params;
   const task = await findTask(id);
   if (user.role === 'SUPPORT' && task.reporterId !== user.id) {
-    throw new ApiError('فقط ثبت‌کننده تسک، مدیر یا برنامه‌نویس می‌تواند چک‌لیست را تغییر دهد.', 403);
+    throw new ApiError('فقط ثبت‌کننده تسک، کارفرما یا برنامه‌نویس می‌تواند چک‌لیست را تغییر دهد.', 403);
   }
   const item = await prisma.devTaskChecklistItem.findFirst({ where: { id: itemId, taskId: task.id } });
   if (!item) throw new ApiError('مورد چک‌لیست پیدا نشد.', 404);

@@ -4,9 +4,11 @@ import { requireTaskMember, assertSameOrigin, clientIp } from '@/lib/auth';
 import { devTaskStatusSchema } from '@/lib/validation';
 import { audit } from '@/lib/audit';
 import { findTask, logActivity, markSeen, notifyStatusChanged } from '@/lib/dev-tasks';
+import { stopTimer } from '@/lib/dev-tasks-time';
 import {
   TASK_STATUS_FA,
   allowedTransitions,
+  isTaskManager,
   transitionNeedsComment,
   type TaskStatus,
 } from '@/lib/dev-tasks-shared';
@@ -57,8 +59,21 @@ export const POST = route(async (req: Request, ctx: Ctx) => {
   const data: Record<string, unknown> = { status: to, remindedAt: null };
   if (to === 'IN_PROGRESS' && !task.startedAt) data.startedAt = now;
   if (to === 'REVIEW') data.submittedAt = now;
-  if (to === 'DONE') data.completedAt = now;
-  if (from === 'DONE') data.completedAt = null;
+  if (to === 'DONE') {
+    data.completedAt = now;
+    // امتیاز کیفیت فقط از کارفرما و فقط هنگام تأیید پذیرفته می‌شود
+    if (input.rating && isTaskManager(user.role)) {
+      data.rating = input.rating;
+      data.ratingNote = comment;
+      data.ratedById = user.id;
+    }
+  }
+  if (from === 'DONE') {
+    data.completedAt = null;
+    data.rating = null;
+    data.ratingNote = null;
+    data.ratedById = null;
+  }
   const reopened = (from === 'REVIEW' || from === 'DONE') && (to === 'TODO' || to === 'IN_PROGRESS');
   if (reopened) data.reopenCount = { increment: 1 };
   // برنامه‌نویسی که تسک بی‌مسئول را شروع می‌کند، خودش مسئول آن می‌شود
@@ -66,14 +81,21 @@ export const POST = route(async (req: Request, ctx: Ctx) => {
 
   const updated = await prisma.$transaction(async (tx) => {
     const row = await tx.devTask.update({ where: { id: task.id }, data });
-    await logActivity(task.id, user.id, 'STATUS', { from, to, reopened }, comment, tx);
+    await logActivity(
+      task.id,
+      user.id,
+      'STATUS',
+      { from, to, reopened, ...(data.rating ? { rating: data.rating as number } : {}) },
+      comment,
+      tx,
+    );
     return row;
   });
 
   await markSeen(task.id, user.id);
   await audit({
     userId: user.id,
-    actorType: user.role === 'ADMIN' ? 'admin' : 'user',
+    actorType: isTaskManager(user.role) ? 'admin' : 'user',
     action: 'task.status',
     entity: 'dev_task',
     entityId: task.id,
@@ -81,6 +103,11 @@ export const POST = route(async (req: Request, ctx: Ctx) => {
     meta: { number: task.number, from, to },
   });
   await notifyStatusChanged(updated, user, from, to, comment);
+  // تسکی که بسته یا لغو شد نباید زمان‌سنج روشن داشته باشد
+  if (to === 'DONE' || to === 'CANCELED') {
+    const running = await prisma.devTaskTimeLog.findMany({ where: { taskId: task.id, endedAt: null }, select: { userId: true } });
+    for (const r of running) await stopTimer(r.userId);
+  }
 
   return ok({ id: task.id, status: to, changed: true });
 });
