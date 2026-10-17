@@ -3,6 +3,10 @@ import prisma from './prisma';
 import { ApiError } from './errors';
 import { notify } from './notify';
 import { formatNumber } from './money';
+import { env } from './env';
+import { rateLimit } from './rate-limit';
+import { readPreferences, inQuietHours } from './preferences';
+import { sendSmsDetailed } from './sms';
 import {
   EMPLOYER_ROLES,
   OPEN_STATUSES,
@@ -148,14 +152,71 @@ async function developerIds(): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
+// ───────────────  پیامک (کاوه‌نگار)  ───────────────
+
+type TaskSms = { text: string; number?: number; throttle?: boolean };
+
+function shortTitle(title: string, max = 45) {
+  return title.length > max ? `${title.slice(0, max - 1).trim()}…` : title;
+}
+
+/** متن پیامک کوتاه می‌ماند تا هزینه‌اش از دو سه بخش بیشتر نشود */
+function taskSms(task: { number: number; title: string }, event: string, opts: { throttle?: boolean } = {}): TaskSms {
+  return {
+    text: `میز کار #${task.number} «${shortTitle(task.title)}»\n${event}\n${env.appUrl}${taskLink(task)}`,
+    number: task.number,
+    throttle: opts.throttle,
+  };
+}
+
+/**
+ * پیامک رویداد تسک به یک نفر. مستقل از کانال پیامک فروش سرور است و فقط به شماره
+ * موبایل حساب و کلید «پیامک تسک‌ها» در حساب من بستگی دارد. ساعات سکوت رعایت می‌شود
+ * مگر برای رویداد فوری.
+ */
+async function smsOne(userId: string, sms: TaskSms, urgent: boolean) {
+  const [user, prefs] = await Promise.all([
+    prisma.user.findUnique({ where: { id: userId }, select: { phone: true, deletedAt: true, status: true } }),
+    readPreferences(userId),
+  ]);
+  if (!user?.phone || user.deletedAt || user.status === 'BANNED') return;
+  if (prefs?.taskSms === false) return;
+  if (!urgent && inQuietHours(prefs)) return;
+  // چند تغییر پشت سر هم روی یک تسک (مثلاً چند مورد چک‌لیست) نباید ده‌ها پیامک بسازد
+  if (sms.throttle && sms.number) {
+    if (!(await rateLimit(`task-sms:${userId}:${sms.number}`, 5, 600)).allowed) return;
+  }
+  // سقف کلی برای محافظت از اعتبار پنل پیامک
+  if (!(await rateLimit(`task-sms:${userId}`, 40, 3600)).allowed) return;
+  await sendSmsDetailed(user.phone, sms.text);
+}
+
+function smsMany(ids: string[], sms: TaskSms, opts: { urgent?: boolean; wait?: boolean }) {
+  const job = Promise.allSettled(ids.map((id) => smsOne(id, sms, Boolean(opts.urgent))));
+  // مثل اعلان تلگرام: در مسیرهای وب پاسخ کاربر معطل پیامک نمی‌ماند
+  return opts.wait ? job : undefined;
+}
+
 async function sendTo(
   ids: Iterable<string | null | undefined>,
   exceptId: string | null,
   input: Parameters<typeof notify>[1],
+  sms?: TaskSms | null,
 ) {
   const unique = new Set<string>();
   for (const id of ids) if (id && id !== exceptId) unique.add(id);
-  await Promise.all([...unique].map((id) => notify(id, { kind: 'ticket', ...input })));
+  const list = [...unique];
+  await Promise.all([
+    ...list.map((id) => notify(id, { kind: 'ticket', ...input })),
+    sms ? smsMany(list, sms, input) : undefined,
+  ]);
+}
+
+/** اولویت و ضرورت در یک عبارت کوتاه برای پیامک */
+function smsLevel(task: Pick<TaskLite, 'priority' | 'necessity'>) {
+  return `اولویت ${TASK_PRIORITY_FA[task.priority as TaskPriority]?.label ?? task.priority}، ضرورت ${
+    TASK_NECESSITY_FA[task.necessity as TaskNecessity]?.label ?? task.necessity
+  }`;
 }
 
 function taskSummaryLine(task: TaskLite) {
@@ -183,16 +244,22 @@ export async function notifyTaskCreated(task: TaskLite, actor: TaskActor) {
     link: taskLink(task),
     email: true,
     urgent: hot,
-  });
+  }, taskSms(task, `${hot ? 'تسک فوری' : 'تسک جدید'} از ${actorName(actor)} — ${smsLevel(task)}`));
   // کارفرمای دیگر هم باید بداند چه کاری به تیم سپرده شده
   {
-    await sendTo(await managerIds(), actor.id, {
-      type: 'info',
-      title: `تسک جدید ثبت شد ${taskHeadline(task)}`,
-      body: `${actorName(actor)} ثبت کرد. ${taskSummaryLine(task)}`,
-      link: taskLink(task),
-      telegram: !isTaskManager(actor.role),
-    });
+    const byManager = isTaskManager(actor.role);
+    await sendTo(
+      await managerIds(),
+      actor.id,
+      {
+        type: 'info',
+        title: `تسک جدید ثبت شد ${taskHeadline(task)}`,
+        body: `${actorName(actor)} ثبت کرد. ${taskSummaryLine(task)}`,
+        link: taskLink(task),
+        telegram: !byManager,
+      },
+      byManager ? null : taskSms(task, `تسک جدید از ${actorName(actor)} — ${smsLevel(task)}`),
+    );
   }
 }
 
@@ -205,7 +272,7 @@ export async function notifyAssigned(task: TaskLite, actor: TaskActor) {
     link: taskLink(task),
     email: true,
     urgent: isHot(task),
-  });
+  }, taskSms(task, `${actorName(actor)} این تسک را به شما سپرد — ${smsLevel(task)}`));
 }
 
 export async function notifyPriorityRaised(task: TaskLite, actor: TaskActor) {
@@ -216,7 +283,7 @@ export async function notifyPriorityRaised(task: TaskLite, actor: TaskActor) {
     body: taskSummaryLine(task),
     link: taskLink(task),
     urgent: isHot(task),
-  });
+  }, taskSms(task, `${actorName(actor)} اهمیت این تسک را بالا برد — ${smsLevel(task)}`));
 }
 
 export async function notifyStatusChanged(
@@ -228,6 +295,7 @@ export async function notifyStatusChanged(
 ) {
   const who = actorName(actor);
   const note = comment ? `\n«${comment.slice(0, 400)}»` : '';
+  const smsNote = comment ? `: «${shortTitle(comment.replace(/\s+/g, ' '), 70)}»` : '';
   const watchers = await watcherIds(task.id);
 
   if (to === 'REVIEW') {
@@ -237,7 +305,7 @@ export async function notifyStatusChanged(
       body: `${who} اعلام کرد این تسک انجام شده و منتظر بررسی و تأیید شماست.${note}`,
       link: taskLink(task),
       email: true,
-    });
+    }, taskSms(task, `${who} اعلام کرد انجام شد؛ منتظر تأیید شماست${smsNote}`));
     return;
   }
   if (to === 'BLOCKED') {
@@ -248,7 +316,7 @@ export async function notifyStatusChanged(
       link: taskLink(task),
       email: true,
       urgent: isHot(task),
-    });
+    }, taskSms(task, `${who} سؤال دارد و منتظر پاسخ شماست${smsNote}`));
     return;
   }
   if (to === 'DONE') {
@@ -257,7 +325,7 @@ export async function notifyStatusChanged(
       title: `🎉 تأیید شد: ${taskHeadline(task)}`,
       body: `${who} نتیجه کار را تأیید کرد و تسک بسته شد.${note}`,
       link: taskLink(task),
-    });
+    }, taskSms(task, `${who} تأیید کرد و تسک بسته شد`));
     return;
   }
   if ((from === 'REVIEW' || from === 'DONE') && (to === 'IN_PROGRESS' || to === 'TODO')) {
@@ -268,7 +336,7 @@ export async function notifyStatusChanged(
       link: taskLink(task),
       email: true,
       urgent: isHot(task),
-    });
+    }, taskSms(task, `${who} برای اصلاح برگرداند${smsNote}`));
     return;
   }
   if (to === 'CANCELED') {
@@ -277,7 +345,7 @@ export async function notifyStatusChanged(
       title: `لغو شد: ${taskHeadline(task)}`,
       body: `${who} این تسک را لغو کرد؛ دیگر لازم نیست روی آن کار کنید.${note}`,
       link: taskLink(task),
-    });
+    }, taskSms(task, `${who} این تسک را لغو کرد`));
     return;
   }
   // شروع کار یا ادامه کار: مدیر در جریان باشد ولی بدون ایمیل
@@ -288,7 +356,7 @@ export async function notifyStatusChanged(
       body: `${who} کار روی این تسک را شروع کرد.`,
       link: taskLink(task),
       telegram: false,
-    });
+    }, taskSms(task, `${who} کار را شروع کرد`));
   }
 }
 
@@ -306,7 +374,7 @@ export async function notifyComment(task: TaskLite, actor: TaskActor, body: stri
       body: body.slice(0, 500),
       link: taskLink(task),
       email: true,
-    });
+    }, taskSms(task, `${actorName(actor)} شما را صدا زد: «${shortTitle(body.replace(/\s+/g, ' '), 70)}»`));
   }
 
   const recipients: (string | null)[] = [task.assigneeId, task.reporterId, ...(await watcherIds(task.id))];
@@ -325,7 +393,27 @@ export async function notifyComment(task: TaskLite, actor: TaskActor, body: stri
     title: `💬 نظر جدید در ${taskHeadline(task)}`,
     body: `${actorName(actor)}: ${body.slice(0, 500)}`,
     link: taskLink(task),
-  });
+  }, taskSms(task, `نظر ${actorName(actor)}: «${shortTitle(body.replace(/\s+/g, ' '), 70)}»`, { throttle: true }));
+}
+
+/**
+ * تغییرهای دیگر روی تسک (پیوست، چک‌لیست، ویرایش جزئیات): مسئول، ثبت‌کننده و
+ * دنبال‌کننده‌ها باخبر می‌شوند و اگر کار را برنامه‌نویس کرده، کارفرماها هم.
+ */
+export async function notifyTaskChange(task: TaskLite, actor: TaskActor, what: string) {
+  const recipients: (string | null)[] = [task.assigneeId, task.reporterId, ...(await watcherIds(task.id))];
+  if (!isTaskManager(actor.role)) recipients.push(...(await managerIds()));
+  await sendTo(
+    recipients,
+    actor.id,
+    {
+      type: 'info',
+      title: `✏️ تغییر در ${taskHeadline(task)}`,
+      body: `${actorName(actor)} ${what}`,
+      link: taskLink(task),
+    },
+    taskSms(task, `${actorName(actor)} ${what}`, { throttle: true }),
+  );
 }
 
 // ───────────────  یادآوری خودکار (ورکر)  ───────────────
@@ -351,7 +439,7 @@ export async function runTaskReminders(now = new Date()) {
   for (const task of open) {
     const sinceReminder = task.remindedAt ? now.getTime() - task.remindedAt.getTime() : Infinity;
     const owner = task.assigneeId ? [task.assigneeId] : developers;
-    let message: { title: string; body: string; to: string[]; type: 'warning' | 'error' } | null = null;
+    let message: { title: string; body: string; sms: string; to: string[]; type: 'warning' | 'error' } | null = null;
 
     const dueIn = task.dueAt ? task.dueAt.getTime() - now.getTime() : null;
     const idleFor = now.getTime() - task.activityAt.getTime();
@@ -367,6 +455,7 @@ export async function runTaskReminders(now = new Date()) {
             task.status === 'REVIEW'
               ? 'برنامه‌نویس این کار را انجام‌شده اعلام کرده؛ لطفاً بررسی و تأیید یا برگشت بزنید.'
               : 'برنامه‌نویس برای ادامه این کار به پاسخ شما نیاز دارد.',
+          sms: `یادآوری: ${task.status === 'REVIEW' ? 'منتظر تأیید شما' : 'منتظر پاسخ شما'}`,
         };
       }
     } else if (dueIn !== null && dueIn < 0) {
@@ -376,6 +465,7 @@ export async function runTaskReminders(now = new Date()) {
           type: 'error',
           title: `🔴 مهلت گذشته: ${taskHeadline(task)}`,
           body: `مهلت این تسک تمام شده و هنوز ${TASK_STATUS_FA[task.status as TaskStatus].label} است.`,
+          sms: 'مهلت این تسک گذشته است',
         };
       }
     } else if (dueIn !== null && dueIn < 24 * HOUR) {
@@ -385,6 +475,7 @@ export async function runTaskReminders(now = new Date()) {
           type: 'warning',
           title: `⏰ کمتر از یک روز تا مهلت: ${taskHeadline(task)}`,
           body: taskSummaryLine(task),
+          sms: 'کمتر از یک روز تا مهلت مانده',
         };
       }
     } else if (task.status === 'TODO' && isHot(task) && now.getTime() - task.createdAt.getTime() > 2 * HOUR) {
@@ -394,6 +485,7 @@ export async function runTaskReminders(now = new Date()) {
           type: 'error',
           title: `🔥 تسک فوری هنوز شروع نشده: ${taskHeadline(task)}`,
           body: taskSummaryLine(task),
+          sms: 'تسک فوری هنوز شروع نشده',
         };
       }
     }
@@ -405,7 +497,7 @@ export async function runTaskReminders(now = new Date()) {
       body: message.body,
       link: taskLink(task),
       wait: true,
-    });
+    }, taskSms(task, message.sms));
     await prisma.devTask.update({ where: { id: task.id }, data: { remindedAt: now } });
     sent++;
   }
@@ -466,6 +558,13 @@ export async function runTaskDigest(now = new Date()) {
       email: true,
       wait: true,
     });
+    await smsMany(
+      [dev.id],
+      {
+        text: `میز کار: امروز ${formatNumber(mine.length)} تسک باز دارید${overdue ? `، ${formatNumber(overdue)} عقب‌افتاده` : ''}.\n${env.appUrl}/dev`,
+      },
+      { wait: true },
+    );
     sent++;
   }
 
@@ -514,6 +613,15 @@ export async function runTaskDigest(now = new Date()) {
       email: true,
       wait: true,
     });
+    await smsMany(
+      [id],
+      {
+        text: `میز کار — گزارش امروز: ${formatNumber(open.length)} باز، ${formatNumber(review.length)} منتظر تأیید، ${formatNumber(
+          blocked.length,
+        )} منتظر پاسخ، ${formatNumber(overdue.length)} عقب‌افتاده.\n${env.appUrl}/tasks`,
+      },
+      { wait: true },
+    );
     sent++;
   }
 

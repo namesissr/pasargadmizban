@@ -2,7 +2,8 @@ import prisma from '@/lib/prisma';
 import { ok, parseBody, route, ApiError } from '@/lib/api';
 import { requireTaskMember, assertSameOrigin } from '@/lib/auth';
 import { devTaskChecklistUpdateSchema } from '@/lib/validation';
-import { findTask, logActivity, markSeen } from '@/lib/dev-tasks';
+import { findTask, logActivity, markSeen, notifyTaskChange } from '@/lib/dev-tasks';
+import { formatNumber } from '@/lib/money';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -36,6 +37,13 @@ export const PATCH = route(async (req: Request, ctx: Ctx) => {
   });
   if (input.done !== undefined && input.done !== item.done) {
     await logActivity(task.id, user.id, 'CHECKLIST', { action: input.done ? 'done' : 'undone', text: updated.text });
+    if (input.done) {
+      const [done, total] = await Promise.all([
+        prisma.devTaskChecklistItem.count({ where: { taskId: task.id, done: true } }),
+        prisma.devTaskChecklistItem.count({ where: { taskId: task.id } }),
+      ]);
+      await notifyTaskChange(task, user, `مرحله «${updated.text.slice(0, 60)}» را انجام داد (${formatNumber(done)} از ${formatNumber(total)})`);
+    }
   }
   await markSeen(task.id, user.id);
   return ok(updated);

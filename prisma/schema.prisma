@@ -847,6 +847,9 @@ model NotificationPreference {
   /** گزارش هفتگی مصرف و هزینه با ایمیل */
   weeklyReport Boolean @default(true)
 
+  /** پیامک رویدادهای میز کار تسک‌ها — مستقل از کانال پیامک فروش سرور، پیش‌فرض روشن */
+  taskSms Boolean @default(true)
+
   // ساعات سکوت (اعلان داخل پنل ثبت می‌شود ولی پیام بیرونی ارسال نمی‌شود)
   quietHoursEnabled Boolean @default(false)
   quietHoursStart   Int     @default(23)

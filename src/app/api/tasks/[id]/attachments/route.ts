@@ -2,7 +2,7 @@ import prisma from '@/lib/prisma';
 import { ok, route, ApiError } from '@/lib/api';
 import { requireTaskMember, assertSameOrigin } from '@/lib/auth';
 import { enforceRateLimit } from '@/lib/rate-limit';
-import { findTask, logActivity, markSeen } from '@/lib/dev-tasks';
+import { findTask, logActivity, markSeen, notifyTaskChange } from '@/lib/dev-tasks';
 import { ATTACHMENT_MAX_BYTES, ATTACHMENT_MAX_PER_TASK, ATTACHMENT_MIME } from '@/lib/dev-tasks-shared';
 import { formatNumber } from '@/lib/money';
 
@@ -72,6 +72,11 @@ export const POST = route(async (req: Request, ctx: Ctx) => {
   if (form.get('forComment') !== '1') {
     await logActivity(task.id, user.id, 'ATTACHMENT', { names: created.map((c) => c.name) });
     await markSeen(task.id, user.id);
+    await notifyTaskChange(
+      task,
+      user,
+      created.length === 1 ? `فایل «${created[0].name}» را پیوست کرد` : `${formatNumber(created.length)} فایل پیوست کرد`,
+    );
   }
 
   return ok({ items: created });

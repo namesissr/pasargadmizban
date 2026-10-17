@@ -11,6 +11,7 @@ import {
   markSeen,
   notifyAssigned,
   notifyPriorityRaised,
+  notifyTaskChange,
   userBrief,
 } from '@/lib/dev-tasks';
 import {
@@ -222,6 +223,12 @@ export const PATCH = route(async (req: Request, ctx: Ctx) => {
     rank(TASK_PRIORITIES, updated.priority) > rank(TASK_PRIORITIES, task.priority) ||
     rank(TASK_NECESSITIES, updated.necessity) > rank(TASK_NECESSITIES, task.necessity);
   if (raised && !assigneeChanged) await notifyPriorityRaised(updated, user);
+  // بقیه تغییرها (عنوان، شرح، مهلت، …) هم به طرف‌های تسک خبر داده می‌شود؛ مسئول تازه
+  // و اولویت بالارفته پیام جداگانه خودشان را گرفته‌اند
+  const fields = changes.filter((c) => !(raised && (c.field === 'priority' || c.field === 'necessity')));
+  if (fields.length && !assigneeChanged) {
+    await notifyTaskChange(updated, user, `${fields.map((c) => FIELD_FA[c.field]).join('، ')} را تغییر داد`);
+  }
 
   return ok({ id: task.id, changed: true });
 });

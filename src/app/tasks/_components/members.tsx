@@ -21,10 +21,17 @@ type Member = {
   createdAt: string;
   lastLoginAt: string | null;
   telegram: boolean;
+  sms: 'on' | 'off' | 'none';
   openTasks: number;
 };
 
-type Response = { me: { id: string; role: string }; tasksOnly: boolean; canEdit: boolean; items: Member[] };
+type Response = {
+  me: { id: string; role: string };
+  tasksOnly: boolean;
+  canEdit: boolean;
+  smsConfigured: boolean;
+  items: Member[];
+};
 
 const ROLE_OPTIONS = [
   { id: 'USER', label: 'بدون دسترسی' },
@@ -88,6 +95,15 @@ export function Members() {
           {m.id === data.me.id ? <span className="text-[11px] font-normal muted">(خودتان)</span> : null}
           {m.status === 'SUSPENDED' ? <Badge tone="bad">غیرفعال</Badge> : null}
           {m.telegram ? <Badge tone="ok">تلگرام وصل</Badge> : <Badge tone="muted">تلگرام وصل نیست</Badge>}
+          {data.smsConfigured ? (
+            m.sms === 'on' ? (
+              <Badge tone="ok">پیامک فعال</Badge>
+            ) : m.sms === 'off' ? (
+              <Badge tone="muted">پیامک خاموش</Badge>
+            ) : (
+              <Badge tone="warn">شماره موبایل ندارد</Badge>
+            )
+          ) : null}
         </div>
         <div className="ltr mt-0.5 text-right text-[11px] muted">{m.email}</div>
         <div className="mt-0.5 text-[11px] muted">

@@ -2,7 +2,7 @@ import prisma from '@/lib/prisma';
 import { ok, parseBody, route, ApiError } from '@/lib/api';
 import { requireTaskMember, assertSameOrigin } from '@/lib/auth';
 import { devTaskChecklistSchema } from '@/lib/validation';
-import { findTask, logActivity, markSeen } from '@/lib/dev-tasks';
+import { findTask, logActivity, markSeen, notifyTaskChange } from '@/lib/dev-tasks';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,6 +33,7 @@ export const POST = route(async (req: Request, ctx: Ctx) => {
   });
   await logActivity(task.id, user.id, 'CHECKLIST', { action: 'add', text: input.text });
   await markSeen(task.id, user.id);
+  await notifyTaskChange(task, user, `به چک‌لیست اضافه کرد: «${input.text.slice(0, 80)}»`);
 
   return ok(item);
 });

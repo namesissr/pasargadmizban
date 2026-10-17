@@ -30,7 +30,9 @@ export const GET = route(async () => {
       status: true,
       createdAt: true,
       lastLoginAt: true,
+      phone: true,
       telegramLink: { select: { active: true } },
+      notificationPreference: { select: { taskSms: true } },
     },
     orderBy: [{ createdAt: 'asc' }],
   });
@@ -45,9 +47,12 @@ export const GET = route(async () => {
     me: { id: me.id, role: me.role },
     tasksOnly: env.tasksOnly,
     canEdit: me.role === 'ADMIN',
-    items: users.map(({ telegramLink, ...u }) => ({
+    smsConfigured: env.sms.enabled,
+    items: users.map(({ telegramLink, notificationPreference, phone, ...u }) => ({
       ...u,
       telegram: Boolean(telegramLink?.active),
+      // پیامک فقط وقتی می‌رسد که شماره ثبت شده و کلید «پیامک تسک‌ها» خاموش نشده باشد
+      sms: phone ? (notificationPreference?.taskSms === false ? 'off' : 'on') : 'none',
       openTasks: open.get(u.id) ?? 0,
     })),
   });

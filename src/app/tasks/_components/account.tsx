@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import useSWR from 'swr';
-import { Bell, KeyRound, Send, User } from 'lucide-react';
+import { Bell, KeyRound, MessageSquareText, Send, User } from 'lucide-react';
 import { Alert, Button, Card, Field, Input, LoadingBlock, PasswordInput, Select, Toggle } from '@/components/ui';
 import { useToast } from '@/components/ui/toast';
 import { api, apiDelete, apiPatch, apiPost, errorFields, errorMessage, fetcher } from '@/lib/client';
@@ -14,6 +14,7 @@ type Prefs = {
     emailEnabled: boolean;
     telegramEnabled: boolean;
     ticketEvents: boolean;
+    taskSms: boolean;
     quietHoursEnabled: boolean;
     quietHoursStart: number;
     quietHoursEnd: number;
@@ -28,6 +29,8 @@ type TelegramState = {
   link: { username: string | null; firstName: string | null; active: boolean } | null;
 };
 
+type SmsState = { configured: boolean; provider: string; phone: string | null };
+
 const PROFILE_FIELDS = ['phone', 'company', 'nationalId', 'address', 'city', 'province', 'postalCode'] as const;
 
 /**
@@ -39,17 +42,22 @@ export function Account() {
   const { data: profile, mutate: refreshProfile } = useSWR<Profile>('/api/profile', fetcher);
   const { data: prefs, mutate: refreshPrefs } = useSWR<Prefs>('/api/notifications/preferences', fetcher);
   const { data: tg, mutate: refreshTg } = useSWR<TelegramState>('/api/telegram/link', fetcher);
+  const { data: sms, mutate: refreshSms } = useSWR<SmsState>('/api/tasks/sms-test', fetcher);
 
   const [name, setName] = useState({ firstName: '', lastName: '' });
+  const [phone, setPhone] = useState('');
   const [pw, setPw] = useState({ currentPassword: '', newPassword: '' });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
-    if (profile) setName({ firstName: profile.firstName ?? '', lastName: profile.lastName ?? '' });
+    if (profile) {
+      setName({ firstName: profile.firstName ?? '', lastName: profile.lastName ?? '' });
+      setPhone(profile.phone ?? '');
+    }
   }, [profile]);
 
-  if (!profile || !prefs || !tg) return <LoadingBlock />;
+  if (!profile || !prefs || !tg || !sms) return <LoadingBlock />;
   const p = prefs.preferences;
 
   async function run(key: string, fn: () => Promise<unknown>, okMsg: string) {
@@ -80,7 +88,7 @@ export function Account() {
       <div className="space-y-5">
         <Card title={<span className="flex items-center gap-2"><Send size={15} /> اتصال تلگرام</span>}>
           {!tg.available ? (
-            <Alert tone="warning">ربات تلگرام روی سرور تنظیم نشده است (TELEGRAM_BOT_TOKEN). اعلان‌ها فعلاً فقط در پنل و ایمیل می‌آیند.</Alert>
+            <Alert tone="warning">ربات تلگرام روی سرور تنظیم نشده است (TELEGRAM_BOT_TOKEN). اعلان‌ها فعلاً در پنل، پیامک و ایمیل می‌آیند.</Alert>
           ) : tg.linked ? (
             <div className="space-y-3">
               <Alert tone="success" title="تلگرام شما وصل است">
@@ -137,6 +145,57 @@ export function Account() {
           )}
         </Card>
 
+        <Card title={<span className="flex items-center gap-2"><MessageSquareText size={15} /> پیامک</span>}>
+          <div className="space-y-4">
+            {!sms.configured ? (
+              <Alert tone="warning">
+                سرویس پیامک روی سرور تنظیم نشده است. مدیر سرور باید کلید API کاوه‌نگار را در <code className="ltr">SMS_API_KEY</code> فایل{' '}
+                <code className="ltr">.env</code> بگذارد.
+              </Alert>
+            ) : null}
+            <p className="text-xs leading-6 muted">
+              تسک تازه، سپردن کار، شروع کار، اعلام انجام شد، سؤال، تأیید یا برگشت، نظرها، پیوست‌ها، چک‌لیست، تغییر جزئیات و یادآوری‌ها با پیامک
+              به این شماره می‌رسد.
+            </p>
+            <div className="flex items-end gap-2">
+              <div className="min-w-0 flex-1">
+                <Field label="شماره موبایل" error={errors.phone}>
+                  <Input value={phone} dir="ltr" inputMode="tel" placeholder="09121234567" onChange={(e) => setPhone(e.target.value)} />
+                </Field>
+              </div>
+              <Button
+                variant="secondary"
+                loading={busy === 'phone'}
+                disabled={!phone.trim() || phone === (profile.phone ?? '')}
+                onClick={() =>
+                  run('phone', async () => {
+                    await apiPatch('/api/profile', { ...keepFields, ...name, phone });
+                    await Promise.all([refreshProfile(), refreshSms()]);
+                  }, 'شماره موبایل ذخیره شد.')
+                }
+              >
+                ذخیره
+              </Button>
+            </div>
+            <Toggle
+              checked={p.taskSms}
+              disabled={busy === 'prefs'}
+              onChange={(v) => setPref({ taskSms: v })}
+              label="پیامک رویدادهای تسک"
+              description="در ساعات سکوت فقط پیامک تسک‌های فوری می‌آید. چند تغییر پشت سر هم روی یک تسک، حداکثر پنج پیامک در ده دقیقه می‌سازد."
+            />
+            <Button
+              size="sm"
+              variant="secondary"
+              loading={busy === 'smstest'}
+              disabled={!sms.configured || !sms.phone}
+              onClick={() => run('smstest', () => apiPost('/api/tasks/sms-test'), 'پیامک آزمایشی فرستاده شد.')}
+            >
+              ارسال پیامک آزمایشی
+            </Button>
+          </div>
+        </Card>
+
         <Card title={<span className="flex items-center gap-2"><Bell size={15} /> اعلان‌های تسک</span>}>
           <div className="space-y-4">
             <Toggle
@@ -144,7 +203,7 @@ export function Account() {
               disabled={busy === 'prefs'}
               onChange={(v) => setPref({ ticketEvents: v })}
               label="اعلان تسک‌ها بیرون از پنل"
-              description="تسک تازه، تغییر وضعیت، نظرها و یادآوری‌ها در تلگرام و ایمیل. اگر خاموش باشد فقط داخل پنل دیده می‌شود."
+              description="تسک تازه، تغییر وضعیت، نظرها و یادآوری‌ها در تلگرام و ایمیل. اگر خاموش باشد فقط داخل پنل دیده می‌شود. پیامک کلید جداگانه خودش را دارد."
             />
             <Toggle
               checked={p.telegramEnabled}
@@ -165,7 +224,7 @@ export function Account() {
                 disabled={busy === 'prefs'}
                 onChange={(v) => setPref({ quietHoursEnabled: v })}
                 label="ساعات سکوت"
-                description="در این ساعت‌ها پیامی به تلگرام و ایمیل نمی‌رود، مگر تسک فوری یا حیاتی."
+                description="در این ساعت‌ها پیامی به تلگرام، ایمیل و پیامک نمی‌رود، مگر تسک فوری یا حیاتی."
               />
               {p.quietHoursEnabled ? (
                 <div className="mt-3 flex items-center gap-2 text-xs">
