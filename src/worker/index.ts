@@ -26,6 +26,7 @@ import { runEurRateUpdate } from '../lib/eur-rate';
 import { refreshAllLoyalty } from '../lib/loyalty';
 import { runWeeklyReports } from '../lib/weekly-report';
 import { runCatalogAutoSync } from '../lib/catalog';
+import { runTaskReminders, runTaskDigest } from '../lib/dev-tasks';
 
 /**
  * ورکر پس‌زمینه — باید در کنار اپلیکیشن و به صورت دائمی اجرا شود:
@@ -185,6 +186,20 @@ export const jobs = {
   weeklyReports: () =>
     runJob('weekly-reports', async () => {
       const res = await runWeeklyReports();
+      return { processed: res.sent, meta: res };
+    }),
+
+  /** هر ساعت: یادآوری مهلت تسک‌ها، تسک‌های فوری شروع‌نشده و کارهای منتظر تأیید */
+  taskReminders: () =>
+    runJob('task-reminders', async () => {
+      const res = await runTaskReminders();
+      return { processed: res.sent, meta: res };
+    }),
+
+  /** روزانه: خلاصه کارهای باز برای برنامه‌نویس و گزارش وضعیت برای مدیر */
+  taskDigest: () =>
+    runJob('task-digest', async () => {
+      const res = await runTaskDigest();
       return { processed: res.sent, meta: res };
     }),
 
@@ -354,6 +369,10 @@ function schedule() {
   // هشدارهای روزانه، ساعت ۱۰ صبح (زمان مناسب برای دیده شدن)
   cron.schedule('0 10 * * *', jobs.trafficAlerts, { timezone: tz });
   cron.schedule('10 10 * * *', jobs.budgetAlerts, { timezone: tz });
+  // یادآوری تسک‌ها: هر ساعت دقیقه ۵۰، بین ۸ صبح تا ۱۱ شب
+  cron.schedule('50 8-23 * * *', jobs.taskReminders, { timezone: tz });
+  // خلاصه روزانه تسک‌ها: شنبه تا پنجشنبه ساعت ۹ صبح
+  cron.schedule('0 9 * * 0-4,6', jobs.taskDigest, { timezone: tz });
 
   log('🚀 ورکر پاسارگاد میزبان راه‌اندازی شد.');
   log('   • صورتحساب ساعتی: هر ساعت، دقیقه ۵');
@@ -369,6 +388,8 @@ function schedule() {
   log('   • همگام‌سازی وضعیت: هر ۱۰ دقیقه');
   log('   • پایش سرورها: هر ۲ دقیقه');
   log('   • هشدار اعتبار: هر ساعت، دقیقه ۲۰');
+  log('   • یادآوری تسک‌ها: هر ساعت (۸ صبح تا ۱۱ شب)');
+  log('   • خلاصه روزانه تسک‌ها: شنبه تا پنجشنبه ۹ صبح');
   log('   • نگهداری و کاتالوگ: هر شب');
 }
 

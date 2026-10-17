@@ -105,9 +105,15 @@ export const POST = route(async (req: Request) => {
     id: user.id,
     role: user.role,
     status: user.status,
-    redirect: user.role === 'ADMIN' || user.role === 'SUPPORT' ? '/admin' : '/dashboard',
+    redirect: homeFor(user.role),
   });
 });
+
+function homeFor(role: string): string {
+  if (role === 'ADMIN' || role === 'SUPPORT') return '/admin';
+  if (role === 'DEVELOPER') return '/tasks';
+  return '/dashboard';
+}
 
 async function completeTwoFactor(raw: unknown, ip: string, userAgent: string) {
   const parsed = challengeSchema.safeParse(raw);
@@ -192,7 +198,7 @@ async function completeTwoFactor(raw: unknown, ip: string, userAgent: string) {
     role: user.role,
     status: user.status,
     usedRecovery,
-    redirect: user.role === 'ADMIN' || user.role === 'SUPPORT' ? '/admin' : '/dashboard',
+    redirect: homeFor(user.role),
   });
 }
 

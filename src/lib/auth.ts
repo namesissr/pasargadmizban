@@ -174,6 +174,15 @@ export async function requireAdmin(): Promise<SessionUser> {
   return user;
 }
 
+/** مدیر، پشتیبان یا برنامه‌نویس — اعضای میز کار تسک‌ها */
+export async function requireTaskMember(): Promise<SessionUser> {
+  const user = await requireUser();
+  if (user.role !== 'ADMIN' && user.role !== 'SUPPORT' && user.role !== 'DEVELOPER') {
+    throw new AuthError('دسترسی به میز کار تسک‌ها فقط برای مدیر، پشتیبان و برنامه‌نویس مجاز است.', 403);
+  }
+  return user;
+}
+
 export function isStaff(user: SessionUser | null): boolean {
   return user?.role === 'ADMIN' || user?.role === 'SUPPORT';
 }

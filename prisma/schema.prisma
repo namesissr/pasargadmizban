@@ -14,6 +14,8 @@ enum Role {
   USER
   SUPPORT
   ADMIN
+  /** برنامه‌نویس: فقط به میز کار تسک‌ها دسترسی دارد، نه به داده‌های مالی و مشتریان */
+  DEVELOPER
 }
 
 enum UserStatus {
@@ -94,6 +96,12 @@ model User {
   commissionsGenerated   ReferralCommission[] @relation("CommissionGenerated")
   transfersSent          ServerTransfer[]     @relation("TransfersSent")
   transfersReceived      ServerTransfer[]     @relation("TransfersReceived")
+
+  tasksReported   DevTask[]           @relation("TaskReporter")
+  tasksAssigned   DevTask[]           @relation("TaskAssignee")
+  taskActivities  DevTaskActivity[]
+  taskAttachments DevTaskAttachment[]
+  taskViews       DevTaskView[]
 
   @@index([status])
   @@index([createdAt])
@@ -1226,4 +1234,171 @@ model ServerIpChange {
   @@index([serverId, startedAt])
   @@index([userId, startedAt])
   @@map("server_ip_changes")
+}
+
+// ═══════════════════  مدیریت تسک‌های توسعه  ═══════════════════
+
+/**
+ * میز کار تسک‌ها: مدیر کار تعریف می‌کند، برنامه‌نویس انجام می‌دهد و «انجام شد»
+ * اعلام می‌کند، و مدیر آن را تأیید یا با توضیح برمی‌گرداند. هر تغییر در
+ * تاریخچه تسک ثبت می‌شود تا هیچ کاری بی‌صدا گم یا فراموش نشود.
+ */
+enum DevTaskStatus {
+  /** ثبت شده و در صف انجام */
+  TODO
+  /** برنامه‌نویس شروع کرده است */
+  IN_PROGRESS
+  /** متوقف — منتظر اطلاعات یا تصمیم مدیر */
+  BLOCKED
+  /** برنامه‌نویس اعلام کرده انجام شد؛ منتظر بررسی و تأیید مدیر */
+  REVIEW
+  /** مدیر تأیید کرد و بسته شد */
+  DONE
+  /** لغو شد و دیگر لازم نیست */
+  CANCELED
+}
+
+enum DevTaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+/** ضرورت: این کار چقدر لازم است، جدا از اینکه چقدر زود باید انجام شود */
+enum DevTaskNecessity {
+  OPTIONAL
+  NEEDED
+  ESSENTIAL
+  CRITICAL
+}
+
+enum DevTaskType {
+  BUG
+  FEATURE
+  IMPROVEMENT
+  TASK
+}
+
+model DevTask {
+  id     String @id @default(cuid())
+  number Int    @unique @default(autoincrement())
+
+  title       String
+  description String
+  type        DevTaskType      @default(BUG)
+  status      DevTaskStatus    @default(TODO)
+  priority    DevTaskPriority  @default(MEDIUM)
+  necessity   DevTaskNecessity @default(NEEDED)
+  /** بخش سایت که تسک به آن مربوط است، مثل «کیف پول» یا «پنل مدیریت» */
+  area        String?
+  /** آدرس صفحه‌ای که مشکل در آن دیده می‌شود */
+  pageUrl     String?
+  labels      String[]         @default([])
+
+  reporterId String?
+  reporter   User?   @relation("TaskReporter", fields: [reporterId], references: [id], onDelete: SetNull)
+  assigneeId String?
+  assignee   User?   @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+
+  dueAt         DateTime?
+  estimateHours Float?
+  /** چند بار مدیر کار «انجام‌شده» را برگردانده است */
+  reopenCount   Int       @default(0)
+  /** ترتیب دستی داخل هر ستون تخته — عدد کوچک‌تر بالاتر */
+  sortOrder     Int       @default(0)
+
+  startedAt   DateTime?
+  submittedAt DateTime?
+  completedAt DateTime?
+  /** آخرین یادآوری خودکار — برای اینکه یادآورها تکراری و مزاحم نشوند */
+  remindedAt  DateTime?
+  /** زمان آخرین فعالیت (نظر، تغییر وضعیت، ویرایش) */
+  activityAt  DateTime  @default(now())
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  archivedAt DateTime?
+
+  checklist   DevTaskChecklistItem[]
+  activities  DevTaskActivity[]
+  attachments DevTaskAttachment[]
+  views       DevTaskView[]
+
+  @@index([status, priority])
+  @@index([assigneeId, status])
+  @@index([dueAt])
+  @@index([activityAt])
+  @@map("dev_tasks")
+}
+
+model DevTaskChecklistItem {
+  id        String    @id @default(cuid())
+  taskId    String
+  task      DevTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  text      String
+  done      Boolean   @default(false)
+  doneAt    DateTime?
+  sortOrder Int       @default(0)
+  createdAt DateTime  @default(now())
+
+  @@index([taskId, sortOrder])
+  @@map("dev_task_checklist")
+}
+
+/**
+ * تاریخچه تسک: هم نظرهای نوشته‌شده (COMMENT) و هم رویدادهای سیستمی مثل تغییر
+ * وضعیت، اولویت یا مسئول. هر رویداد جزئیاتش را در meta نگه می‌دارد.
+ */
+model DevTaskActivity {
+  id        String    @id @default(cuid())
+  taskId    String
+  task      DevTask   @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String?
+  user      User?     @relation(fields: [userId], references: [id], onDelete: SetNull)
+  kind      String    @default("COMMENT")
+  body      String?
+  meta      Json      @default("{}")
+  editedAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  attachments DevTaskAttachment[]
+
+  @@index([taskId, createdAt])
+  @@map("dev_task_activities")
+}
+
+/**
+ * پیوست تسک (عمدتاً اسکرین‌شات خطا). محتوا داخل دیتابیس ذخیره می‌شود تا با
+ * پشتیبان‌گیری معمول دیتابیس حفظ شود و به حجم دیسک کانتینر وابسته نباشد.
+ */
+model DevTaskAttachment {
+  id         String           @id @default(cuid())
+  taskId     String
+  task       DevTask          @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  activityId String?
+  activity   DevTaskActivity? @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  userId     String?
+  user       User?            @relation(fields: [userId], references: [id], onDelete: SetNull)
+  name       String
+  mime       String
+  size       Int
+  data       Bytes
+  createdAt  DateTime         @default(now())
+
+  @@index([taskId])
+  @@map("dev_task_attachments")
+}
+
+/** آخرین باری که هر نفر تسک را دیده — برای نشان دادن «به‌روزرسانی جدید» */
+model DevTaskView {
+  taskId String
+  task   DevTask  @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId String
+  user   User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seenAt DateTime @default(now())
+
+  @@id([taskId, userId])
+  @@index([userId])
+  @@map("dev_task_views")
 }

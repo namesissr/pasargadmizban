@@ -35,6 +35,11 @@ import {
   MoreHorizontal,
   Send,
   Landmark,
+  ListChecks,
+  Columns3,
+  BarChart3,
+  BookOpen,
+  ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { formatToman } from '@/lib/money';
@@ -47,11 +52,20 @@ export type ShellUser = {
   email: string;
   firstName: string | null;
   lastName: string | null;
-  role: 'USER' | 'SUPPORT' | 'ADMIN';
+  role: 'USER' | 'SUPPORT' | 'ADMIN' | 'DEVELOPER';
   balance: number;
 };
 
-type NavItem = { href: string; label: string; icon: React.ComponentType<{ size?: number }>; exact?: boolean };
+type Area = 'user' | 'admin' | 'tasks';
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: React.ComponentType<{ size?: number }>;
+  exact?: boolean;
+  /** شمارنده تسک‌های دارای به‌روزرسانی دیده‌نشده کنار این گزینه نشان داده شود */
+  taskBadge?: boolean;
+};
 
 const USER_NAV: NavItem[] = [
   { href: '/dashboard', label: 'داشبورد', icon: LayoutDashboard, exact: true },
@@ -74,6 +88,7 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin/transactions', label: 'تراکنش‌ها', icon: CreditCard },
   { href: '/admin/invoices', label: 'فاکتورها', icon: Receipt },
   { href: '/admin/tickets', label: 'تیکت‌ها', icon: LifeBuoy },
+  { href: '/tasks', label: 'تسک‌های توسعه', icon: ClipboardList, taskBadge: true },
   { href: '/admin/hetzner', label: 'حساب‌های هتزنر', icon: Cloud },
   { href: '/admin/ip-health', label: 'سلامت آدرس‌ها', icon: Radar },
   { href: '/admin/catalog', label: 'کاتالوگ هتزنر', icon: Boxes },
@@ -84,6 +99,13 @@ const ADMIN_NAV: NavItem[] = [
   { href: '/admin/gateways', label: 'درگاه‌ها', icon: Landmark },
   { href: '/admin/settings', label: 'تنظیمات', icon: Settings },
   { href: '/admin/logs', label: 'گزارش رویدادها', icon: ScrollText },
+];
+
+const TASKS_NAV: NavItem[] = [
+  { href: '/tasks', label: 'فهرست تسک‌ها', icon: ListChecks, exact: true, taskBadge: true },
+  { href: '/tasks/board', label: 'تخته کانبان', icon: Columns3 },
+  { href: '/tasks/reports', label: 'گزارش عملکرد', icon: BarChart3 },
+  { href: '/tasks/guide', label: 'راهنمای گردش کار', icon: BookOpen },
 ];
 
 /** چهار میان‌بر پرکاربرد که روی گوشی در نوار پایین می‌نشینند */
@@ -101,6 +123,28 @@ const ADMIN_TABS: NavItem[] = [
   { href: '/admin/tickets', label: 'تیکت‌ها', icon: LifeBuoy },
 ];
 
+const TASKS_TABS: NavItem[] = [
+  { href: '/tasks', label: 'تسک‌ها', icon: ListChecks, exact: true, taskBadge: true },
+  { href: '/tasks/board', label: 'تخته', icon: Columns3 },
+  { href: '/tasks/new', label: 'تسک جدید', icon: Plus },
+  { href: '/tasks/reports', label: 'گزارش', icon: BarChart3 },
+];
+
+const NAVS: Record<Area, NavItem[]> = { user: USER_NAV, admin: ADMIN_NAV, tasks: TASKS_NAV };
+const TABS: Record<Area, NavItem[]> = { user: USER_TABS, admin: ADMIN_TABS, tasks: TASKS_TABS };
+const HOME: Record<Area, string> = { user: '/dashboard', admin: '/admin', tasks: '/tasks' };
+const AREA_TITLE: Record<Area, string> = { user: 'سرور ابری', admin: 'پنل مدیریت', tasks: 'میز کار تسک‌ها' };
+
+const isTaskMember = (role: ShellUser['role']) => role === 'ADMIN' || role === 'SUPPORT' || role === 'DEVELOPER';
+
+/** تعداد تسک‌های بازی که از آخرین بازدید کاربر تغییر کرده‌اند */
+function useTaskBadge(enabled: boolean): number {
+  const { data } = useSWR<{ unread: number }>(enabled ? '/api/tasks/summary' : null, fetcher, {
+    refreshInterval: 60_000,
+  });
+  return data?.unread ?? 0;
+}
+
 function isActive(pathname: string, item: NavItem) {
   return item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`);
 }
@@ -111,12 +155,13 @@ export function Shell({
   children,
 }: {
   user: ShellUser;
-  area?: 'user' | 'admin';
+  area?: Area;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
-  const nav = area === 'admin' ? ADMIN_NAV : USER_NAV;
+  const nav = NAVS[area];
+  const taskBadge = useTaskBadge(area !== 'user' && isTaskMember(user.role));
 
   useEffect(() => {
     setOpen(false);
@@ -158,13 +203,13 @@ export function Shell({
         aria-hidden={!open ? undefined : false}
       >
         <div className="safe-top flex items-center justify-between gap-2 border-b px-4 py-4">
-          <Link href={area === 'admin' ? '/admin' : '/dashboard'} className="flex items-center gap-2">
+          <Link href={HOME[area]} className="flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--color-brand-600)] text-white">
               <Server size={17} />
             </span>
             <span className="leading-tight">
               <span className="block text-sm font-extrabold">پاسارگاد میزبان</span>
-              <span className="block text-[11px] muted">{area === 'admin' ? 'پنل مدیریت' : 'سرور ابری'}</span>
+              <span className="block text-[11px] muted">{AREA_TITLE[area]}</span>
             </span>
           </Link>
           <button
@@ -180,6 +225,10 @@ export function Shell({
           {area === 'user' ? (
             <Link href="/dashboard/servers/new" className="btn btn-primary mb-3 w-full">
               <Plus size={16} /> ساخت سرور جدید
+            </Link>
+          ) : area === 'tasks' ? (
+            <Link href="/tasks/new" className="btn btn-primary mb-3 w-full">
+              <Plus size={16} /> ثبت تسک جدید
             </Link>
           ) : null}
 
@@ -201,23 +250,18 @@ export function Shell({
                   >
                     <Icon size={17} />
                     {item.label}
+                    {item.taskBadge && taskBadge > 0 ? (
+                      <span className="mr-auto grid h-5 min-w-5 place-items-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                        {new Intl.NumberFormat('fa-IR').format(taskBadge)}
+                      </span>
+                    ) : null}
                   </Link>
                 </li>
               );
             })}
           </ul>
 
-          {user.role === 'ADMIN' || user.role === 'SUPPORT' ? (
-            <div className="mt-4 border-t pt-3">
-              <Link
-                href={area === 'admin' ? '/dashboard' : '/admin'}
-                className="flex min-h-11 items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-medium muted transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
-              >
-                <ShieldCheck size={17} />
-                {area === 'admin' ? 'بازگشت به پنل کاربری' : 'ورود به پنل مدیریت'}
-              </Link>
-            </div>
-          ) : null}
+          <AreaLinks role={user.role} area={area} />
 
           {/* روی گوشی خروج از حساب داخل همین منو در دسترس است */}
           <div className="mt-4 border-t pt-3 lg:hidden">
@@ -241,15 +285,40 @@ export function Shell({
         </footer>
       </div>
 
-      <BottomNav area={area} onMenu={() => setOpen(true)} />
+      <BottomNav area={area} taskBadge={taskBadge} onMenu={() => setOpen(true)} />
+    </div>
+  );
+}
+
+/** پیوند جابه‌جایی بین پنل‌ها بر اساس نقش کاربر */
+function AreaLinks({ role, area }: { role: ShellUser['role']; area: Area }) {
+  const links: { href: string; label: string; icon: React.ComponentType<{ size?: number }> }[] = [];
+  const staff = role === 'ADMIN' || role === 'SUPPORT';
+  if (staff && area !== 'admin') links.push({ href: '/admin', label: 'ورود به پنل مدیریت', icon: ShieldCheck });
+  if (isTaskMember(role) && area === 'user') links.push({ href: '/tasks', label: 'میز کار تسک‌ها', icon: ClipboardList });
+  if (area !== 'user') links.push({ href: '/dashboard', label: 'پنل کاربری', icon: LayoutDashboard });
+  if (!links.length) return null;
+
+  return (
+    <div className="mt-4 space-y-1 border-t pt-3">
+      {links.map((l) => (
+        <Link
+          key={l.href}
+          href={l.href}
+          className="flex min-h-11 items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13px] font-medium muted transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
+        >
+          <l.icon size={17} />
+          {l.label}
+        </Link>
+      ))}
     </div>
   );
 }
 
 /** نوار پیمایش پایین صفحه — فقط روی گوشی و تبلت کوچک دیده می‌شود */
-function BottomNav({ area, onMenu }: { area: 'user' | 'admin'; onMenu: () => void }) {
+function BottomNav({ area, taskBadge, onMenu }: { area: Area; taskBadge: number; onMenu: () => void }) {
   const pathname = usePathname();
-  const tabs = area === 'admin' ? ADMIN_TABS : USER_TABS;
+  const tabs = TABS[area];
 
   return (
     <nav
@@ -276,11 +345,14 @@ function BottomNav({ area, onMenu }: { area: 'user' | 'admin'; onMenu: () => voi
             >
               <span
                 className={cn(
-                  'grid h-7 w-12 place-items-center rounded-full transition',
+                  'relative grid h-7 w-12 place-items-center rounded-full transition',
                   active ? 'bg-[color-mix(in_srgb,var(--color-brand-500)_16%,transparent)]' : '',
                 )}
               >
                 <Icon size={18} />
+                {item.taskBadge && taskBadge > 0 ? (
+                  <span className="absolute -top-0.5 right-1.5 h-2 w-2 rounded-full bg-red-500" />
+                ) : null}
               </span>
               {item.label}
             </Link>
@@ -302,14 +374,14 @@ function BottomNav({ area, onMenu }: { area: 'user' | 'admin'; onMenu: () => voi
   );
 }
 
-function BalanceBox({ balance, area }: { balance: number; area: string }) {
+function BalanceBox({ balance, area }: { balance: number; area: Area }) {
   const { data } = useSWR<{ balance: number }>('/api/me/balance', fetcher, {
     refreshInterval: 60_000,
     fallbackData: { balance },
   });
   const value = data?.balance ?? balance;
 
-  if (area === 'admin') return null;
+  if (area !== 'user') return null;
 
   return (
     <div className="safe-bottom border-t p-3">
@@ -350,7 +422,7 @@ function LogoutButton({ className, children }: { className?: string; children: R
   );
 }
 
-function Topbar({ user, area, onMenu }: { user: ShellUser; area: 'user' | 'admin'; onMenu: () => void }) {
+function Topbar({ user, area, onMenu }: { user: ShellUser; area: Area; onMenu: () => void }) {
   const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
 
   return (
@@ -363,7 +435,7 @@ function Topbar({ user, area, onMenu }: { user: ShellUser; area: 'user' | 'admin
       </button>
 
       {/* روی گوشی نام برند در نوار بالا می‌آید چون منو بسته است */}
-      <Link href={area === 'admin' ? '/admin' : '/dashboard'} className="text-sm font-extrabold lg:hidden">
+      <Link href={HOME[area]} className="text-sm font-extrabold lg:hidden">
         پاسارگاد میزبان
       </Link>
 
@@ -375,6 +447,10 @@ function Topbar({ user, area, onMenu }: { user: ShellUser; area: 'user' | 'admin
           className="btn btn-primary btn-sm hidden sm:inline-flex lg:hidden"
         >
           <Plus size={15} /> سرور جدید
+        </Link>
+      ) : area === 'tasks' ? (
+        <Link href="/tasks/new" className="btn btn-primary btn-sm hidden sm:inline-flex">
+          <Plus size={15} /> تسک جدید
         </Link>
       ) : null}
 

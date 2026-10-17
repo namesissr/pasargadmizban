@@ -164,6 +164,7 @@ export const ROLE_FA: Record<string, string> = {
   USER: 'کاربر',
   SUPPORT: 'پشتیبان',
   ADMIN: 'مدیر',
+  DEVELOPER: 'برنامه‌نویس',
 };
 
 export const SERVER_ACTION_FA: Record<string, string> = {
