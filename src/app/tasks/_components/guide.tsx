@@ -119,8 +119,11 @@ export function TaskGuide({ panel }: { panel: 'employer' | 'developer' }) {
         </ul>
         <p className="mt-3 rounded-lg p-3 text-xs leading-7 surface-2">
           برای اینکه اعلان‌ها روی گوشی هم برسد، حساب خود را از{' '}
-          <Link href="/dashboard/notifications-settings" className="font-semibold text-[var(--color-brand-600)] hover:underline">
-            تنظیمات اطلاع‌رسانی
+          <Link
+            href={panel === 'developer' ? '/dev/account' : '/tasks/account'}
+            className="font-semibold text-[var(--color-brand-600)] hover:underline"
+          >
+            حساب من و اعلان‌ها
           </Link>{' '}
           به ربات تلگرام وصل کنید و دسته «پشتیبانی و تیکت» را روشن نگه دارید.
         </p>
@@ -137,7 +140,7 @@ export function TaskGuide({ panel }: { panel: 'employer' | 'developer' }) {
             <li>هنگام تأیید، امتیاز کیفیت بدهید؛ میانگین آن در صفحه تیم دیده می‌شود.</li>
           </ul>
           <p className="mt-3 text-xs leading-7 muted">
-            <b>افزودن کارفرما یا برنامه‌نویس:</b> فرد در سایت ثبت‌نام می‌کند، سپس مدیر سایت از پنل مدیریت ← کاربران، نقش حسابش را «کارفرما» یا
+            <b>افزودن کارفرما یا برنامه‌نویس:</b> فرد در سایت ثبت‌نام می‌کند، سپس مدیر از «اعضای تیم و نقش‌ها» نقش حسابش را «کارفرما» یا
             «برنامه‌نویس» می‌کند. نقش «کارفرما» فقط به پنل کارفرما دسترسی دارد و پنل مدیریت سایت را نمی‌بیند.
           </p>
         </Card>

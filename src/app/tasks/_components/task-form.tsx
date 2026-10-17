@@ -548,7 +548,7 @@ export function TaskForm({
                 </Select>
                 {meta && !meta.members.some((m) => m.role === 'DEVELOPER') && (role === 'ADMIN' || role === 'EMPLOYER') ? (
                   <p className="mt-1.5 text-[11px] leading-5 text-amber-600">
-                    هنوز هیچ کاربری نقش «برنامه‌نویس» ندارد. از پنل مدیریت ← کاربران، نقش حساب برنامه‌نویس را «برنامه‌نویس» کنید.
+                    هنوز هیچ کاربری نقش «برنامه‌نویس» ندارد. از «اعضای تیم و نقش‌ها» نقش حساب برنامه‌نویس را «برنامه‌نویس» کنید.
                   </p>
                 ) : null}
               </Field>

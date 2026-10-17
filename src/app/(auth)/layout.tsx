@@ -1,7 +1,11 @@
 import Link from 'next/link';
-import { Server, ShieldCheck, Zap, Headphones } from 'lucide-react';
+import { Server, ShieldCheck, Zap, Headphones, ClipboardList, Bell, Timer } from 'lucide-react';
+import { env } from '@/lib/env';
+
+export const dynamic = 'force-dynamic';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
+  const tasksOnly = env.tasksOnly;
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       {/* ستون تبلیغاتی */}
@@ -22,10 +26,33 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
           </span>
           <span>
             <span className="block text-lg font-extrabold">پاسارگاد میزبان</span>
-            <span className="block text-xs opacity-75">سرور ابری با پرداخت ریالی</span>
+            <span className="block text-xs opacity-75">{tasksOnly ? 'میز کار تسک‌های توسعه' : 'سرور ابری با پرداخت ریالی'}</span>
           </span>
         </Link>
 
+        {tasksOnly ? (
+          <div className="relative text-white">
+            <h2 className="text-2xl font-extrabold leading-relaxed">
+              تسک‌ها را بسپارید،
+              <br />
+              هیچ کاری فراموش نمی‌شود
+            </h2>
+            <ul className="mt-8 space-y-4 text-sm">
+              <li className="flex items-start gap-3">
+                <ClipboardList size={18} className="mt-0.5 shrink-0 opacity-80" />
+                <span className="opacity-90 leading-7">پنل جدا برای کارفرما و برنامه‌نویس، با اولویت، ضرورت، مهلت و تأیید نهایی.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Bell size={18} className="mt-0.5 shrink-0 opacity-80" />
+                <span className="opacity-90 leading-7">اعلان فوری در تلگرام و ایمیل و یادآوری خودکار مهلت‌ها و کارهای منتظر تأیید.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <Timer size={18} className="mt-0.5 shrink-0 opacity-80" />
+                <span className="opacity-90 leading-7">زمان‌سنج کارکرد و گزارش ساعت کار هر برنامه‌نویس.</span>
+              </li>
+            </ul>
+          </div>
+        ) : (
         <div className="relative text-white">
           <h2 className="text-2xl font-extrabold leading-relaxed">
             سرور ابری اروپا و آمریکا،
@@ -53,6 +80,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             </li>
           </ul>
         </div>
+        )}
 
         <div className="relative text-xs text-white/55">
           © پاسارگاد میزبان — تمامی حقوق محفوظ است.

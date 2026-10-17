@@ -330,6 +330,22 @@ export const jobs = {
 
 // ───────────────  زمان‌بندی  ───────────────
 
+/**
+ * حالت «فقط سیستم تسک» (APP_MODE=tasks): فروش سرور و هتزنر خاموش است، پس فقط
+ * یادآوری و گزارش تسک‌ها و پاکسازی روزانه زمان‌بندی می‌شوند.
+ */
+function scheduleTasksOnly() {
+  const tz = 'Asia/Tehran';
+  cron.schedule('50 8-23 * * *', jobs.taskReminders, { timezone: tz });
+  cron.schedule('0 9 * * 0-4,6', jobs.taskDigest, { timezone: tz });
+  cron.schedule('0 4 * * *', jobs.housekeeping, { timezone: tz });
+
+  log('🚀 ورکر در حالت «فقط سیستم تسک» راه‌اندازی شد.');
+  log('   • یادآوری تسک‌ها: هر ساعت (۸ صبح تا ۱۱ شب)');
+  log('   • خلاصه روزانه تسک‌ها: شنبه تا پنجشنبه ۹ صبح');
+  log('   • پاکسازی: هر شب ساعت ۴');
+}
+
 function schedule() {
   const tz = 'Asia/Tehran';
 
@@ -442,6 +458,23 @@ async function main() {
     process.exit(0);
   }
 
+  if (process.env.APP_MODE === 'tasks') {
+    scheduleTasksOnly();
+    void startTelegramLoop();
+  } else {
+    await startFullPanel();
+  }
+
+  const shutdown = async (signal: string) => {
+    log(`دریافت ${signal} — در حال خاموش شدن…`);
+    await prisma.$disconnect();
+    process.exit(0);
+  };
+  process.on('SIGINT', () => void shutdown('SIGINT'));
+  process.on('SIGTERM', () => void shutdown('SIGTERM'));
+}
+
+async function startFullPanel() {
   // انتقال توکن قدیمی .env به جدول حساب‌ها (فقط بار اول)
   await importLegacyToken().catch(() => null);
 
@@ -452,14 +485,6 @@ async function main() {
   await jobs.finalizeProvisioning();
   await jobs.verifyIpReachability();
   await jobs.updateEurRate();
-
-  const shutdown = async (signal: string) => {
-    log(`دریافت ${signal} — در حال خاموش شدن…`);
-    await prisma.$disconnect();
-    process.exit(0);
-  };
-  process.on('SIGINT', () => void shutdown('SIGINT'));
-  process.on('SIGTERM', () => void shutdown('SIGTERM'));
 }
 
 void main();

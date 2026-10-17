@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { Shell } from '@/components/app/shell';
+import { env } from '@/lib/env';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,6 +15,7 @@ export default async function DevLayout({ children }: { children: React.ReactNod
   return (
     <Shell
       area="dev"
+      tasksOnly={env.tasksOnly}
       user={{
         id: user.id,
         email: user.email,

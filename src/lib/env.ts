@@ -24,6 +24,15 @@ export const env = {
   appUrl: get('APP_URL', 'http://localhost:3000').replace(/\/$/, ''),
   appName: get('APP_NAME', 'پاسارگاد میزبان'),
 
+  /**
+   * حالت «فقط سیستم تسک»: با APP_MODE=tasks فقط میز کار تسک‌ها، ورود و حساب کاربری
+   * بالا می‌آید و فروش سرور، هتزنر، کیف پول و پنل مدیریت سایت خاموش و پنهان می‌شوند.
+   * در زمان اجرا خوانده می‌شود تا یک ایمیج برای هر دو حالت کافی باشد.
+   */
+  get tasksOnly() {
+    return get('APP_MODE') === 'tasks';
+  },
+
   databaseUrl: get('DATABASE_URL'),
 
   /** کلید امضای نشست‌ها — حداقل ۳۲ کاراکتر */

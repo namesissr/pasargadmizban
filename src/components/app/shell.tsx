@@ -113,6 +113,8 @@ const TASKS_NAV: NavItem[] = [
   { href: '/tasks/team', label: 'تیم برنامه‌نویسان', icon: Users, managerOnly: true },
   { href: '/tasks/worklog', label: 'کارکرد و ساعت‌ها', icon: Timer, managerOnly: true },
   { href: '/tasks/reports', label: 'گزارش عملکرد', icon: BarChart3 },
+  { href: '/tasks/members', label: 'اعضای تیم و نقش‌ها', icon: ShieldCheck, managerOnly: true },
+  { href: '/tasks/account', label: 'حساب من و اعلان‌ها', icon: User },
   { href: '/tasks/guide', label: 'راهنمای گردش کار', icon: BookOpen },
 ];
 
@@ -122,6 +124,7 @@ const DEV_NAV: NavItem[] = [
   { href: '/dev/board', label: 'تخته کانبان', icon: Columns3 },
   { href: '/dev/worklog', label: 'کارکرد من', icon: Timer },
   { href: '/dev/new', label: 'گزارش باگ یا پیشنهاد', icon: Plus },
+  { href: '/dev/account', label: 'حساب من و اعلان‌ها', icon: User },
   { href: '/dev/guide', label: 'راهنمای گردش کار', icon: BookOpen },
 ];
 
@@ -212,10 +215,13 @@ function isActive(pathname: string, item: NavItem) {
 export function Shell({
   user,
   area = 'user',
+  tasksOnly = false,
   children,
 }: {
   user: ShellUser;
   area?: Area;
+  /** حالت «فقط سیستم تسک»: پیوند پنل‌های فروش سرور و مدیریت سایت پنهان می‌شود */
+  tasksOnly?: boolean;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -326,7 +332,7 @@ export function Shell({
             })}
           </ul>
 
-          <AreaLinks role={user.role} area={area} />
+          {tasksOnly ? null : <AreaLinks role={user.role} area={area} />}
 
           {/* روی گوشی خروج از حساب داخل همین منو در دسترس است */}
           <div className="mt-4 border-t pt-3 lg:hidden">
@@ -341,7 +347,7 @@ export function Shell({
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar user={user} area={area} onMenu={() => setOpen(true)} />
+        <Topbar user={user} area={area} tasksOnly={tasksOnly} onMenu={() => setOpen(true)} />
         <main className="has-bottom-nav flex-1 p-4 sm:p-6">
           <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
@@ -503,7 +509,17 @@ function LogoutButton({ className, children }: { className?: string; children: R
   );
 }
 
-function Topbar({ user, area, onMenu }: { user: ShellUser; area: Area; onMenu: () => void }) {
+function Topbar({
+  user,
+  area,
+  tasksOnly,
+  onMenu,
+}: {
+  user: ShellUser;
+  area: Area;
+  tasksOnly: boolean;
+  onMenu: () => void;
+}) {
   const name = [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email;
 
   return (
@@ -537,7 +553,7 @@ function Topbar({ user, area, onMenu }: { user: ShellUser; area: Area; onMenu: (
 
       {area === 'tasks' || area === 'dev' ? <RunningTimer /> : null}
 
-      <NotificationBell />
+      <NotificationBell showAll={!tasksOnly} />
       <ThemeToggle />
 
       <div className="mx-1 hidden h-6 w-px bg-[var(--border)] sm:block" />
@@ -564,7 +580,8 @@ type NotificationRow = {
   createdAt: string;
 };
 
-function NotificationBell() {
+/** showAll: پیوند صفحه همه اعلان‌ها (در پنل کاربری است و در حالت «فقط سیستم تسک» وجود ندارد) */
+function NotificationBell({ showAll = true }: { showAll?: boolean }) {
   const [open, setOpen] = useState(false);
   const { data, mutate } = useSWR<{ items: NotificationRow[]; unread: number }>(
     '/api/notifications?limit=8',
@@ -655,13 +672,15 @@ function NotificationBell() {
               })
             )}
           </div>
-          <Link
-            href="/dashboard/notifications"
-            onClick={() => setOpen(false)}
-            className="block border-t px-4 py-2.5 text-center text-[11px] text-[var(--color-brand-600)] hover:underline"
-          >
-            مشاهده همه اعلان‌ها
-          </Link>
+          {showAll ? (
+            <Link
+              href="/dashboard/notifications"
+              onClick={() => setOpen(false)}
+              className="block border-t px-4 py-2.5 text-center text-[11px] text-[var(--color-brand-600)] hover:underline"
+            >
+              مشاهده همه اعلان‌ها
+            </Link>
+          ) : null}
         </div>
       ) : null}
     </div>

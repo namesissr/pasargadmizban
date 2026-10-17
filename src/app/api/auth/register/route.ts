@@ -110,22 +110,42 @@ export const POST = route(async (req: Request): Promise<NextResponse> => {
     meta: { firstUser: isFirstUser, referredById },
   });
 
-  await notify(user.id, {
-    type: 'success',
-    title: 'به پاسارگاد میزبان خوش آمدید',
-    body: verifyRequired
-      ? 'برای فعال‌سازی حساب، ایمیل تایید ارسال‌شده را باز کنید.'
-      : 'حساب شما فعال است. برای ساخت اولین سرور، کیف پول خود را شارژ کنید.',
-    link: verifyRequired ? '/dashboard/profile' : '/dashboard/wallet',
-  });
-
-  if (!isFirstUser) {
-    void notifyStaff({
-      type: 'info',
-      title: 'کاربر جدید ثبت‌نام کرد',
-      body: `${input.firstName} ${input.lastName} — ${user.email}`,
-      link: `/admin/users/${user.id}`,
+  if (env.tasksOnly) {
+    // در حالت «فقط سیستم تسک» عضو تازه تا وقتی مدیر نقشش را تعیین نکند به میز کار راه ندارد
+    await notify(user.id, {
+      type: 'success',
+      title: isFirstUser ? 'حساب مدیر ساخته شد' : 'ثبت‌نام انجام شد',
+      body: isFirstUser
+        ? 'از «اعضای تیم» کارفرما و برنامه‌نویس‌ها را تعیین کنید.'
+        : 'پس از اینکه مدیر نقش شما را تعیین کند، به میز کار تسک‌ها دسترسی پیدا می‌کنید.',
+      link: '/tasks',
     });
+    if (!isFirstUser) {
+      void notifyStaff({
+        type: 'info',
+        title: 'عضو تازه منتظر تعیین نقش است',
+        body: `${input.firstName} ${input.lastName} — ${user.email}`,
+        link: '/tasks/members',
+      });
+    }
+  } else {
+    await notify(user.id, {
+      type: 'success',
+      title: 'به پاسارگاد میزبان خوش آمدید',
+      body: verifyRequired
+        ? 'برای فعال‌سازی حساب، ایمیل تایید ارسال‌شده را باز کنید.'
+        : 'حساب شما فعال است. برای ساخت اولین سرور، کیف پول خود را شارژ کنید.',
+      link: verifyRequired ? '/dashboard/profile' : '/dashboard/wallet',
+    });
+
+    if (!isFirstUser) {
+      void notifyStaff({
+        type: 'info',
+        title: 'کاربر جدید ثبت‌نام کرد',
+        body: `${input.firstName} ${input.lastName} — ${user.email}`,
+        link: `/admin/users/${user.id}`,
+      });
+    }
   }
 
   return ok({

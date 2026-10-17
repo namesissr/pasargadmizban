@@ -8,6 +8,7 @@ import { enforceRateLimit, clearRateLimit, LIMITS } from '@/lib/rate-limit';
 import { verifyToken, verifyRecoveryCode } from '@/lib/totp';
 import { audit } from '@/lib/audit';
 import { notify } from '@/lib/notify';
+import { env } from '@/lib/env';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -110,6 +111,8 @@ export const POST = route(async (req: Request) => {
 });
 
 function homeFor(role: string): string {
+  if (role === 'DEVELOPER') return '/dev';
+  if (env.tasksOnly) return '/tasks';
   if (role === 'ADMIN' || role === 'SUPPORT') return '/admin';
   if (role === 'DEVELOPER') return '/dev';
   if (role === 'EMPLOYER') return '/tasks';

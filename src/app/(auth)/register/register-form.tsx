@@ -6,7 +6,7 @@ import { UserPlus } from 'lucide-react';
 import { Button, Field, Input, PasswordInput, Alert } from '@/components/ui';
 import { apiPost, errorFields, errorMessage } from '@/lib/client';
 
-export function RegisterForm({ requireEmailVerify }: { requireEmailVerify: boolean }) {
+export function RegisterForm({ requireEmailVerify, tasksOnly = false }: { requireEmailVerify: boolean; tasksOnly?: boolean }) {
   const router = useRouter();
   const [form, setForm] = useState({
     firstName: '',
@@ -58,7 +58,7 @@ export function RegisterForm({ requireEmailVerify }: { requireEmailVerify: boole
         </Field>
       </div>
 
-      <Field label="ایمیل" error={fields.email} required hint="لینک تایید و اطلاعات سرور به این ایمیل ارسال می‌شود.">
+      <Field label="ایمیل" error={fields.email} required hint={tasksOnly ? 'اعلان‌ها و گزارش روزانه تسک‌ها به این ایمیل ارسال می‌شود.' : 'لینک تایید و اطلاعات سرور به این ایمیل ارسال می‌شود.'}>
         <Input
           type="email"
           value={form.email}
@@ -119,7 +119,9 @@ export function RegisterForm({ requireEmailVerify }: { requireEmailVerify: boole
           required
         />
         <span className="muted">
-          قوانین و شرایط استفاده از سرویس را می‌پذیرم و متعهد می‌شوم از سرور برای فعالیت‌های غیرقانونی استفاده نکنم.
+          {tasksOnly
+            ? 'قوانین و شرایط استفاده از میز کار را می‌پذیرم.'
+            : 'قوانین و شرایط استفاده از سرویس را می‌پذیرم و متعهد می‌شوم از سرور برای فعالیت‌های غیرقانونی استفاده نکنم.'}
         </span>
       </label>
       {fields.acceptTerms ? <p className="text-xs text-red-500">{fields.acceptTerms}</p> : null}
